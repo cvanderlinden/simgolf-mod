@@ -121,7 +121,10 @@ static void title_case(char *dst, int cap, const char *src) {
 static RpLayout g_layout;
 void ui_reports_layout(RpLayout *out) { *out = g_layout; }
 
+int ui_pages_draw(UiCtx *c, const RpSnap *s, SDL_Texture *const *art, RpAction *acts, int max);   // ui_pages.c (task-73)
+
 int ui_reports_draw(UiCtx *c, const RpSnap *s, SDL_Texture *const *art, RpAction *acts, int max) {
+  if (s->kind >= RP_PROFILE) return ui_pages_draw(c, s, art, acts, max);
   const UiTokens *t = ui_tokens(c);
   UiDraw *d = ui_drawer(c);
   int na = 0;

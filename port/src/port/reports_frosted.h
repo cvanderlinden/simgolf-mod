@@ -32,6 +32,10 @@ enum {
   RP_YEAR = 21,      // end of year course report (FUN_0044fb30(2))
   RP_HOLE = 22,      // hole stats (FUN_00453330)
   RP_TOURNEY = 23,   // tournament results (FUN_0045a090)
+  // task-73: the last old modal screens, drawn by ui/ui_pages.c (own panels, not tabs)
+  RP_PROFILE = 30,   // golfer profile page (the editor, FUN_004385d0)
+  RP_PHOTO = 31,     // snapshot popup, the bulletin board of great shots (FUN_0046e810)
+  RP_TRACTS = 32,    // year-end land purchase map (FUN_004587a0)
 };
 
 enum { RP_AL_LEFT = 0, RP_AL_CENTRE = 1, RP_AL_RIGHT = 2 };
@@ -41,7 +45,7 @@ enum { RP_AL_LEFT = 0, RP_AL_CENTRE = 1, RP_AL_RIGHT = 2 };
 #define RP_TEXT 96
 #define RP_ART 32   // distinct golf sprites a report shows as art
 
-enum { RP_IT_TEXT = 0, RP_IT_RECT, RP_IT_LINE, RP_IT_CHIP };
+enum { RP_IT_TEXT = 0, RP_IT_RECT, RP_IT_LINE, RP_IT_CHIP, RP_IT_PIC };   // RP_IT_PIC: a rectangle of golf's page kept as a picture (art slot in .art)
 
 typedef struct {
   int16_t x, y;     // golf's 800x600 page coordinates of the anchor (a line's first end)
@@ -58,14 +62,16 @@ typedef struct {
   uint32_t magic, serial;
   int kind;              // RP_*
   char title[64];        // the report's own title (first title-font text)
+  int32_t ext[8];        // task-73 pages: kind specific numbers (golf's hover, a nested editor is open, ...)
+  char bio[512];         // RP_PROFILE: the golfer's bio text as it is in golf's buffer (live while it is edited)
   int n;
   RpItem it[RP_ITEMS];
 } RpSnap;
 
-enum { RP_A_NONE, RP_A_CLOSE, RP_A_TAB, RP_A_CLICK };
+enum { RP_A_NONE, RP_A_CLOSE, RP_A_TAB, RP_A_CLICK, RP_A_RCLICK, RP_A_KEY };
 typedef struct {
   int kind;   // RP_A_*
-  int arg;    // RP_A_TAB: the report; RP_A_CLICK: x | y << 16 in golf's page
+  int arg;    // RP_A_TAB: the report; RP_A_CLICK / RP_A_RCLICK: x | y << 16 in golf's page; RP_A_KEY: an SDL key code
 } RpAction;
 
 // ui/ui_reports.c: the panel as a pure function of a snapshot. Returns the number of actions written.
@@ -83,6 +89,7 @@ void ui_reports_bounds(const RpSnap *s, float *x0, float *y0, float *x1, float *
 
 // reports_frosted.c (render thread side, thread safe)
 int rpf_enabled(void);                        // ui.reports=frosted_mint, the layer is up and drawing
+int rpf_enabled_kind(int kind);               // rpf_enabled, and for the task-73 pages (kind >= RP_PROFILE) ui.dialogs too
 void rpf_publish(const RpSnap *s);            // game thread, once per frame of the report
 void rpf_end(void);                           // the report closed
 int rpf_take_action(RpAction *a);             // game thread: next native action, 1 if any

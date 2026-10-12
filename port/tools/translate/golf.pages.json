@@ -1,0 +1,107 @@
+{
+  "comment": "task-73: translator patches for the last old modal screens in the Frosted Mint look: the golfer profile page (editor, FUN_004385d0) and its nested screens, drawn by ui/ui_pages.c through the reports machinery (reports_game.c: rp_begin / rp_frame / rp_done, rp_tc records golf's text). Merged into golf.json's patches (translate.py, <stem>.<topic>.json). Hooks: port/src/port/reports_game.c (native), golf/reports_hooks.c (browser: originals). With ui.reports=original or ui.dialogs=original the hooks record nothing and change nothing.",
+  "patches": {
+    "FUN_00486110": [
+      [
+        "iVar3 = FUN_004806c0(this,param_1,param_2,param_3,param_4,(char *)0x0,puVar2,param_5,(int *)0x0,\n                       (int *)0x0);",
+        "rp_wfix(1);\n  iVar3 = FUN_004806c0(this,param_1,param_2,param_3,param_4,(char *)0x0,puVar2,param_5,(int *)0x0,\n                       (int *)0x0);\n  rp_wfix(0);"
+      ]
+    ],
+    "FUN_0047a4c0": [
+      [
+        "FUN_0047abe0(this,param_6);",
+        "FUN_0047abe0(this,rp_warg((int)param_6,(int)param_7));"
+      ]
+    ],
+    "FUN_004385d0": [
+      [
+        "DAT_00822d68 = 0;\n  pcVar17 = pcVar9;\n  do {\n    do {",
+        "DAT_00822d68 = 0;\n  pcVar17 = pcVar9;\n  rp_begin(30);\n  do {\n    do {"
+      ],
+      [
+        "FUN_00404b70(",
+        "rp_tc(0,"
+      ],
+      [
+        "FUN_00404bc0(",
+        "rp_tc(1,"
+      ],
+      [
+        "FUN_004049d0(",
+        "rp_tc(2,"
+      ],
+      [
+        "FUN_00480c80(&DAT_00519a60);\n      FUN_0045bf80(5,0);\n      FUN_0045c030();",
+        "rp_frame();\n      FUN_00480c80(&DAT_00519a60);\n      FUN_0045bf80(5,0);\n      FUN_0045c030();"
+      ],
+      [
+        "FUN_00483d30();\n      local_4 = 0xffffffff;",
+        "rp_done();\n      FUN_00483d30();\n      local_4 = 0xffffffff;"
+      ],
+      [
+        "pcVar14 = (char *)FUN_00438390(this_00,uVar10);",
+        "rp_sub(1);\n      pcVar14 = (char *)FUN_00438390(this_00,uVar10);\n      rp_sub(0);"
+      ],
+      [
+        "FUN_00483d80();\n          FUN_0045c030();\n          FUN_00480c80(&DAT_00519a60);",
+        "FUN_00483d80();\n          FUN_0045c030();\n          rp_edit();\n          FUN_00480c80(&DAT_00519a60);"
+      ]
+    ],
+    "FUN_0045b0d0": [
+      [
+        "FUN_004049d0(",
+        "rp_tcp(2,"
+      ],
+      [
+        "FUN_00404ad0(",
+        "rp_tcp(3,"
+      ]
+    ],
+    "FUN_004587a0": [
+      [
+        "local_c4 = 1;\n",
+        "rp_begin(32);\n  local_c4 = 1;\n"
+      ],
+      [
+        "FUN_00404b70(",
+        "rp_tc(0,"
+      ],
+      [
+        "FUN_00404bc0(",
+        "rp_tc(1,"
+      ],
+      [
+        "FUN_004049d0(",
+        "rp_tc(2,"
+      ],
+      [
+        "FUN_00477c30(",
+        "rp_t7c30("
+      ],
+      [
+        "FUN_00478430(",
+        "rp_t8430("
+      ],
+      [
+        "FUN_00478080(",
+        "rp_t8080("
+      ],
+      [
+        "FUN_00480c80(&DAT_00519a60);\n        local_c4 = 0;",
+        "rp_frame();\n        FUN_00480c80(&DAT_00519a60);\n        local_c4 = 0;"
+      ],
+      [
+        "FUN_0045c030();\n        FUN_0045bf80(1,0);\n        iVar3 = iVar10;",
+        "rp_frame();\n        FUN_0045c030();\n        if (rp_esc()) {\n          FUN_00483d30();\n          return rp_end(0);\n        }\n        FUN_0045bf80(1,0);\n        iVar3 = iVar10;"
+      ],
+      [
+        "return 0;",
+        "return rp_end(0);"
+      ],
+      [
+        "return 1;",
+        "return rp_end(1);"
+      ]
+    ]
+  }
+}

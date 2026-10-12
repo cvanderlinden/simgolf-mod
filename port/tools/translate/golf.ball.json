@@ -7,6 +7,10 @@
     "hdball_rest(uStack_123c,iStack_11c8,iStack_11e0);"
    ],
    [
+    "FUN_00406220(iStack_11c8,iVar23,(&DAT_00567b34)[uStack_123c],",
+    "hdball_trail(uStack_123c,iStack_11c8,iVar23,(&DAT_00567b34)[uStack_123c],"
+   ],
+   [
     "            (&DAT_005a47e8)[DAT_0058bcb0] = iStack_11c8;",
     "            hdball_air(uStack_123c,iStack_11c8,iStack_11e0);\n            (&DAT_005a47e8)[DAT_0058bcb0] = iStack_11c8;"
    ]

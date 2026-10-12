@@ -38,6 +38,10 @@ uint32_t FUN_00407280(int hole);                                                
 
 int gw_native_card(void);   // golfers_game.c: the Frosted Mint golfer card replaces the original
 
+// hd_art.c (task-81): the art pack's hi-res copies of what the old HUD drew go with its pixels
+void hd_art_hide_begin(void);
+void hd_art_hide_rects(const int *xywh, int nrects);
+
 // gdi.c: golf's screen-sized 16-bit page buffers (it may flip between two)
 uint16_t *gdi_screen_dib(int i, int *w, int *h, int *pitch, int *is565);
 extern int win_screen_w, win_screen_h;
@@ -142,7 +146,10 @@ void hud_save(void) {
   if (!g_on) return;
   rects();
   for (int i = 0; i < PAGES; i++) copy_rects(i, 1);
+  hd_art_hide_begin();
 }
+
+static void hide_art(void) { hd_art_hide_rects(&g_rects[0].x, g_nrects); }
 
 // ------------------------------------------------------------------ art
 
@@ -538,6 +545,7 @@ static void run_actions(void) {
 void hud_clean_pages(void) {
   if (!g_on) return;
   for (int i = 0; i < PAGES; i++) copy_rects(i, 0);
+  hide_art();
 }
 
 void hud_restore(void) {
@@ -554,6 +562,7 @@ void hud_restore(void) {
     snap_art();
   }
   for (int i = 0; i < PAGES; i++) copy_rects(i, 0);
+  hide_art();
   HudSnap *s = &g_snap;
   read_state(s);
   s->valid = 1;

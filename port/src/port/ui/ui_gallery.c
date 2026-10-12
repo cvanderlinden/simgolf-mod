@@ -21,6 +21,7 @@
 #include "port/ui/ui_golfers.h"
 #include "port/ui/ui_hud.h"
 #include "port/ui/ui_kit.h"
+#include "port/reports_frosted.h"
 #include "port/ui/ui_png.h"
 
 static SDL_Surface *load_bmp(const char *path) {
@@ -1049,6 +1050,79 @@ static int page_dialogs(Page *p, const char *out) {
   return fails;
 }
 
+// task-73 pages: the golfer profile and the land purchase map, from made-up snapshots with golf's places
+static void rp_demo_text(RpSnap *s, int x, int y, int align, int col, const char *text) {
+  if (s->n >= RP_ITEMS) return;
+  RpItem *it = &s->it[s->n++];
+  memset(it, 0, sizeof *it);
+  it->type = RP_IT_TEXT, it->x = (int16_t)x, it->y = (int16_t)y, it->align = (uint8_t)align, it->col = (uint16_t)col;
+  snprintf(it->s, sizeof it->s, "%s", text);
+}
+
+static void pages_demo(RpSnap *s, int kind) {
+  memset(s, 0, sizeof *s);
+  s->magic = RP_MAGIC, s->kind = kind;
+  if (kind == RP_PROFILE) {
+    static const char *const trait[5] = {"Neat", "Outgoing", "Active", "Playful", "Nice"};
+    static const char *const skill[3] = {"Length", "Accuracy", "Imagination"};
+    rp_demo_text(s, 154, 24, RP_AL_LEFT, 0, "Biff");
+    rp_demo_text(s, 154, 48, RP_AL_LEFT, 0, "(Surfer)");
+    rp_demo_text(s, 154, 69, RP_AL_LEFT, 0, "Single");
+    rp_demo_text(s, 154, 90, RP_AL_LEFT, 0, "Young");
+    for (int i = 0; i < 5; i++) rp_demo_text(s, 93, 122 + 28 * i, RP_AL_CENTRE, i == 1 || i == 2 ? 0x0848 : 0, trait[i]);
+    for (int i = 0; i < 3; i++) rp_demo_text(s, 212, 142 + 35 * i, RP_AL_CENTRE, i != 1 ? 0x0848 : 0, skill[i]);
+    rp_demo_text(s, 580, 30, RP_AL_LEFT, 0, "Visitor");
+    rp_demo_text(s, 580, 50, RP_AL_LEFT, 0, "Low round: -");
+    rp_demo_text(s, 580, 64, RP_AL_LEFT, 0, "Handicap: -");
+    rp_demo_text(s, 580, 78, RP_AL_LEFT, 0, "Rounds played: 1");
+    static const char *const lab[6] = {"Signature saying...", "Made good shot...", "Too easy shot...", "Hard shot...", "Hit bad shot...", "Hit into the water..."};
+    static const char *const val[6] = {"Surf's up, dude.", "How'd you like that shot, Mary!", "This shot looks pretty easy.", "Eeek, I gotta stay away from the DATA(tees).", "Darn, I'm DATA(in the tees)!", "Nooooo, I'm in the drink!"};
+    for (int i = 0; i < 6; i++) {
+      rp_demo_text(s, 52, 271 + 16 * i, RP_AL_LEFT, i == 2 || i == 4 ? 0x7d08 : i == 1 ? 0x23e8 : 0, lab[i]);
+      rp_demo_text(s, 412, 271 + 16 * i, RP_AL_LEFT, 0x6318, val[i]);
+    }
+    snprintf(s->bio, sizeof s->bio, "Biff likes milkshakes, Super Bowl parties, and broccoli.");
+  } else if (kind == RP_TRACTS) {
+    static const int cx[3] = {78, 334, 600};
+    static const char *const what[9] = {"4 acres of brush, water, and tropical bushes", "", "4 acres of brush, water, and water", "4 acres of brush, tropical trees, and palm trees", "",
+                                        "4 acres of brush, tropical trees, and palm trees", "8 acres of brush, brush, and brush", "4 acres of brush, tropical bushes, and tropical trees", "8 acres of brush, tropical trees, and rocks"};
+    static const char *const price[9] = {"Price: \xA7" "4,000", "", "Price: \xA7" "4,000", "Price: \xA7" "3,000", "", "Price: \xA7" "3,000", "Price: \xA7" "7,000", "Price: \xA7" "3,000", "Price: \xA7" "8,000"};
+    for (int n = 0; n < 9; n++) {
+      int x = cx[n / 3], y = 62 + 68 * (n % 3);
+      if (!what[n][0]) {
+        rp_demo_text(s, x + 4, y + 2, RP_AL_LEFT, 0, "Already purchased.");
+        continue;
+      }
+      char line[RP_TEXT];
+      snprintf(line, sizeof line, "Buy tract #%d, %s", n + 1, what[n]);
+      rp_demo_text(s, x, y, RP_AL_LEFT, 0, line);
+      rp_demo_text(s, x + 0xa5, y + 30, RP_AL_RIGHT, 0, price[n]);
+    }
+    rp_demo_text(s, 548, 263, RP_AL_LEFT, 0, "Cash Reserve");
+    rp_demo_text(s, 720, 264, RP_AL_CENTRE, 0, "\xA7" "47,816,700");
+  }
+}
+
+int ui_pages_raw_data(void);
+
+static int page_pages(Page *p, const char *out) {
+  static const struct { int kind; const char *name; } pages[2] = {{RP_PROFILE, "pages-profile"}, {RP_TRACTS, "pages-tracts"}};
+  static RpSnap snap;
+  RpAction acts[8];
+  for (int pi = 0; pi < 2; pi++) {
+    pages_demo(&snap, pages[pi].kind);
+    for (int f = 0; f < 4; f++) {
+      begin_page(p, 90000.0 + pi * 5000 + f * 400);
+      ui_reports_draw(p->ui, &snap, NULL, acts, 8);
+      ui_end(p->ui);
+    }
+    save_page(p, out, pages[pi].name);
+  }
+  int raw = ui_pages_raw_data();
+  printf("%s pages: no visible profile text contains DATA( (%d found)\n", raw ? "FAIL" : "ok  ", raw);
+  return raw ? 1 : 0;
+}
+
 static void page_dialog(Page *p, const char *out) {
   UiCtx *c = p->ui;
   const UiTokens *t = ui_tokens(c);
@@ -1172,6 +1246,7 @@ int main(int argc, char **argv) {
     page_contrast(&p, out, 1.0f, "task31");
     fails += page_frontend(&p, out);
     fails += page_dialogs(&p, out);
+    fails += page_pages(&p, out);
     ui_destroy(p.ui);
     for (int i = 0; i < HUD_ART_MAX; i++)
       if (p.art[i]) SDL_DestroyTexture(p.art[i]);

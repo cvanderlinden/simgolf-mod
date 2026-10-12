@@ -32,6 +32,7 @@
 #define BALL_X 0x57958c   // golfer record + 0xd4
 #define BALL_Y 0x579590
 #define BALL_Z 0x579594
+#define PERSON 0x57956e   // golfer record + 0xb6: the person (profile) id, 1..75
 #define ZOOM 0x4c2844
 #define SCALE 0x4c2e00
 #define ZOOM2 0x5a9cbc    // golf's 2x zoom view
@@ -70,6 +71,33 @@ static int setting(void) {
 
 int hdball_on(void) { return setting() && hd_native_balls_ok(); }
 
+// ui.ball_trail: smooth (default: a ribbon on the shots golf marks with a streak), all (every ball in
+// flight), original (golf's own jittery segment), off.
+int hdball_trail_mode(void) {
+  static unsigned seen = ~0u;
+  static int mode;
+  unsigned s = mods_serial();
+  if (s != seen) {
+    seen = s;
+    const char *v = mods_get("ui.ball_trail");
+    mode = !v || !*v || !strcasecmp(v, "smooth") ? HB_TRAIL_SMOOTH
+           : !strcasecmp(v, "all")                ? HB_TRAIL_ALL
+           : !strcasecmp(v, "original")           ? HB_TRAIL_ORIGINAL
+           : !strcasecmp(v, "off")                ? HB_TRAIL_OFF
+                                                  : HB_TRAIL_SMOOTH;
+  }
+  return mode;
+}
+
+// Called where golf draws its trail segment (after hb_note of the same ball, same frame).
+int hb_trail(int slot) {
+  if (!g.decided || !g.on || slot < 0 || slot >= HB_MAX || g.stamp[slot] != g.frame) return 0;
+  int m = hdball_trail_mode();
+  if (m == HB_TRAIL_ORIGINAL) return 0;
+  if (m != HB_TRAIL_OFF) g.rec[slot].trail = 1;
+  return 1;   // golf's segment is not drawn: it would be 11 hops a second
+}
+
 int hb_frame_on(void) { return g.decided && g.on; }
 
 int hb_note(int slot, int kind, int sx, int sy) {
@@ -84,6 +112,8 @@ int hb_note(int slot, int kind, int sx, int sy) {
   int lift = (t + ((t >> 31) & 0xf)) >> 4;
   r->slot = (int16_t)slot;
   r->kind = (uint8_t)kind;
+  r->trail = 0;
+  r->person = *(volatile int16_t *)(uintptr_t)(PERSON + slot * 0x100);
   r->wx = G32(BALL_X + slot * 0x100);
   r->wy = G32(BALL_Y + slot * 0x100);
   r->wz = z;

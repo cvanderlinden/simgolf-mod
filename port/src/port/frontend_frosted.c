@@ -189,7 +189,14 @@ static void draw(const HdUiFrame *f, void *user) {
   double press = g_press_t;
   int pending = valid && !dlgf_active() && g_action_t > 0 && press > g_action_t && t0 <= press + 120 && now - press < 60000;
   // task-69: golf's loading calls are seconds apart; task-27: a native dialog over the screen (delete a save, a pro's menu) keeps it up
-  int stale = now - t0 >= (s->screen == FE_LOADING ? LOADING_STALE_MS : STALE_MS) && !dlgf_active();
+  // task-73: only a dialog that opened over a fresh screen keeps it up (a screen left from the title, a game later, must not
+  // come back behind the menus and the golfer profile's name strips)
+  static double dlg_start = -1;
+  int dlg_now = dlgf_active();
+  if (dlg_now && dlg_start < 0) dlg_start = now;
+  if (!dlg_now) dlg_start = -1;
+  int dlg_over_screen = dlg_now && dlg_start - t0 < 1500;
+  int stale = now - t0 >= (s->screen == FE_LOADING ? LOADING_STALE_MS : STALE_MS) && !dlg_over_screen;
   // in a running course (task-27: the in-game Load game and world map) only a screen that is up now shows;
   // from the title the last screen stays up while the original builds the course (pending)
   int show = valid && (!stale || (pending && !f->course));

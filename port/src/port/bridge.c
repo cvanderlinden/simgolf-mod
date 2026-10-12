@@ -790,8 +790,14 @@ static void cmd_find(int ci, const char *id, const JObj *o, Buf *b) {
   free(hits);
 }
 
+// call with "async":1: the reply goes out at once and the function runs after the bridge returns to the game's loop, so a
+// modal screen (its own loop) can be opened without holding the bridge (tests of the task-73 pages)
+static IcallFn g_async_fn;
+static uint32_t g_async_a[16];
+
 static void cmd_call(int ci, const char *id, const JObj *o, Buf *b) {
-  double addr, args[15] = {0};
+  double addr, args[15] = {0}, async = 0;
+  jnum(o, "async", &async);
   if (!jnum(o, "addr", &addr)) { reply_err(ci, id, "call: addr missing"); return; }
   int n = jnums(o, "args", args, 15);
   uint32_t flags = 0;
@@ -799,7 +805,13 @@ static void cmd_call(int ci, const char *id, const JObj *o, Buf *b) {
   if (!fn) { reply_err(ci, id, "no game function at %08x", (unsigned)addr); return; }
   uint32_t a[16] = {0};
   for (int i = 0; i < n; i++) a[i] = (uint32_t)(int64_t)args[i];
-  fprintf(stderr, "bridge: call %08x with %d args\n", (unsigned)addr, n);
+  fprintf(stderr, "bridge: call %08x with %d args%s\n", (unsigned)addr, n, async ? " (async)" : "");
+  if (async && !g_async_fn) {
+    g_async_fn = fn;
+    memcpy(g_async_a, a, sizeof a);
+    bprintf(b, ",\"ok\":true,\"async\":true");
+    return;
+  }
   uint32_t r = fn(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11], a[12], a[13], a[14], a[15]);
   bprintf(b, ",\"ok\":true,\"result\":%u,\"fret\":%.9g,\"flags\":%u", r, g_fret, flags);
 }
@@ -1337,6 +1349,16 @@ void bridge_tick(void) {
     }
   }
   busy = 0;
+  if (g_async_fn) {
+    IcallFn fn = g_async_fn;
+    uint32_t a[16];
+    memcpy(a, g_async_a, sizeof a);
+    g_async_fn = 0;
+    fn(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11], a[12], a[13], a[14], a[15]);
+    // a modal screen opened outside its own flow leaves its click and key results set, and the main loop would act on them
+    *(volatile int32_t *)(uintptr_t)0x822d68 = 0;
+    *(volatile int32_t *)(uintptr_t)0x822b9c = 0;
+  }
 }
 
 int bridge_enabled(void) { return g_enabled; }

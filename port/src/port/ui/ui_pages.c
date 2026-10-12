@@ -1,0 +1,494 @@
+#pragma clang diagnostic error "-Wimplicit-function-declaration"
+// Frosted Mint pages (simgolf mod, task-73): the last old modal screens of the original as native panels, a pure
+// function of an RpSnap (port/reports_frosted.h) like the reports. The golfer profile page (the editor) lives here;
+// the snapshot popup and the land purchase map follow in the same file. reports_frosted.c calls ui_pages_draw on the
+// render thread, the gallery with a made-up snapshot.
+//
+// Like the dialogs, a page only shows what golf's page shows (golf's text calls were recorded with their places and
+// colours by reports_game.c) and says what the player chose as a click at the ORIGINAL control's place (RP_A_CLICK in
+// golf's 800x600 page), so golf's own handlers run. docs/ui/KIT.md "Pages".
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include <SDL.h>
+
+#include "port/reports_frosted.h"
+#include "port/ui/ui_draw.h"
+
+#define CLICK(x, y) ((x) | ((y) << 16))
+
+// ------------------------------------------------------------------ shared pieces
+
+// golf's money sign is its font's character 0xA7; the kit's font has a real dollar sign
+static void fix_text(char *dst, int cap, const char *src) {
+  int n = 0;
+  for (; *src && n < cap - 1; src++) dst[n++] = (unsigned char)*src == 0xA7 ? '$' : (*src == '^' ? ' ' : *src);
+  dst[n] = 0;
+}
+
+static const RpItem *txt(const RpSnap *s, int x, int y) {
+  for (int i = 0; i < s->n; i++)
+    if (s->it[i].type == RP_IT_TEXT && s->it[i].x == x && s->it[i].y == y && s->it[i].s[0]) return &s->it[i];
+  return NULL;
+}
+
+// golf's text colours are 15 bit (0x7fff is white): reds are the bad things, greens the good things
+static UiColor text_colour(const UiTokens *t, uint16_t c) {
+  int r = (c >> 10) & 31, g = (c >> 5) & 31, b = c & 31;
+  r = r * 255 / 31, g = g * 255 / 31, b = b * 255 / 31;
+  if (r > 90 && r > g + 40 && r > b + 40) return t->danger;
+  if (g > 90 && g > r + 40 && g > b + 40) return t->accent_soft_text;
+  return t->text_primary;
+}
+
+// Greedy word wrap of s to width w into lines of at most 120 characters; returns the number of lines.
+enum { WRAP_LINES = 12, WRAP_LEN = 120 };
+static int wrap(UiCtx *c, int style, const char *s, float w, char out[WRAP_LINES][WRAP_LEN]) {
+  int n = 0;
+  char cur[WRAP_LEN * 2] = "";
+  const char *p = s;
+  while (*p && n < WRAP_LINES) {
+    char word[WRAP_LEN];
+    int k = 0;
+    while (*p == ' ') p++;
+    while (*p && *p != ' ' && k < WRAP_LEN - 1) word[k++] = *p++;
+    word[k] = 0;
+    if (!k) break;
+    char test[WRAP_LEN * 3];
+    snprintf(test, sizeof test, "%s%s%s", cur, cur[0] ? " " : "", word);
+    if (cur[0] && ui_text_width(c, style, test) > w) {
+      snprintf(out[n++], WRAP_LEN, "%s", cur);
+      snprintf(cur, sizeof cur, "%s", word);
+    } else {
+      snprintf(cur, sizeof cur, "%.*s", WRAP_LEN - 1, test);
+    }
+  }
+  if (cur[0] && n < WRAP_LINES) snprintf(out[n++], WRAP_LEN, "%s", cur);
+  return n;
+}
+
+// A pill button of the pages: soft inset, accent when on. Returns 1 on click.
+static int chip(UiCtx *c, uint32_t id, UiRect r, const char *label, int on, int disabled, int style) {
+  const UiTokens *t = ui_tokens(c);
+  UiDraw *d = ui_drawer(c);
+  float rad = fminf(r.h / 2, ui_s(c, t->radius_control));
+  ui_hit(c, r, rad, id, disabled ? UI_HIT_BLOCK : UI_HIT_BLOCK | UI_HIT_INTERACT);
+  float hov = ui_anim(c, id, !disabled && ui_is_hot(c, id) ? 1.0f : 0.0f, t->motion_hover);
+  if (on) {
+    uid_rrect(d, r, rad, uid_mix(t->accent_soft, t->accent, 0.18f * hov));
+    uid_rrect_stroke(d, r, rad, ui_s(c, 1.5f), uid_alpha(t->accent, 0.7f));
+  } else {
+    uid_rrect(d, r, rad, uid_alpha(t->surface_inset, 0.55f + 0.45f * hov));
+    uid_rrect_stroke(d, r, rad, ui_s(c, 1), uid_alpha(t->divider, 0.5f + 0.5f * hov));
+  }
+  UiColor tc = disabled ? t->text_tertiary : (on ? t->accent_soft_text : t->text_primary);
+  ui_text_fit(c, ui_inset(r, ui_s(c, 10), 0, ui_s(c, 10), 0), style, tc, label, 0.5f);
+  return !disabled && ui_clicked(c, id);
+}
+
+// A row of a card that is a control: label at the left, value at the right, a chevron.
+static int field_row(UiCtx *c, uint32_t id, UiRect r, const char *label, const char *value, int disabled) {
+  const UiTokens *t = ui_tokens(c);
+  UiDraw *d = ui_drawer(c);
+  float rad = ui_s(c, t->radius_control);
+  ui_hit(c, r, rad, id, disabled ? UI_HIT_BLOCK : UI_HIT_BLOCK | UI_HIT_INTERACT);
+  float hov = ui_anim(c, id, !disabled && ui_is_hot(c, id) ? 1.0f : 0.0f, t->motion_hover);
+  uid_rrect(d, r, rad, uid_alpha(t->surface_inset, 0.55f + 0.45f * hov));
+  uid_rrect_stroke(d, r, rad, ui_s(c, 1), uid_alpha(t->divider, 0.5f + 0.5f * hov));
+  ui_text_in(c, ui_rect(r.x + ui_s(c, 14), r.y, ui_s(c, 96), r.h), UI_TYPE_LABEL, t->text_tertiary, label, 0);
+  ui_text_fit(c, ui_rect(r.x + ui_s(c, 110), r.y, r.w - ui_s(c, 110) - ui_s(c, 38), r.h), UI_TYPE_HEADING, disabled ? t->text_tertiary : t->text_primary, value, 0);
+  ui_icon(c, UI_ICON_CHEV, ui_rect(r.x + r.w - ui_s(c, 34), r.y, ui_s(c, 24), r.h), ui_s(c, 14), uid_alpha(t->text_secondary, 0.7f));
+  return !disabled && ui_clicked(c, id);
+}
+
+static void section_label(UiCtx *c, float x, float y, float w, const char *s) {
+  const UiTokens *t = ui_tokens(c);
+  ui_text_in(c, ui_rect(x, y, w, ui_font(c, UI_TYPE_LABEL).line), UI_TYPE_LABEL, t->text_secondary, s, 0);
+}
+
+static void scrim_and_panel(UiCtx *c, UiRect pr) {
+  const UiTokens *t = ui_tokens(c);
+  UiRect scr = ui_screen(c);
+  uid_rrect(ui_drawer(c), scr, 0, t->scrim);
+  ui_hit(c, scr, 0, ui_id("pages.scrim"), UI_HIT_BLOCK | UI_HIT_MODAL);
+  ui_panel(c, pr, ui_s(c, t->radius_panel), UI_PANEL_STRONG);
+}
+
+// ------------------------------------------------------------------ golfer profile (FUN_004385d0)
+
+// Golf's hit centres of the page's controls (the table at 0x4c7b38, in golf's 800x600 page) and the places the
+// original reads the pointer at for the rows that are no table entries.
+static const int PF_SKILL[3][2] = {{210, 150}, {210, 185}, {210, 220}};
+static const int PF_TRAIT[5][2] = {{93, 127}, {93, 156}, {93, 182}, {93, 211}, {93, 239}};
+enum { PF_LOAD = 8, PF_SAVE, PF_BODY, PF_ADULT, PF_FACE, PF_SHIRT, PF_PANTS, PF_HAIR, PF_SKIN, PF_GENDER, PF_CANCEL, PF_OK, PF_BIO };
+static const int PF_BTN[13][2] = {{48, 22}, {258, 22}, {454, 30}, {454, 80}, {454, 130}, {454, 180}, {454, 230}, {328, 56}, {328, 107}, {328, 157},
+                                  {762, 33}, {760, 220}, {580, 98}};   // indexed by control number - 8
+
+typedef struct {
+  char name[RP_TEXT], nick[RP_TEXT], marital[RP_TEXT], age[RP_TEXT], member[RP_TEXT], low[RP_TEXT], hcp[RP_TEXT], rounds[RP_TEXT];
+  char trait[5][RP_TEXT], skill[3][RP_TEXT];
+  int trait_on[5], skill_on[3];
+  int pro, n_lev;
+  char lev_name[10][RP_TEXT];
+  int lev[10];
+  int n_say;
+  struct {
+    char label[RP_TEXT], text[RP_TEXT];
+    uint16_t col, tcol;
+  } say[24];
+  int pic;   // art slot + 1 of the portrait picture
+  int pic_w, pic_h;
+} Prof;
+
+static void pf_copy(char *dst, const RpItem *it) {
+  if (!it) {
+    dst[0] = 0;
+    return;
+  }
+  fix_text(dst, RP_TEXT, it->s);
+}
+
+static void pf_read(const RpSnap *s, Prof *p) {
+  memset(p, 0, sizeof *p);
+  pf_copy(p->name, txt(s, 154, 24));
+  pf_copy(p->nick, txt(s, 154, 48));
+  pf_copy(p->marital, txt(s, 154, 69));
+  pf_copy(p->age, txt(s, 154, 90));
+  size_t L = strlen(p->nick);   // "(Surfer)": the parentheses are golf's way of showing a profession
+  if (L > 1 && p->nick[0] == '(' && p->nick[L - 1] == ')') {
+    memmove(p->nick, p->nick + 1, L - 2);
+    p->nick[L - 2] = 0;
+  }
+  for (int i = 0; i < 5; i++) {
+    const RpItem *it = txt(s, 93, 122 + 28 * i);
+    pf_copy(p->trait[i], it);
+    p->trait_on[i] = it && it->col == 0x0848;
+  }
+  for (int i = 0; i < 3; i++) {
+    const RpItem *it = txt(s, 212, 142 + 35 * i);
+    pf_copy(p->skill[i], it);
+    p->skill_on[i] = it && it->col == 0x0848;
+  }
+  const RpItem *lv = txt(s, 585, 30);   // "Golf Skill Levels": a pro's page
+  p->pro = lv != NULL;
+  if (p->pro) {
+    for (int i = 0; i < 10; i++) {
+      const RpItem *num = txt(s, 501, 61 + 16 * i), *nm = txt(s, 546, 61 + 16 * i);
+      if (!nm) continue;
+      pf_copy(p->lev_name[p->n_lev], nm);
+      p->lev[p->n_lev] = num ? atoi(num->s) : 0;
+      p->n_lev++;
+    }
+  } else {
+    pf_copy(p->member, txt(s, 580, 30));
+    pf_copy(p->low, txt(s, 580, 50));
+    pf_copy(p->hcp, txt(s, 580, 64));
+    pf_copy(p->rounds, txt(s, 580, 78));
+  }
+  for (int i = 0; i < 24; i++) {
+    const RpItem *lab = txt(s, 52, 271 + 16 * i), *val = txt(s, 412, 271 + 16 * i);
+    if (!lab) {
+      if (i > 0 && !txt(s, 52, 271 + 16 * (i + 1))) break;
+      continue;
+    }
+    pf_copy(p->say[p->n_say].label, lab);
+    pf_copy(p->say[p->n_say].text, val);
+    p->say[p->n_say].col = lab->col;
+    p->say[p->n_say].tcol = val ? val->col : 0x4210;
+    p->n_say++;
+  }
+  for (int i = 0; i < s->n; i++)
+    if (s->it[i].type == RP_IT_PIC) p->pic = s->it[i].art, p->pic_w = s->it[i].w, p->pic_h = s->it[i].h;
+}
+
+// design height of the panel at scale 1 (used to fit it on small screens)
+#define PF_W 1240.0f
+#define PF_TOP 344.0f
+#define PF_SAY_ROW 40.0f
+#define PF_H (28 + 44 + 14 + PF_TOP + 16 + 22 + 11 * PF_SAY_ROW + 14 + 44 + 28)
+
+static RpLayout g_pf_layout;
+static int g_raw_data;   // visible profile texts that still contain golf's DATA( placeholder (the gallery checks it is 0)
+int ui_pages_raw_data(void) { return g_raw_data; }
+
+static int draw_profile(UiCtx *c, const RpSnap *s, SDL_Texture *const *art, RpAction *acts, int max) {
+  const UiTokens *t = ui_tokens(c);
+  UiDraw *d = ui_drawer(c);
+  int na = 0;
+  Prof p;
+  pf_read(s, &p);
+  int editing = s->ext[0] != 0;
+  UiRect scr = ui_screen(c);
+  float margin = ui_s(c, t->edge_margin);
+  float k = fminf(1.0f, fminf((scr.w - 2 * margin) / ui_s(c, PF_W), (scr.h - 2 * margin) / ui_s(c, PF_H)));
+  if (k < 1.0f) ui_push_scale(c, k);
+  float pad = ui_s(c, 28);
+  float W = ui_s(c, PF_W), H = ui_s(c, PF_H);
+  UiRect scr2 = ui_screen(c);
+  UiRect pr = ui_rect_round(ui_center(scr2, W, H));
+  scrim_and_panel(c, pr);
+  UiRect in = ui_inset_all(pr, pad);
+  g_pf_layout.panel = pr;
+
+  // header: title, close
+  UiFont tf = ui_font(c, UI_TYPE_TITLE);
+  float cb = ui_s(c, 40);
+  UiRect close_r = ui_rect(in.x + in.w - cb, in.y, cb, cb);
+  if (ui_icon_button(c, ui_id("pages.close"), close_r, UI_ICON_X, editing ? UI_DISABLED : 0, "Done (Esc)") && na < max) acts[na++] = (RpAction){RP_A_CLOSE, 0};
+  g_pf_layout.close_x = close_r.x + close_r.w / 2, g_pf_layout.close_y = close_r.y + close_r.h / 2;
+  ui_text_fit(c, ui_rect(in.x, in.y + (cb - tf.line) / 2, in.w - cb - ui_s(c, 12), tf.line), UI_TYPE_TITLE, t->text_primary,
+              p.pro ? "Pro profile" : "Golfer profile", 0);
+
+  float top_y = in.y + ui_s(c, 44 + 14), top_h = ui_s(c, PF_TOP);
+  float gap = ui_s(c, 16);
+  float colA = ui_s(c, 332), colB = ui_s(c, 190);
+  float colC = in.w - colA - colB - 2 * gap;
+
+  // ---- column A: identity, personality, skills
+  UiRect A = ui_rect(in.x, top_y, colA, top_h);
+  uid_rrect(d, A, ui_s(c, t->radius_card), uid_alpha(t->surface_inset, 0.35f));
+  float ax = A.x + ui_s(c, 14), aw = A.w - ui_s(c, 28), ay = A.y + ui_s(c, 14);
+  {
+    // the name: a control (golf asks for a new one)
+    UiRect nr = ui_rect(ax, ay, aw, ui_s(c, 40));
+    uint32_t id = ui_id("pf.name");
+    ui_hit(c, nr, ui_s(c, 10), id, UI_HIT_BLOCK | (editing ? 0 : UI_HIT_INTERACT));
+    float hov = ui_anim(c, id, !editing && ui_is_hot(c, id) ? 1.0f : 0.0f, t->motion_hover);
+    if (hov > 0.01f) uid_rrect(d, nr, ui_s(c, 10), uid_alpha(t->surface_inset, 0.7f * hov));
+    ui_text_fit(c, ui_inset(nr, ui_s(c, 8), 0, ui_s(c, 8), 0), UI_TYPE_DISPLAY, t->text_primary, p.name[0] ? p.name : "Golfer", 0);
+    ui_text_in(c, ui_rect(nr.x + nr.w - ui_s(c, 90), nr.y, ui_s(c, 82), nr.h), UI_TYPE_CAPTION, uid_alpha(t->text_secondary, 0.9f * hov), "Rename", 1);
+    if (!editing && ui_clicked(c, id) && na < max) acts[na++] = (RpAction){RP_A_CLICK, CLICK(154, 34)};
+    ay += nr.h + ui_s(c, 8);
+    float rh = ui_s(c, 32);
+    const char *lab[3] = {"Profession", "Status", "Age"};
+    const char *val[3] = {p.nick, p.marital, p.age};
+    for (int i = 0; i < 3; i++) {
+      char key[16];
+      snprintf(key, sizeof key, "pf.row%d", i);
+      if (field_row(c, ui_id(key), ui_rect(ax, ay, aw, rh), lab[i], val[i][0] ? val[i] : "-", editing) && na < max)
+        acts[na++] = (RpAction){RP_A_CLICK, CLICK(154, 34 + 20 * (i + 1))};
+      ay += rh + ui_s(c, 4);
+    }
+    ay += ui_s(c, 6);
+    // personality: five chips that flip golf's personality bits
+    section_label(c, ax, ay, aw, "Personality");
+    ay += ui_font(c, UI_TYPE_LABEL).line + ui_s(c, 4);
+    float cx = ax, ch = ui_s(c, 30);
+    for (int i = 0; i < 5; i++) {
+      float w1 = ui_text_width(c, UI_TYPE_LABEL, p.trait[i]) + ui_s(c, 28);
+      if (cx + w1 > ax + aw + 1) cx = ax, ay += ch + ui_s(c, 5);
+      char key[16];
+      snprintf(key, sizeof key, "pf.trait%d", i);
+      if (chip(c, ui_id(key), ui_rect(cx, ay, w1, ch), p.trait[i], p.trait_on[i], editing, UI_TYPE_LABEL) && na < max)
+        acts[na++] = (RpAction){RP_A_CLICK, CLICK(PF_TRAIT[i][0], PF_TRAIT[i][1])};
+      cx += w1 + ui_s(c, 6);
+    }
+    ay += ch + ui_s(c, 10);
+    section_label(c, ax, ay, aw, "Skills");
+    ay += ui_font(c, UI_TYPE_LABEL).line + ui_s(c, 4);
+    cx = ax;
+    for (int i = 0; i < 3; i++) {
+      float w1 = ui_text_width(c, UI_TYPE_LABEL, p.skill[i]) + ui_s(c, 28);
+      if (cx + w1 > ax + aw + 1) cx = ax, ay += ch + ui_s(c, 5);
+      char key[16];
+      snprintf(key, sizeof key, "pf.skill%d", i);
+      if (chip(c, ui_id(key), ui_rect(cx, ay, w1, ch), p.skill[i], p.skill_on[i], editing, UI_TYPE_LABEL) && na < max)
+        acts[na++] = (RpAction){RP_A_CLICK, CLICK(PF_SKILL[i][0], PF_SKILL[i][1])};
+      cx += w1 + ui_s(c, 6);
+    }
+  }
+
+  // ---- column B: the portrait (golf's own art, kept to its aspect)
+  UiRect B = ui_rect(A.x + A.w + gap, top_y, colB, top_h);
+  uid_rrect(d, B, ui_s(c, t->radius_card), uid_alpha(t->surface_inset, 0.35f));
+  SDL_Texture *ptex = art && p.pic > 0 ? art[p.pic - 1] : NULL;
+  if (ptex && p.pic_w > 0 && p.pic_h > 0) {
+    float kk = fminf((B.w - ui_s(c, 20)) / p.pic_w, (B.h - ui_s(c, 20)) / p.pic_h);
+    UiRect ir = ui_rect_round(ui_center(B, p.pic_w * kk, p.pic_h * kk));
+    uid_image(d, ptex, NULL, ir, 0, (UiColor){255, 255, 255, 255});
+    uid_rrect_stroke(d, ir, 0, ui_s(c, 1), uid_alpha(t->divider, 0.8f));
+  } else {
+    ui_icon(c, UI_ICON_SMILE, B, ui_s(c, 64), uid_alpha(t->text_tertiary, 0.6f));
+  }
+
+  // ---- column C: membership and results (or a pro's skill levels), bio, looks
+  UiRect C = ui_rect(B.x + B.w + gap, top_y, colC, top_h);
+  float cy = C.y;
+  if (!p.pro) {
+    float th = ui_s(c, 64);
+    float tw = (C.w - 3 * ui_s(c, 10)) / 4;
+    UiRect tiles[4];
+    for (int i = 0; i < 4; i++) tiles[i] = ui_rect(C.x + i * (tw + ui_s(c, 10)), cy, tw, th);
+    const char *tl[4] = {"Membership", "Low round", "Handicap", "Rounds played"};
+    const char *tv[4] = {p.member, p.low, p.hcp, p.rounds};
+    for (int i = 0; i < 4; i++) {
+      uid_rrect(d, tiles[i], ui_s(c, t->radius_tile), uid_alpha(t->surface_inset, 0.55f));
+      char v[RP_TEXT];
+      const char *src = tv[i];
+      if (i >= 1 && strchr(src, ':')) src = strrchr(src, ':') + 1;   // golf draws "Low round: -"
+      while (*src == ' ') src++;
+      snprintf(v, sizeof v, "%s", src[0] ? src : "-");
+      ui_text_in(c, ui_rect(tiles[i].x + ui_s(c, 12), tiles[i].y + ui_s(c, 8), tiles[i].w - ui_s(c, 24), ui_font(c, UI_TYPE_CAPTION).line),
+                 UI_TYPE_CAPTION, t->text_tertiary, tl[i], 0);
+      ui_text_fit(c, ui_rect(tiles[i].x + ui_s(c, 12), tiles[i].y + ui_s(c, 28), tiles[i].w - ui_s(c, 24), ui_font(c, UI_TYPE_HEADING).line),
+                  UI_TYPE_HEADING, t->text_primary, v, 0);
+    }
+    cy += th + ui_s(c, 12);
+    // the bio: a control (golf opens its text editor), live while it is typed
+    float bh = ui_s(c, 118);
+    UiRect br = ui_rect(C.x, cy, C.w, bh);
+    uint32_t bid = ui_id("pf.bio");
+    ui_hit(c, br, ui_s(c, t->radius_tile), bid, UI_HIT_BLOCK | (editing ? 0 : UI_HIT_INTERACT));
+    float hov = ui_anim(c, bid, !editing && ui_is_hot(c, bid) ? 1.0f : 0.0f, t->motion_hover);
+    if (!editing && ui_clicked(c, bid) && na < max) acts[na++] = (RpAction){RP_A_CLICK, CLICK(580, 105)};   // golf's bio text editor opens
+    uid_rrect(d, br, ui_s(c, t->radius_tile), uid_alpha(t->surface_inset, 0.55f + 0.3f * hov));
+    if (editing) uid_rrect_stroke(d, br, ui_s(c, t->radius_tile), ui_s(c, 2), t->accent);
+    else uid_rrect_stroke(d, br, ui_s(c, t->radius_tile), ui_s(c, 1), uid_alpha(t->divider, 0.5f + 0.5f * hov));
+    section_label(c, br.x + ui_s(c, 14), br.y + ui_s(c, 8), br.w - ui_s(c, 28), editing ? "Bio (typing)" : "Bio");
+    char bio[RP_TEXT * 5];
+    fix_text(bio, sizeof bio, s->bio);
+    char lines[WRAP_LINES][WRAP_LEN];
+    int nl = wrap(c, UI_TYPE_BODY, bio, br.w - ui_s(c, 28), lines);
+    UiFont bf = ui_font(c, UI_TYPE_BODY);
+    float ty = br.y + ui_s(c, 8) + ui_font(c, UI_TYPE_LABEL).line + ui_s(c, 6);
+    int maxl = (int)((br.y + br.h - ui_s(c, 8) - ty) / bf.line);
+    for (int i = 0; i < nl && i < maxl; i++, ty += bf.line)
+      ui_text_in(c, ui_rect(br.x + ui_s(c, 14), ty, br.w - ui_s(c, 28), bf.line), UI_TYPE_BODY, t->text_primary, lines[i], 0);
+    if (editing && ((int)(ui_now(c) / 500.0)) % 2 == 0) {
+      int li = nl > 0 ? (nl - 1 < maxl - 1 ? nl - 1 : maxl - 1) : 0;
+      float cxp = br.x + ui_s(c, 14) + (nl > 0 ? ui_text_width(c, UI_TYPE_BODY, lines[li]) : 0) + ui_s(c, 2);
+      uid_rrect(d, ui_rect(cxp, br.y + ui_s(c, 8) + ui_font(c, UI_TYPE_LABEL).line + ui_s(c, 6) + li * bf.line + ui_s(c, 2), ui_s(c, 2), bf.line - ui_s(c, 4)), 1,
+                t->accent);
+    }
+    if (editing) {
+      float bw = ui_s(c, 120), bhh = ui_s(c, 34);
+      if (ui_button(c, ui_id("pf.bio.ok"), ui_rect(br.x + br.w - bw - ui_s(c, 10), br.y + br.h - bhh - ui_s(c, 8), bw, bhh), "Done typing", UI_ICON_NONE, UI_BTN_PRIMARY, 0) &&
+          na < max)
+        acts[na++] = (RpAction){RP_A_KEY, SDLK_RETURN};
+    }
+    cy += bh + ui_s(c, 12);
+  } else {
+    section_label(c, C.x, cy, C.w, "Golf skill levels");
+    cy += ui_font(c, UI_TYPE_LABEL).line + ui_s(c, 4);
+    float half = (C.w - ui_s(c, 14)) / 2;
+    // two columns of five: name, a level meter and - / + (a left click adds a level in golf, a right click takes one)
+    float row = ui_s(c, 34);
+    for (int i = 0; i < p.n_lev; i++) {
+      int colx = i / 5, rowy = i % 5;
+      UiRect rr = ui_rect(C.x + colx * (half + ui_s(c, 14)), cy + rowy * (row + ui_s(c, 4)), half, row);
+      uid_rrect(d, rr, ui_s(c, t->radius_tile), uid_alpha(t->surface_inset, 0.55f));
+      float bw = ui_s(c, 28);
+      ui_text_fit(c, ui_rect(rr.x + ui_s(c, 12), rr.y, rr.w - 2 * bw - ui_s(c, 100), rr.h), UI_TYPE_LABEL, t->text_primary, p.lev_name[i], 0);
+      UiRect mr = ui_rect(rr.x + rr.w - 2 * bw - ui_s(c, 94), rr.y + (rr.h - ui_s(c, 8)) / 2, ui_s(c, 60), ui_s(c, 8));
+      ui_meter(c, mr, p.lev[i] / 10.0f);
+      char num[16];
+      snprintf(num, sizeof num, "%d", p.lev[i]);
+      ui_text_in(c, ui_rect(mr.x + mr.w + ui_s(c, 2), rr.y, ui_s(c, 24), rr.h), UI_TYPE_LABEL, t->text_secondary, num, 0.5f);
+      char key[24];
+      snprintf(key, sizeof key, "pf.lev%d.minus", i);
+      int oy = 0x48 + 16 * i;
+      if (ui_icon_button(c, ui_id(key), ui_rect(rr.x + rr.w - 2 * bw - ui_s(c, 4), rr.y + ui_s(c, 3), bw, row - ui_s(c, 6)), UI_ICON_MINUS, UI_COMPACT, NULL) && na < max)
+        acts[na++] = (RpAction){RP_A_RCLICK, CLICK(520, oy)};
+      snprintf(key, sizeof key, "pf.lev%d.plus", i);
+      if (ui_icon_button(c, ui_id(key), ui_rect(rr.x + rr.w - bw - ui_s(c, 2), rr.y + ui_s(c, 3), bw, row - ui_s(c, 6)), UI_ICON_PLUS, UI_COMPACT, NULL) && na < max)
+        acts[na++] = (RpAction){RP_A_CLICK, CLICK(520, oy)};
+    }
+    cy += 5 * (row + ui_s(c, 4)) + ui_s(c, 8);
+  }
+  // looks: the editing buttons around the portrait in golf's page
+  {
+    section_label(c, C.x, cy, C.w, "Look");
+    cy += ui_font(c, UI_TYPE_LABEL).line + ui_s(c, 4);
+    static const struct {
+      const char *label;
+      int btn;
+    } lk[8] = {{"Face", PF_FACE}, {"Body type", PF_BODY}, {"Adult / child", PF_ADULT}, {"Gender", PF_GENDER},
+               {"Skin tone", PF_SKIN}, {"Hair color", PF_HAIR}, {"Shirt color", PF_SHIRT}, {"Pants color", PF_PANTS}};
+    float cw4 = (C.w - 3 * ui_s(c, 8)) / 4, chh = ui_s(c, 34);
+    for (int i = 0; i < 8; i++) {
+      UiRect cr = ui_rect(C.x + (i % 4) * (cw4 + ui_s(c, 8)), cy + (i / 4) * (chh + ui_s(c, 8)), cw4, chh);
+      char key[16];
+      snprintf(key, sizeof key, "pf.look%d", i);
+      if (chip(c, ui_id(key), cr, lk[i].label, 0, editing, UI_TYPE_LABEL) && na < max)
+        acts[na++] = (RpAction){RP_A_CLICK, CLICK(PF_BTN[lk[i].btn - 8][0], PF_BTN[lk[i].btn - 8][1])};
+    }
+  }
+
+  // ---- sayings: what the golfer says, in two columns (a click asks golf for new words)
+  float sy = top_y + top_h + ui_s(c, 16);
+  section_label(c, in.x, sy, in.w, "What this golfer says");
+  sy += ui_s(c, 22);
+  float rw = (in.w - ui_s(c, 12)) / 2, rrow = ui_s(c, PF_SAY_ROW);
+  int per_col = (p.n_say + 1) / 2;
+  if (per_col > 11) per_col = 11;
+  for (int i = 0; i < p.n_say && i < 22; i++) {
+    int col = i / per_col, row = i % per_col;
+    UiRect rr = ui_rect(in.x + col * (rw + ui_s(c, 12)), sy + row * rrow, rw, rrow - ui_s(c, 4));
+    uint32_t id = ui_idi(ui_id("pf.say"), i);
+    ui_hit(c, rr, ui_s(c, 10), id, UI_HIT_BLOCK | (editing ? 0 : UI_HIT_INTERACT));
+    float hov = ui_anim(c, id, !editing && ui_is_hot(c, id) ? 1.0f : 0.0f, t->motion_hover);
+    uid_rrect(d, rr, ui_s(c, 10), uid_alpha(t->surface_inset, (i % 2 ? 0.35f : 0.55f) + 0.4f * hov));
+    char lab[RP_TEXT];
+    snprintf(lab, sizeof lab, "%s", p.say[i].label);
+    size_t L = strlen(lab);
+    while (L && (lab[L - 1] == '.' || lab[L - 1] == ' ')) lab[--L] = 0;   // golf's "Hit a tree..." is the situation
+    UiColor lc = text_colour(t, p.say[i].col);
+    if (lc.r == t->text_primary.r && lc.g == t->text_primary.g && lc.b == t->text_primary.b) lc = t->text_secondary;
+    ui_text_in(c, ui_rect(rr.x + ui_s(c, 12), rr.y + ui_s(c, 3), rr.w - ui_s(c, 24), ui_font(c, UI_TYPE_CAPTION).line), UI_TYPE_CAPTION, lc, lab, 0);
+    UiColor tc = p.say[i].tcol == 0x4210 || !p.say[i].text[0] ? t->text_tertiary : t->text_primary;
+    UiRect tr = ui_rect(rr.x + ui_s(c, 12), rr.y + ui_s(c, 3) + ui_font(c, UI_TYPE_CAPTION).line, rr.w - ui_s(c, 24), ui_font(c, UI_TYPE_BODY).line);
+    const char *dp = strstr(p.say[i].text, "DATA(");
+    if (dp && !strchr(dp, ')')) g_raw_data++;   // an unclosed placeholder would show as it is
+    const char *dq = dp ? strchr(dp, ')') : NULL;
+    if (dp && dq) {   // golf's example word: "DATA(fountain)" is shown as the word, in the accent colour
+      char pre[RP_TEXT], word[RP_TEXT], post[RP_TEXT];
+      snprintf(pre, sizeof pre, "%.*s", (int)(dp - p.say[i].text), p.say[i].text);
+      snprintf(word, sizeof word, "%.*s", (int)(dq - dp - 5), dp + 5);
+      snprintf(post, sizeof post, "%s", dq + 1);
+      char pre_x[RP_TEXT + 2];
+      snprintf(pre_x, sizeof pre_x, "%sx", pre);   // a trailing space counts
+      float x = tr.x, w1 = ui_text_width(c, UI_TYPE_BODY, pre_x) - ui_text_width(c, UI_TYPE_BODY, "x"), w2 = ui_text_width(c, UI_TYPE_BODY, word);
+      ui_text_in(c, ui_rect(x, tr.y, w1 + 1, tr.h), UI_TYPE_BODY, tc, pre, 0);
+      ui_text_in(c, ui_rect(x + w1, tr.y, w2 + 1, tr.h), UI_TYPE_BODY, t->accent, word, 0);
+      ui_text_in(c, ui_rect(x + w1 + w2, tr.y, tr.w - w1 - w2, tr.h), UI_TYPE_BODY, tc, post, 0);
+    } else {
+      if (strstr(p.say[i].text, "DATA(")) g_raw_data++;
+      ui_text_fit(c, tr, UI_TYPE_BODY, tc, p.say[i].text[0] ? p.say[i].text : "(nothing yet)", 0);
+    }
+    if (!editing && ui_clicked(c, id) && na < max) acts[na++] = (RpAction){RP_A_CLICK, CLICK(0x242, 0x10e + 16 * i + 8)};
+  }
+
+  // ---- footer
+  float fy = in.y + in.h - ui_s(c, 44);
+  float bw = ui_s(c, 140), bh = ui_s(c, 44);
+  if (ui_button(c, ui_id("pf.done"), ui_rect(in.x + in.w - bw, fy, bw, bh), "Done", UI_ICON_NONE, UI_BTN_PRIMARY, editing ? UI_DISABLED : 0) && na < max)
+    acts[na++] = (RpAction){RP_A_CLOSE, 0};
+  if (ui_button(c, ui_id("pf.cancel"), ui_rect(in.x + in.w - 2 * bw - ui_s(c, 12) - ui_s(c, 30), fy, bw + ui_s(c, 30), bh), "Undo changes", UI_ICON_NONE, UI_BTN_PILL, editing ? UI_DISABLED : 0) && na < max)
+    acts[na++] = (RpAction){RP_A_CLICK, CLICK(PF_BTN[PF_CANCEL - 8][0], PF_BTN[PF_CANCEL - 8][1])};
+  float lw = ui_s(c, 190);
+  if (ui_button(c, ui_id("pf.load"), ui_rect(in.x, fy, lw, bh), "Load character", UI_ICON_FOLDER, UI_BTN_PILL, editing ? UI_DISABLED : 0) && na < max)
+    acts[na++] = (RpAction){RP_A_CLICK, CLICK(PF_BTN[PF_LOAD - 8][0], PF_BTN[PF_LOAD - 8][1])};
+  if (ui_button(c, ui_id("pf.save"), ui_rect(in.x + lw + ui_s(c, 12), fy, lw, bh), "Save character", UI_ICON_PIN, UI_BTN_PILL, editing ? UI_DISABLED : 0) && na < max)
+    acts[na++] = (RpAction){RP_A_CLICK, CLICK(PF_BTN[PF_SAVE - 8][0], PF_BTN[PF_SAVE - 8][1])};
+  ui_text_in(c, ui_rect(in.x + 2 * lw + ui_s(c, 36), fy, in.w - 2 * lw - 2 * bw - ui_s(c, 80), bh), UI_TYPE_CAPTION, t->text_tertiary,
+             editing ? "Type the bio, Enter finishes" : "Esc keeps the changes and closes", 0);
+
+  if (k < 1.0f) ui_pop_scale(c);
+  return na;
+}
+
+// ------------------------------------------------------------------ dispatch
+
+#include "ui_tracts.inc"
+
+int ui_pages_draw(UiCtx *c, const RpSnap *s, SDL_Texture *const *art, RpAction *acts, int max) {
+  switch (s->kind) {
+    case RP_PROFILE: return draw_profile(c, s, art, acts, max);
+    case RP_TRACTS: return draw_tracts(c, s, art, acts, max);
+    default: return 0;
+  }
+}
+
+void ui_pages_layout(RpLayout *out) { *out = g_pf_layout; }

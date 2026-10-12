@@ -387,3 +387,16 @@ Switch: `ui.reports = frosted_mint | original` (mods store; the built-in mod `ui
 | src/port/ui/ui_reports.c (new) | the panel as a pure function of an RpSnap | |
 | src/port/golf/reports_hooks.c (new), src/port/ghidra_prelude.h | the hooks for the browser build (originals) and their declarations | |
 | cmake/ui.cmake, mods/builtin/ui_reports, mods/load_order.toml, tests/mods/all_off.ini, data/mods.ini, tools/check.sh | build, the mod, the switch, the check stage | |
+
+## task-73: Frosted Mint golfer profile page and land purchase map
+
+Switch: the same as the dialogs and reports (`ui.dialogs` and `ui.reports` both frosted_mint); `[ui] dialogs=original` restores the original screens.
+
+| File | Change | Why |
+|---|---|---|
+| port/tools/translate/golf.pages.json (new) | FUN_004385d0 (profile page loop): `rp_begin(30)`, text calls through `rp_tc`, `rp_frame` / `rp_done`, the face picker and bio editor hooks; FUN_0045b0d0 text through `rp_tcp`; FUN_004587a0 (land map): `rp_begin(32)`, text through `rp_tc` / `rp_t7c30` / `rp_t8430` / `rp_t8080`, `rp_frame`, `rp_esc`, every return through `rp_end` | the two screens as native pages |
+| port/tools/translate/golf.pages.json: FUN_0047a4c0, FUN_00486110 | the widget create's call `FUN_0047abe0(this, param_6)` takes the parent (`rp_warg`) while the profile's bio text widget is created (`rp_wfix`) | the decompile passed the flags instead of the parent; the bio editor crashed. Fixed for this widget only: the front end's list widgets break when it is fixed for all |
+| src/port/reports_game.c, reports_frosted.c, ghidra_prelude.h | page kinds 30 (profile) and 32 (tracts), page picture capture (portrait, map), the record functions for golf's string calls, Esc on the map | |
+| src/port/ui/ui_pages.c, ui_tracts.inc (new) | the panels as pure functions of an RpSnap | |
+| src/port/bridge.c | `call` with `"async":1` runs a modal screen after the bridge returns to the game loop, then clears golf's click and key result flags | tests open the land map, which only the year end opens |
+| src/port/ui/ui_gallery.c, tools/check.sh, tests/native/reports.mjs | gallery pages `pages-profile`, `pages-tracts`; profile (trait, bio typing, Cancel, Esc) and land map (Esc, no thanks, buy) in the reports test | |

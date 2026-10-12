@@ -18,6 +18,10 @@ void hdball_rest(int slot, int sx, int sy) {
 void hdball_air(int slot, int sx, int sy) { (void)slot, (void)sx, (void)sy; }
 void hdball_item(int i) { FUN_00462be0(i); }
 void hdball_resolve(void) {}
+void hdball_trail(int slot, int x0, int y0, int x1, int y1, int col, int w, int a) {
+  (void)slot;
+  FUN_00406220(x0, y0, x1, y1, col, w, a);
+}
 
 #else
 
@@ -37,6 +41,14 @@ void hdball_rest(int slot, int sx, int sy) {
 // A ball in flight or rolling: golf queues a shadow and a ball sprite (drawn
 // later by FUN_00463100, through hdball_item). Here only the ball is noted.
 void hdball_air(int slot, int sx, int sy) { hb_note(slot, HB_KIND_AIR, sx, sy); }
+
+// golf's trail behind some balls in flight: one segment from the last game frame's ball position to this
+// one. With the round ball on it is not drawn (the presenter draws a smooth ribbon, ui.ball_trail), unless
+// ui.ball_trail=original.
+void hdball_trail(int slot, int x0, int y0, int x1, int y1, int col, int w, int a) {
+  if (hb_trail(slot)) return;
+  FUN_00406220(x0, y0, x1, y1, col, w, a);
+}
 
 #define SPR_BALL 0x58b650u     // &DAT_0058b650: golf's ball sprite
 #define SPR_SHADOW 0x5791c8u   // &DAT_005791c8: its shadow

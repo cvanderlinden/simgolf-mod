@@ -1,6 +1,15 @@
 # Changelog
 
-## 0.1.0 (first release, not yet published)
+## 0.1.1
+
+Fixes and small upgrades.
+
+- Fixed: with the HD art on, parts of the old 2002 HUD showed underneath the new course HUD
+- New HD start menu logo with Remastered built in ([ui] logo=original brings back the old one)
+- New golfer profile page (Profile button on the golfer card): edit the bio, see everything the golfer says; the year-end land purchase map in the new look
+- Smaller golf ball (about 25 percent), each golfer plays their own ball colour, smooth fading trail; Options, Gameplay has Ball size, Ball colours and Ball trail
+
+## 0.1.0
 
 First public build.
 

@@ -136,6 +136,7 @@ void dlg_pre(void) {
 }
 
 void hud_clean_pages(void);   // hud_game.c
+int rp_is_on(void);           // reports_game.c: a report page (task-73: the golfer profile) is up under this dialog
 
 static void begin(int kind) {
   if (g_log < 0) g_log = getenv("SIMGOLF_DIALOGS_LOG") != NULL;
@@ -488,7 +489,7 @@ unsigned dlg_done(unsigned v) {
   if (g_on) {
     if (g_log) fprintf(stderr, "dialogs: closed with %d\n", (int)v);
     dlgf_end();
-    hd_ui_show_golf_ui(1);
+    if (!rp_is_on()) hd_ui_show_golf_ui(1);   // a page under this dialog keeps golf's own UI hidden
     keep_free();
     g_on = 0;
     g_hint_on = 0;

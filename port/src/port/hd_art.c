@@ -521,7 +521,8 @@ enum { LC, LT };
 typedef struct {
   int16_t file, view, frame;   // view -1: a still (PCX), frame unused
   uint8_t variant, flip;       // flip: 1 horizontal, 2 vertical
-  uint32_t pal_hash;           // V_IDX/V_RECOLOR: the palette; V_MASKED: the mask file
+  uint8_t hidden;              // task-81: under the Frosted Mint HUD's hide, never drawn
+  uint32_t pal_hash;          // V_IDX/V_RECOLOR: the palette; V_MASKED: the mask file
   float x, y, w, h;            // the frame's place on the canvas
   int16_t shadow_file;         // -1: no shadow part
   uint32_t shadow_hash;
@@ -1558,6 +1559,40 @@ void hd_art_course_done(const uint16_t *bits, int pitch) {
   g_rec_which = LT;
 }
 
+// task-81: the Frosted Mint HUD hides golf's old HUD by putting back the
+// pixels under its rectangles (hud_game.c). golf's pixels go, but the
+// hi-res copies of the sprites it drew there would still be drawn under
+// golf's UI layer: hd_art_hide_rects marks every entry recorded since
+// hd_art_hide_begin that touches one of the rectangles (x, y, w, h each)
+// as hidden.
+static int g_hide_from = -1, g_hide_which;
+
+void hd_art_hide_begin(void) {
+  g_hide_from = g_on ? g_rec.n : -1;
+  g_hide_which = g_rec_which;
+}
+
+void hd_art_hide_rects(const int *xywh, int nrects) {
+  if (!g_on || g_hide_from < 0) return;
+  int from = g_hide_from;
+  if (g_hide_which != g_rec_which || from > g_rec.n) {   // a present came between (a modal dialog's loop)
+    if (g_rec_which != LT) return;                       // course draws are the course's
+    from = 0;
+  }
+  g_hide_from = g_rec.n;
+  g_hide_which = g_rec_which;
+  for (int i = from; i < g_rec.n; i++) {
+    Entry *e = &g_rec.e[i];
+    for (int r = 0; r < nrects; r++) {
+      const int *q = xywh + r * 4;
+      if (e->x < q[0] + q[2] && e->x + e->w > q[0] && e->y < q[1] + q[3] && e->y + e->h > q[1]) {
+        e->hidden = 1;
+        break;
+      }
+    }
+  }
+}
+
 static void publish_one(int which, int ok) {
   g_pub_ok[which] = ok && g_closed_ok[which] && g_closed[which].n;
   if (!g_pub_ok[which]) return;
@@ -1795,7 +1830,7 @@ int hd_art_prepare(SDL_Renderer *r, int new_frame) {
     int diff = new_frame;
     for (int i = 0; i < c->n; i++) {
       const Entry *e = &c->e[i];
-      uint8_t ok = tex_of(e, 0) && (e->shadow_file < 0 || tex_of(e, 1));
+      uint8_t ok = !e->hidden && tex_of(e, 0) && (e->shadow_file < 0 || tex_of(e, 1));
       diff |= ok != g_drawable[w][i + 1];
       g_drawable[w][i + 1] = ok;
     }
@@ -1834,7 +1869,9 @@ void hd_art_draw(int which, SDL_Renderer *r, double ox, double oy, double k) {
     drawn++;
   }
   g_rstat.frames += which == LC;
-  g_rstat.entries += c->n;
+  int shown = 0;   // task-81: entries under the HUD hide do not count (the log's entries/frame is what can be drawn)
+  for (int i = 0; i < c->n; i++) shown += !c->e[i].hidden;
+  g_rstat.entries += shown;
   g_rstat.drawn += drawn;
   g_rstat.ms += host_now_ms() - t0;
   static double last;

@@ -5,8 +5,11 @@
 # Size. radius is canvas pixels at zoom 4 and grows and shrinks with the zoom. radius_min_px is the
 # smallest it is ever drawn on screen (so it reads at 1080p), radius_max_px the largest.
 radius          2.0
-radius_min_px   2.2
+radius_min_px   2.0
 radius_max_px   48
+# Percent of that radius (task-61: the first round ball looked a little big). The Options page and
+# [ui] ball_size= in data/mods.ini set it live; 100 is the size of task-41.
+size            75
 
 # Height. golf's flight is flat (a 90 yard shot lifts the ball a few pixels), so the drawn height is
 # golf's lift times this. The ground point, landing spot and timing are not touched.
@@ -31,3 +34,17 @@ ambient         0.74
 spec            0.55
 # Faint dimples when the ball is 11 px or more across (1 on, 0 off).
 dimples         1
+
+# Personal ball colours (task-61). A golfer's colour is picked from this list by the golfer's person id (1 to 75,
+# the game's own, kept in saves), so the same golfer plays the same colour in every round and after every load.
+# RRGGBB hex, any number from 2 to 24, one or several lines. [ui] ball_colours=white in data/mods.ini (or Options)
+# gives every golfer the classic white ball instead.
+palette         ff3b30 ff9500 ffd60a ff2d95 bf5af2 0a84ff 64d2ff f5f5f7 30d5c8 2c2c2e ff7f9e 5e5ce6 ffb340 b8002f
+
+# Trail behind a ball in flight (task-61): a ribbon along the ball's own smooth path, widest at the ball and
+# fading to nothing at the tail. trail_ms is how far back it reaches, trail_width the head width in ball
+# diameters, trail_alpha its strength, trail_fade_ms how long it melts away once the ball stops. [ui] ball_trail= smooth | all | original | off.
+trail_ms        360
+trail_width     0.9
+trail_alpha     0.8
+trail_fade_ms   140

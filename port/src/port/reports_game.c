@@ -94,7 +94,7 @@ static void push_key(SDL_Keycode k, int down) {
   SDL_PushEvent(&e);
 }
 
-static int g_inj, g_inj_x, g_inj_y, g_inj_stage, g_inj_wait;
+static int g_inj, g_inj_x, g_inj_y, g_inj_stage, g_inj_wait, g_inj_btn = SDL_BUTTON_LEFT;
 
 static void sdl_motion(int x, int y) {
   SDL_Event e = {0};
@@ -107,7 +107,7 @@ static void sdl_motion(int x, int y) {
 static void sdl_button(int x, int y, int down) {
   SDL_Event e = {0};
   e.type = down ? SDL_MOUSEBUTTONDOWN : SDL_MOUSEBUTTONUP;
-  e.button.button = SDL_BUTTON_LEFT;
+  e.button.button = (Uint8)g_inj_btn;
   e.button.state = down ? SDL_PRESSED : SDL_RELEASED;
   e.button.clicks = 1;
   e.button.x = x;
@@ -126,6 +126,10 @@ static void inj_step(void) {
     case 0: sdl_motion(g_inj_x, g_inj_y); g_inj_wait = 1; break;
     case 1: sdl_button(g_inj_x, g_inj_y, 1); g_inj_wait = 2; break;
     case 2: sdl_button(g_inj_x, g_inj_y, 0); g_inj_wait = 1; break;
+    case 3:   // task-73 pages: park golf's pointer where it hovers over nothing (no tooltip in the kept pictures)
+      if (g_kind >= RP_PROFILE) sdl_motion(690, 160);
+      g_inj_wait = 1;
+      break;
     default: g_inj = 0; return;
   }
   g_inj_stage++;
@@ -157,9 +161,23 @@ void rp_tick(void) {
   }
 }
 
+enum { PIC_ART = RP_ART - 4 };
+static struct {
+  int on, x, y, w, h, art, page;
+  uint32_t hash;
+} g_pic[3];
+static int g_npic;
+
+static void pic_add(int x, int y, int w, int h) {
+  if (g_npic >= 3) return;
+  g_pic[g_npic].on = 1, g_pic[g_npic].x = x, g_pic[g_npic].y = y, g_pic[g_npic].w = w, g_pic[g_npic].h = h;
+  g_pic[g_npic].art = PIC_ART + g_npic, g_pic[g_npic].page = -1, g_pic[g_npic].hash = 0;
+  g_npic++;
+}
+
 void rp_begin(int kind) {
   if (g_log < 0) g_log = getenv("SIMGOLF_REPORTS_LOG") != NULL;
-  g_on = rpf_enabled();
+  g_on = rpf_enabled_kind(kind);
   g_kind = kind;
   g_closing = 0;
   g_inj = 0;
@@ -168,6 +186,10 @@ void rp_begin(int kind) {
   memset(&g_snap, 0, offsetof(RpSnap, it));
   g_snap.magic = RP_MAGIC;
   g_snap.kind = kind;
+  g_npic = 0;
+  memset(g_pic, 0, sizeof g_pic);
+  if (kind == RP_PROFILE) pic_add(358, 31, 76, 184);   // the portrait in golf's page, clear of the buttons around it
+  if (kind == RP_TRACTS) pic_add(8, 282, 784, 312);    // the map below the tract tiles, with its painted frame
   if (g_log) fprintf(stderr, "reports: open %d native %d\n", kind, g_on), fflush(stderr);
   if (g_on) {
     hd_ui_show_golf_ui(0);
@@ -240,12 +262,22 @@ void rp_rect(void *page, int x, int y, int w, int h, uint32_t col) {
 }
 
 // The page the report draws on: the one whose pixel at (x, y) now differs from the kept picture.
+uint16_t *gdi_dib_at(uintptr_t p, int *w, int *h, int *pitch, int *is565);
 static int drawn_page(int x, int y) {
+  if (g_kind == RP_TRACTS) {   // the course animates on the other screen page: take golf's own back buffer
+    uint32_t wrap = G32(0x4c1570), p = wrap > 0x10000 ? G32(wrap + 4) : 0, bits = p > 0x10000 ? G32(p + 0x4c0) : 0;
+    int w, h, pitch, is565;
+    uint16_t *want = bits ? gdi_dib_at(bits, &w, &h, &pitch, &is565) : NULL;
+    for (int i = 0; want && i < PAGES; i++)
+      if (gdi_screen_dib(i, &w, &h, &pitch, &is565) == want) return i;
+    return -1;
+  }
   for (int i = 0; i < PAGES; i++) {
     if (!g_keep[i]) continue;
     int w, h, pitch, is565;
     uint16_t *bb = gdi_screen_dib(i, &w, &h, &pitch, &is565);
     if (!bb || w != g_keep_w[i] || h != g_keep_h[i] || x < 0 || y < 0 || x >= w || y >= h) continue;
+    if (g_log > 0 && getenv("SIMGOLF_REPORTS_DUMP")) fprintf(stderr, "reports: page %d is %dx%d\n", i, w, h);
     if (bb[(ptrdiff_t)y * pitch + x] != g_keep[i][(size_t)y * w + x]) return i;
   }
   return -1;
@@ -381,12 +413,157 @@ int rp_tc(int fn, char *s, int x, int y, uint32_t col) {
   }
 }
 
+// ------------------------------------------------------------------ task-73 pages: a rectangle of golf's page kept as a picture
+
+// The golfer profile's portrait (golf's own caricature art with its painted frame) is not text or a sprite: the
+// rectangle is read from the page once golf has drawn the frame and sent to the render thread whenever it changes.
+static void dump_pages(void) {   // debug: SIMGOLF_REPORTS_DUMP=pages saves every screen page once
+  static int done;
+  const char *e = getenv("SIMGOLF_REPORTS_DUMP");
+  if (done || !e || strcmp(e, "pages")) return;
+  done = 1;
+  for (int i = 0; i < PAGES; i++) {
+    int w, h, pitch, is565;
+    uint16_t *bb = gdi_screen_dib(i, &w, &h, &pitch, &is565);
+    if (!bb) continue;
+    uint32_t *px = malloc((size_t)w * h * 4);
+    if (!px) continue;
+    for (int y = 0; y < h; y++)
+      for (int x = 0; x < w; x++) {
+        uint16_t v = bb[(ptrdiff_t)y * pitch + x];
+        int r, g, b;
+        if (is565) r = ((v >> 11) & 31) * 255 / 31, g = ((v >> 5) & 63) * 255 / 63, b = (v & 31) * 255 / 31;
+        else r = ((v >> 10) & 31) * 255 / 31, g = ((v >> 5) & 31) * 255 / 31, b = (v & 31) * 255 / 31;
+        px[y * w + x] = 0xff000000u | (uint32_t)r << 16 | (uint32_t)g << 8 | (uint32_t)b;
+      }
+    SDL_Surface *sf = SDL_CreateRGBSurfaceWithFormatFrom(px, w, h, 32, w * 4, SDL_PIXELFORMAT_ARGB8888);
+    char name[200];
+    snprintf(name, sizeof name, "rp_page%d.bmp", i);
+    if (sf) SDL_SaveBMP(sf, name), SDL_FreeSurface(sf);
+    free(px);
+  }
+}
+
+static void capture_pics(void) {
+  dump_pages();
+  for (int k = 0; k < g_npic; k++) {
+    if (!g_pic[k].on) continue;
+    int w, h, pitch, is565;
+    if (g_pic[k].page < 0) g_pic[k].page = drawn_page(g_pic[k].x + g_pic[k].w / 2, g_pic[k].y + g_pic[k].h / 2);
+    if (g_pic[k].page < 0) continue;
+    uint16_t *bb = gdi_screen_dib(g_pic[k].page, &w, &h, &pitch, &is565);
+    if (!bb || g_pic[k].x + g_pic[k].w > w || g_pic[k].y + g_pic[k].h > h) continue;
+    int pw = g_pic[k].w, ph = g_pic[k].h;
+    if (g_kind == RP_PROFILE && g_keep[g_pic[k].page] && g_keep_w[g_pic[k].page] == w) {   // golf has not drawn it yet: the course shows
+      int same = 1;
+      for (int y = 0; y < ph && same; y += 4)
+        for (int x = 0; x < pw; x += 4)
+          if (bb[(ptrdiff_t)(g_pic[k].y + y) * pitch + g_pic[k].x + x] != g_keep[g_pic[k].page][(size_t)(g_pic[k].y + y) * w + g_pic[k].x + x]) { same = 0; break; }
+      if (same) continue;
+    }
+    uint32_t *px = malloc((size_t)pw * ph * 4);
+    if (!px) continue;
+    uint32_t hash = 2166136261u;
+    for (int y = 0; y < ph; y++)
+      for (int x = 0; x < pw; x++) {
+        uint16_t v = bb[(ptrdiff_t)(g_pic[k].y + y) * pitch + g_pic[k].x + x];
+        hash = (hash ^ v) * 16777619u;
+        int r, g, b;
+        if (is565) r = ((v >> 11) & 31) * 255 / 31, g = ((v >> 5) & 63) * 255 / 63, b = (v & 31) * 255 / 31;
+        else r = ((v >> 10) & 31) * 255 / 31, g = ((v >> 5) & 31) * 255 / 31, b = (v & 31) * 255 / 31;
+        px[y * pw + x] = 0xff000000u | (uint32_t)r << 16 | (uint32_t)g << 8 | (uint32_t)b;
+      }
+    if (hash != g_pic[k].hash) {
+      g_pic[k].hash = hash;
+      rpf_publish_art(g_pic[k].art, px, pw, ph);
+      if (g_log) fprintf(stderr, "reports: picture %d %dx%d from page %d\n", k, pw, ph, g_pic[k].page);
+      if (g_log && getenv("SIMGOLF_REPORTS_DUMP")) {
+        SDL_Surface *sf = SDL_CreateRGBSurfaceWithFormatFrom(px, pw, ph, 32, pw * 4, SDL_PIXELFORMAT_ARGB8888);
+        if (sf) SDL_SaveBMP(sf, "rp_picture.bmp"), SDL_FreeSurface(sf);
+      }
+    }
+    free(px);
+    RpItem *it = slot(RP_IT_PIC, g_pic[k].x, g_pic[k].y);
+    if (it) it->w = (int16_t)pw, it->h = (int16_t)ph, it->art = (uint8_t)(g_pic[k].art + 1);
+  }
+}
+
+int rp_is_on(void) { return g_on; }
+
+// golf's text calls inside functions that other screens use too (FUN_0045b0d0 wraps the bio and Gary's hints): recorded only for
+// the task-73 pages.
+int rp_tcp(int fn, char *s, int x, int y, uint32_t col) {
+  if (g_on && g_kind >= RP_PROFILE) return rp_tc(fn, s, x, y, col);
+  return fn == 2 ? FUN_004049d0(s, x, y, col) : FUN_00404ad0(s, x, y, col);
+}
+
+// The golfer profile's nested screens. The face picker (FUN_00438390) is a modal loop of its own on the page, drawn over
+// the profile page: while it runs the original look comes back (the page as golf drew it last, golf's own UI layer).
+// The bio editor (the text widget loop) keeps the native panel up and shows the bio golf is editing, live.
+void rp_frame(void);
+static int g_sub, g_in_edit;
+static uint16_t *g_pf;          // the profile page as golf drew it (last frame, before the picture from before it was put back)
+static int g_pf_w, g_pf_h;
+
+static void profile_page_keep(void) {
+  if (g_kind != RP_PROFILE || g_npic < 1 || g_pic[0].page < 0) return;
+  int w, h, pitch, is565;
+  uint16_t *bb = gdi_screen_dib(g_pic[0].page, &w, &h, &pitch, &is565);
+  if (!bb) return;
+  if (!g_pf || g_pf_w != w || g_pf_h != h) {
+    free(g_pf);
+    g_pf = malloc((size_t)w * h * 2);
+    g_pf_w = w, g_pf_h = h;
+  }
+  if (g_pf)
+    for (int y = 0; y < h; y++) memcpy(g_pf + (size_t)y * w, bb + (ptrdiff_t)y * pitch, (size_t)w * 2);
+}
+
+void rp_sub(int open) {
+  if (!g_on || g_kind != RP_PROFILE) return;
+  if (g_log) fprintf(stderr, "reports: profile nested screen %s\n", open ? "open" : "closed");
+  if (open) {
+    g_sub = 1;
+    int w, h, pitch, is565;
+    uint16_t *bb = g_npic > 0 && g_pic[0].page >= 0 ? gdi_screen_dib(g_pic[0].page, &w, &h, &pitch, &is565) : NULL;
+    if (bb && g_pf && w == g_pf_w && h == g_pf_h)
+      for (int y = 0; y < h; y++) memcpy(bb + (ptrdiff_t)y * pitch, g_pf + (size_t)y * w, (size_t)w * 2);
+    rpf_end();
+    hd_ui_show_golf_ui(1);
+  } else {
+    g_sub = 0;
+    hd_ui_show_golf_ui(0);
+    keep_restore();
+  }
+}
+
+// once per iteration of the bio editor's loop
+void rp_edit(void) {
+  if (!g_on || g_kind != RP_PROFILE) return;
+  g_in_edit = 1;
+  rp_frame();
+  g_in_edit = 0;
+}
+
 void rp_frame(void) {
-  if (!g_on) return;
+  if (!g_on || g_sub) return;
+  if (g_kind == RP_PROFILE) {
+    g_snap.ext[0] = g_in_edit;   // the bio editor is open
+    int gi = (int16_t)G32(0x582e6e) & 0xffff;
+    const char *bio = (const char *)(uintptr_t)(0x4d60b8 + (uint32_t)gi * 0x230);
+    if (g_in_edit) {   // golf's text widget (0x5a9f78) edits its own copy of the bio: show that, live
+      uint32_t wb = G32(0x5a9f78 + 0x574);
+      if (wb > 0x10000) bio = (const char *)(uintptr_t)wb;
+    }
+    if (gi < 0x200) copy_str(g_snap.bio, sizeof g_snap.bio, bio, -1);
+    if (!g_in_edit) profile_page_keep();
+  }
   g_snap.serial = ++g_serial;
   rpf_publish(&g_snap);
   RpAction a;
   while (rpf_take_action(&a)) {
+    // the land map has no Esc of its own: its leave control is the check button (golf's right click also leaves)
+    if (a.kind == RP_A_CLOSE && g_kind == RP_TRACTS) a = (RpAction){RP_A_CLICK, 688 | (560 << 16)};
     if (a.kind == RP_A_CLOSE || a.kind == RP_A_TAB) {
       if (a.kind == RP_A_TAB && a.arg != g_kind) g_pending = a.arg;
       if (!g_closing) {
@@ -394,8 +571,12 @@ void rp_frame(void) {
         push_key(SDLK_ESCAPE, 1);
         push_key(SDLK_ESCAPE, 0);
       }
-    } else if (a.kind == RP_A_CLICK && !g_inj) {
+    } else if (a.kind == RP_A_KEY) {
+      push_key((SDL_Keycode)a.arg, 1);
+      push_key((SDL_Keycode)a.arg, 0);
+    } else if ((a.kind == RP_A_CLICK || a.kind == RP_A_RCLICK) && !g_inj) {
       g_inj = 1;
+      g_inj_btn = a.kind == RP_A_RCLICK ? SDL_BUTTON_RIGHT : SDL_BUTTON_LEFT;
       g_inj_x = a.arg & 0xffff;
       g_inj_y = (a.arg >> 16) & 0xffff;
       g_inj_stage = g_inj_wait = 0;
@@ -404,6 +585,8 @@ void rp_frame(void) {
   }
   inj_step();
   capture_art();
+  // not while golf's text widget draws over the portrait; the land map only when golf drew it (it draws once, then the page is put back)
+  if (!g_in_edit && (g_kind != RP_TRACTS || g_dirty)) capture_pics();
   keep_restore();
   if (g_dirty) FUN_00480c80((void *)0x519a60);   // only when golf drew: a waiting report presents no frames
   g_dirty = 0;
@@ -411,6 +594,10 @@ void rp_frame(void) {
 
 // golf's drawString (the tournament results' right column)
 int FUN_00478140(void *w, char *s, int x, int y, char *len);
+int FUN_00477c30(void *w, char *s, int x, int y, int len);
+int FUN_00478430(void *w, char *s, int x, int y, int width);
+int FUN_00478080(void *w, char *s, int x, int y, int a, char *len);
+void rp_done(void);
 int rp_ds(void *w, char *s, int x, int y, char *len) {
   if ((uintptr_t)w == PAGE_WIDGET) record(s, (int)(intptr_t)len, x, y, RP_AL_RIGHT, 0);
   return FUN_00478140(w, s, x, y, len);
@@ -453,6 +640,44 @@ void rp_ov(int kind, int phase) {
     }
   capture_art();
   keep_restore();
+}
+
+// The land purchase map and the snapshot popup draw text through golf's page string calls: recorded like the others, each
+// at the place the original puts it (left; wrapped text from its corner; right aligned text ends at x).
+int rp_t7c30(void *w, char *s, int x, int y, int len) {
+  if ((uintptr_t)w == PAGE_WIDGET) record(s, len, x, y, RP_AL_LEFT, 0);
+  return FUN_00477c30(w, s, x, y, len);
+}
+
+int rp_t8430(void *w, char *s, int x, int y, int width) {
+  if ((uintptr_t)w == PAGE_WIDGET) {
+    RpItem *it = record(s, -1, x, y, RP_AL_LEFT, 0);
+    if (it) it->w = (int16_t)width;
+  }
+  return FUN_00478430(w, s, x, y, width);
+}
+
+int rp_t8080(void *w, char *s, int x, int y, int a, char *len) {
+  if ((uintptr_t)w == PAGE_WIDGET) record(s, (int)(intptr_t)len, x, y, RP_AL_RIGHT, 0);
+  return FUN_00478080(w, s, x, y, a, len);
+}
+
+// The decompile of the widget create (FUN_0047a4c0) calls FUN_0047abe0 with the flags where the parent widget belongs. Only the
+// profile's bio text widget (FUN_00486110, flag 0x100000) needs the registration to work, and with the flags it reads
+// memory at 0x1020bc and crashes; other widgets (the front end's list) keep what they had, so for them nothing changes.
+static int g_wfix;
+void rp_wfix(int on) { g_wfix = on; }
+int rp_warg(int flags, int parent) { return g_wfix ? parent : flags; }
+
+// The land map of the native look leaves on Esc, like its check button (the original screen ignores Esc).
+int FUN_0045ae70(void);
+int FUN_0045ae30(void);
+int rp_esc(void) { return g_on && g_kind == RP_TRACTS && FUN_0045ae70() && FUN_0045ae30() == 0x1b; }
+
+// A page that returns from several places: the native page closes and the value goes through.
+int rp_end(int v) {
+  rp_done();
+  return v;
 }
 
 void rp_done(void) {

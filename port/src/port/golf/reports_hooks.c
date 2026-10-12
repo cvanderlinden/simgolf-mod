@@ -28,5 +28,16 @@ void rp_rect(void *page, int x, int y, int w, int h, unsigned col) { FUN_00480b0
 int rp_chip(void *sprite, int target, int x, int y, int clip) { return FUN_00473e60(sprite, target, x, y, clip); }
 int rp_ds(void *w, char *s, int x, int y, char *len) { return FUN_00478140(w, s, x, y, len); }
 void rp_ov(int kind, int phase) { (void)kind, (void)phase; }
+int rp_tcp(int fn, char *s, int x, int y, unsigned col) { return fn == 2 ? FUN_004049d0(s, x, y, col) : FUN_00404ad0(s, x, y, col); }
+void rp_sub(int open) { (void)open; }
+void rp_edit(void) {}
+// task-73: the land purchase map
+int rp_t7c30(void *w, char *s, int x, int y, int len) { return FUN_00477c30(w, s, x, y, len); }
+int rp_t8430(void *w, char *s, int x, int y, int width) { return FUN_00478430(w, s, x, y, width); }
+int rp_t8080(void *w, char *s, int x, int y, int a, char *len) { return FUN_00478080(w, s, x, y, a, len); }
+int rp_esc(void) { return 0; }
+void rp_wfix(int on) { (void)on; }
+int rp_warg(int flags, int parent) { (void)parent; return flags; }
+int rp_end(int v) { return v; }
 
 #endif

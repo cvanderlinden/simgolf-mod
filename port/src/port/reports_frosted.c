@@ -11,6 +11,7 @@
 #include <strings.h>
 
 #include "mods/mods.h"
+#include "port/dialogs_frosted.h"
 #include "port/hd_native.h"
 #include "port/host.h"
 #include "port/runtime.h"
@@ -105,7 +106,11 @@ int rpf_take_action(RpAction *a) {
   return ok;
 }
 
-static int active(void) { return g_want && g_registered && !g_ended && host_now_ms() - g_snap_t < STALE_MS; }
+// the task-73 pages wait for the player inside nested loops (a name being typed, a face picked), so they stay up until rp_done
+static int active(void) {
+  double lim = g_snap.kind >= RP_PROFILE ? 1e12 : STALE_MS;
+  return g_want && g_registered && !g_ended && host_now_ms() - g_snap_t < lim;
+}
 
 static void load_tokens(UiTokens *t) {
   char base[1024];
@@ -161,7 +166,9 @@ static void draw(const HdUiFrame *f, void *user) {
   g_view_x = (float)f->view.x;
   g_view_y = (float)f->view.y;
   g_view_px = f->px > 0 ? f->px : 1;
-  int show = active() && w > 0;
+  // the task-73 pages hide while a native dialog is up over them (a name strip, a menu): the dialogs layer was registered first
+  // (at the title) and so draws under this one
+  int show = active() && w > 0 && !(g_snap.kind >= RP_PROFILE && dlgf_active());
   g_visible = show;
   if (!show) {
     ui_skip_frame(g_ui);
@@ -179,6 +186,7 @@ static void draw(const HdUiFrame *f, void *user) {
     return;
   }
   update_art(r);
+  if (s->kind >= RP_PROFILE && dlgf_active()) ui_input_reset(g_ui);   // a native dialog over the page (a name, a menu) takes the pointer
   ui_begin(g_ui, f->target, w, h, rp_scale(w, h), f->target, host_now_ms());
   RpAction acts[8];
   int n = ui_reports_draw(g_ui, s, g_tex, acts, 8);
@@ -212,6 +220,7 @@ static void draw(const HdUiFrame *f, void *user) {
 static int input(SDL_Event *e, int course, void *user) {
   (void)user, (void)course;
   if (!g_ui || !g_want) return 0;
+  if (g_snap.kind >= RP_PROFILE && dlgf_active()) return 0;   // the dialog over the page takes the pointer
   UiEvent u = {0};
   int cx = 0, cy = 0;
   switch (e->type) {
@@ -246,6 +255,16 @@ static int input(SDL_Event *e, int course, void *user) {
   }
   ui_route_event(g_ui, &u);
   return 1;   // a report takes every real pointer event
+}
+
+// the task-73 pages follow ui.dialogs too (they were left by the dialogs card); the older reports only ui.reports
+int rpf_enabled_kind(int kind) {
+  if (!rpf_enabled()) return 0;
+  if (kind < RP_PROFILE) return 1;
+  const char *v = mods_get("ui.dialogs");
+  const char *e = getenv("SIMGOLF_DIALOGS");
+  if (e && !strcasecmp(e, "original")) return 0;
+  return v && (!strcasecmp(v, "frosted_mint") || !strcasecmp(v, "frosted-mint"));
 }
 
 int rpf_enabled(void) {

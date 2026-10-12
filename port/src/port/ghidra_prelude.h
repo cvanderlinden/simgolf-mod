@@ -321,6 +321,7 @@ void hdball_rest(int slot, int sx, int sy);   // a ball at rest on a hole (golf'
 void hdball_air(int slot, int sx, int sy);    // a ball in flight or rolling (golf queues its sprites)
 void hdball_item(int i);                      // one queued sprite of FUN_00463100 (FUN_00462be0 for others)
 void hdball_resolve(void);                    // after golf drew its sprites
+void hdball_trail(int slot, int x0, int y0, int x1, int y1, int col, int w, int a);   // task-61: golf's trail segment behind a ball in flight
 
 // task-28 (src/port/golf/reports_hooks.c, reports_game.c): the Frosted Mint reports. Translator
 // patches (port/tools/translate/golf.reports.json) in the main loop and the report screens call these;
@@ -340,6 +341,18 @@ void rp_rect(void *page, int x, int y, int w, int h, unsigned col);    // FUN_00
 int rp_chip(void *sprite, int target, int x, int y, int clip);        // FUN_00473e60, golf's pictogram or highlight box
 int rp_ds(void *w, char *s, int x, int y, char *len);                // FUN_00478140
 void rp_ov(int kind, int phase);   // a report golf draws every main-loop frame: 0 before, 1 after
+// task-73 (golf.pages.json): the golfer profile page and its nested screens
+int rp_tcp(int fn, char *s, int x, int y, unsigned col);   // rp_tc, recorded only on the task-73 pages (FUN_0045b0d0)
+void rp_sub(int open);          // the face picker opens (1) and closes (0): the original look shows meanwhile
+void rp_edit(void);             // once per iteration of the bio editor's loop
+// the land purchase map (FUN_004587a0) and the snapshot popup (FUN_0046e810)
+int rp_t7c30(void *w, char *s, int x, int y, int len);            // FUN_00477c30, a string at a place
+int rp_t8430(void *w, char *s, int x, int y, int width);          // FUN_00478430, wrapped text
+int rp_t8080(void *w, char *s, int x, int y, int a, char *len);   // FUN_00478080, right aligned text
+void rp_wfix(int on);           // FUN_00486110 creates its text widget: the create call below gets the parent, not the flags
+int rp_warg(int flags, int parent);   // FUN_0047a4c0's FUN_0047abe0 argument
+int rp_esc(void);               // Esc was pressed on the native land map
+int rp_end(int v);              // the screen is leaving with v: closes the native page, returns v
 
 // task-32 (src/port/golf/frontend_hooks.c, frontend_game.c): the Frosted Mint
 // front end. Translator patches (tools/translate/golf.frontend.json) in the

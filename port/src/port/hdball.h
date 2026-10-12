@@ -32,7 +32,9 @@ enum { HB_KIND_REST = 0, HB_KIND_AIR = 1 };
 typedef struct {
   int16_t slot;
   uint8_t kind;           // HB_KIND_*
-  uint8_t pad;
+  uint8_t trail;          // golf drew its trail segment for this ball this frame (task-61: the shots golf marks with a streak)
+  int16_t person;         // the golfer's person id (1..75, record +0xb6): stable across saves, keys the personal ball colour (task-61)
+  int16_t pad;
   int32_t wx, wy, wz;     // golf's own ball position (1/1024 tile, z the same unit)
   float gx, gy;           // the ground point on the canvas, as golf's worldToScreen gave it (terrain height included)
   float lift;             // golf's lift of the ball above that point, canvas px
@@ -51,6 +53,10 @@ typedef struct {
 
 // ---- game thread (hdball.c)
 int hdball_on(void);                                   // the round ball is wanted and can be shown
+// ui.ball_trail (task-61): how the trail behind a ball in flight is drawn.
+enum { HB_TRAIL_SMOOTH = 0, HB_TRAIL_ALL, HB_TRAIL_ORIGINAL, HB_TRAIL_OFF };
+int hdball_trail_mode(void);
+int hb_trail(int slot);                                // golf is about to draw its trail segment: 1 = skip it (the presenter draws the ribbon)
 // Called by the hooks in golf/ball_hooks.c.
 int hb_note(int slot, int kind, int sx, int sy);       // records the ball; 1 when the round ball is on this frame
 int hb_frame_on(void);
