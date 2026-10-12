@@ -317,6 +317,9 @@ void gc_mouse(int *x, int *y);                         // the card's pointer: pa
 // task-41 (src/port/golf/ball_hooks.c): the round HD golf ball. Translator patches
 // (golf.ball.json) route golf's own ball draws through these; with ui.ball=original
 // (and in the browser build) they make the original call and nothing else.
+// task-87: the 0x58-byte object table at 0x81ca6c, read with an index. Garbage indexes (lost vcall
+// arguments in FUN_00462020) give null, as the browser build's zero pages did.
+static inline int *gs_slot(int i) { return (i >= 0 && i < 0x200) ? *(int **)(uintptr_t)(0x81ca6cu + (uint32_t)i * 0x58u) : (int *)0; }
 void hdball_rest(int slot, int sx, int sy);   // a ball at rest on a hole (golf's 2 px line)
 void hdball_air(int slot, int sx, int sy);    // a ball in flight or rolling (golf queues its sprites)
 void hdball_item(int i);                      // one queued sprite of FUN_00463100 (FUN_00462be0 for others)

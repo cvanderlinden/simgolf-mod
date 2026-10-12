@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2
+
+Crash fix.
+
+- Fixed: the game could crash a minute or two after loading a course, while drawing golfer portraits (also in 0.1.0 and 0.1.1)
+
 ## 0.1.1
 
 Fixes and small upgrades.

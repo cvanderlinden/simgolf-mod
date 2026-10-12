@@ -26,7 +26,8 @@ it on your PC and nothing from it ever leaves your computer.
 - **Native 1080p, 1440p, 4K, and ultrawide (21:9)**, sharp and filling the screen, borderless full screen or windowed.
 - **Optional HD art pack:** all 132,000 of the game's own pictures upscaled 4x (golfers, buildings, trees, ground, animals, menus, effects). Setup downloads it for you (about 2.6 GB). Switch any time between **HD**, **Pixel HD** (crisp pixel look) and **Original**.
 - **Frame rate options:** 60, 120, 144, 240 or uncapped, with v-sync.
-- A round, shaded HD golf ball with smooth flight.
+- A round, shaded HD golf ball with smooth flight: smaller than the first version, every golfer plays their own colour, with a smooth fading trail.
+- A new HD start menu logo.
 - A clean new **Frosted Mint** look: start menu, loading screens, course HUD, dialogs, report panel, golfer cards and notifications, with the modern Plus Jakarta Sans font and steady numbers.
 
 ### Smoother play
@@ -39,13 +40,15 @@ it on your PC and nothing from it ever leaves your computer.
 ### Golfers and information
 - Golfer **names on hover** (N shows all), smaller and lighter **thought bubbles**, new **mood faces**.
 - A **golfer card** with mood bars, scores, recent comments and their profile.
+- A **golfer profile page**: edit the bio and read everything the golfer says; the land purchase map in the new look.
 - **Notifications** you can click for the full text and to jump to the golfer or hole, plus a **message history**.
 - **All reports in one tabbed panel**: course, comments, histograph, SGA, finances, roster, best scores, hole stats.
 
 ### Fixes
 - No more black triangles at waterfalls and water on slopes.
 - Clicking a standing building no longer places a second one on top of it and charges you twice.
-- No stuck name-tag text, no black box under the blimp in HD.
+- No stuck name-tag text, no black box under the blimp in HD, no old 2002 HUD showing under the new one.
+- A crash a minute or two after loading a course is fixed (0.1.2).
 
 ### Restored cut content
 - Things the game's files contained but never offered, like the oriental house, the dinosaur tar pit and the lovers' bench. Turn on **Cut content** in Options.
@@ -72,11 +75,10 @@ Full step-by-step help and fixes for common problems are in [INSTALL.md](INSTALL
 ## Coming next
 
 Being worked on now:
-- **Realistic water:** moving waves, ripples that spread and bounce off the shore, rings where balls splash in, flowing streams, waterfall spray, sun glints
-- **Pro golfer skills past 100%** once your course has 18 holes (up to 150%), as the original game intended
-- **Path view:** see at a glance which buildings are joined to the clubhouse, with a marker on any that are not
-- **Ball options:** smaller ball, every golfer's own ball colour, a smooth trail
-- **The last old screens** redone: golfer profile editor, snapshot photos, land purchase map, Top 10 and leaderboards
+- **Realistic water** in a painted look that fits the game: moving waves, ripples off the shore, small splashes where balls go in, flowing streams, waterfall spray, sun glints
+- **Pro golfer skills past 100%** once your course has 18 holes (up to 150%), as the original game intended, with regulars who slowly get better and rival pros who keep pace
+- **Path view (Y):** see at a glance which buildings are joined to the clubhouse, with a marker on any that are not
+- **The last old screens** redone: snapshot photos, Top 10 and leaderboards
 
 Planned:
 - **Weather:** sun, drifting cloud shadows, rain, storms that send golfers to shelter, morning fog, wind (look-only or with gentle effects on play)

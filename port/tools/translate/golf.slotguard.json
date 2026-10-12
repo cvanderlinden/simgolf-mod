@@ -1,0 +1,27 @@
+{
+ "comment": "task-87: FUN_00462020 (golfer portrait page) indexes the 0x58-byte object table at 0x81ca6c with stack slots Ghidra mis-tracked (stack addresses, return addresses). The original never read them as indexes; the browser build read zero pages. gs_slot() (ghidra_prelude.h) returns the slot for a plausible index and null otherwise, so the garbage reads are skipped natively however the stack happens to sit (a stack address times 0x58 can land above 2 GB where host_win32.c cannot commit a zero page).",
+ "patches": {
+  "FUN_00462020": [
+   [
+    "(&DAT_0081ca6c)[iStack_334 * 0x16]",
+    "gs_slot(iStack_334)"
+   ],
+   [
+    "(&DAT_0081ca6c)[(int)piStack_350 * 0x16]",
+    "gs_slot((int)piStack_350)"
+   ],
+   [
+    "(&DAT_0081ca6c)[uVar8 * 0x16]",
+    "gs_slot(uVar8)"
+   ],
+   [
+    "(&DAT_0081ca6c)[iVar7 * 0x16]",
+    "gs_slot(iVar7)"
+   ],
+   [
+    "(&DAT_0081ca6c)[(int)piVar4 * 0x16]",
+    "gs_slot((int)piVar4)"
+   ]
+  ]
+ }
+}
