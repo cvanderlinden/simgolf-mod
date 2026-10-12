@@ -155,6 +155,10 @@ static void push_act(FeAction *acts, int max, int *n, int kind, int arg) {
   }
 }
 
+#ifndef SIMGOLF_VERSION
+#define SIMGOLF_VERSION "dev"
+#endif
+
 // ------------------------------------------------------------------ the start menu
 
 static int draw_title(Scene *s, const FeSnap *snap, SDL_Texture *const *art, FeAction *acts, int max) {
@@ -170,7 +174,8 @@ static int draw_title(Scene *s, const FeSnap *snap, SDL_Texture *const *art, FeA
     logo_h = logo_w * th / (float)tw;
   }
   float tile_h = 126, gap = 12;
-  float ph = 40 + logo_h + 28 + tile_h * 2 + gap + 22 + 40 + 30;
+  const float rem_h = 40;   // task-80: the "Remastered" line under the logo
+  float ph = 40 + logo_h + rem_h + 20 + tile_h * 2 + gap + 22 + 40 + 30;
   UiRect p = R(s, (1920 - PW) / 2, (1080 - ph) / 2, PW, ph);
   ui_panel(c, p, U(s, t->radius_panel), UI_PANEL_READABLE);
   if (logo) {
@@ -180,7 +185,10 @@ static int draw_title(Scene *s, const FeSnap *snap, SDL_Texture *const *art, FeA
     UiRect lr = R(s, (1920 - logo_w) / 2, (1080 - ph) / 2 + 40, logo_w, logo_h);
     ui_text_in(c, lr, UI_TYPE_DISPLAY, t->text_primary, "SimGolf", 0.5f);
   }
-  float gx = (1920 - PW) / 2 + PAD, gy = (1080 - ph) / 2 + 40 + logo_h + 28;
+  // task-80: "Remastered" tucked under the right half of the logo, in the accent green.
+  ui_text_in(c, R(s, (1920 - logo_w) / 2, (1080 - ph) / 2 + 40 + logo_h - 6, logo_w - 8, rem_h), UI_TYPE_TITLE, t->accent,
+             "Remastered", 1.0f);
+  float gx = (1920 - PW) / 2 + PAD, gy = (1080 - ph) / 2 + 40 + logo_h + rem_h + 20;
   float gw = PW - 2 * PAD, tw3 = (gw - 2 * gap) / 3;
   char sub[64];
   snprintf(sub, sizeof sub, "Theme: %s", snap->theme_name[0] ? snap->theme_name : "Standard");
@@ -199,7 +207,7 @@ static int draw_title(Scene *s, const FeSnap *snap, SDL_Texture *const *art, FeA
       push_act(acts, max, &n, FE_A_TITLE, T[i].act);
   }
   float fy = gy + tile_h * 2 + gap + 22;
-  ui_text_in(c, R(s, gx, fy, 400, 40), UI_TYPE_CAPTION, t->text_secondary, "SimGolf Remastered (mod preview)", 0);
+  ui_text_in(c, R(s, gx, fy, 400, 40), UI_TYPE_CAPTION, t->text_secondary, "SimGolf Remastered  v" SIMGOLF_VERSION, 0);
   UiRect q = R(s, gx + gw - 118, fy, 118, 40);
   g_layout.btn[5] = q;
   if (ui_button(c, ui_id("fe.quit"), q, "Quit", UI_ICON_DOOR, UI_BTN_PILL, 0)) push_act(acts, max, &n, FE_A_TITLE, 5);

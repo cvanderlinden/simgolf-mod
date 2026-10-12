@@ -9,6 +9,13 @@ This download contains **no game files**. You bring your own copy of the game
 (the disc image and the version 1.02 no-CD `golf.exe`); the installer unpacks
 it on your PC and nothing from it ever leaves your computer.
 
+![The showcase course in HD with the new HUD](screenshots/course-hd.jpg)
+
+| | |
+|---|---|
+| ![Start menu](screenshots/start-menu.jpg) | ![Golfer card](screenshots/golfer-card.jpg) |
+| ![Course report](screenshots/reports.jpg) | ![Options page](screenshots/options.jpg) |
+
 ## What you get
 
 - Sharp, crisp picture at any screen size, borderless full screen, any frame rate
@@ -33,6 +40,24 @@ it on your PC and nothing from it ever leaves your computer.
 4. Play with the **SimGolf Remastered** shortcut on your desktop.
 
 Full step-by-step help and fixes for common problems are in [INSTALL.md](INSTALL.md).
+
+## Coming next
+
+Being worked on now:
+- **Realistic water:** moving waves, ripples that spread and bounce off the shore, rings where balls splash in, flowing streams, waterfall spray, sun glints
+- **Pro golfer skills past 100%** once your course has 18 holes (up to 150%), as the original game intended
+- **Path view:** see at a glance which buildings are joined to the clubhouse, with a marker on any that are not
+- **Ball options:** smaller ball, every golfer's own ball colour, a smooth trail
+- **The last old screens** redone: golfer profile editor, snapshot photos, land purchase map, Top 10 and leaderboards
+
+Planned:
+- **Weather:** sun, drifting cloud shadows, rain, storms that send golfers to shelter, morning fog, wind (look-only or with gentle effects on play)
+- **Pause and speed buttons** on the HUD, and faster speeds that really hold up on big courses
+- Faster loading, flat land that starts higher so you can dig down, placeable wetlands
+- Animals you can buy and place, and a setting for how many wild animals appear
+- Celebrities who buy homes and play your tournaments, AI-made golfers and stories, more languages
+
+Ideas and help are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Good to know
 

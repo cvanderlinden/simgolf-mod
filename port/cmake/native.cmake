@@ -57,8 +57,15 @@ target_sources(golf PRIVATE src/port/hd_art.c)
 # task-25: the ui.font switch (settings, face map, blending) behind gdi.c's text path
 target_sources(golf PRIVATE src/port/ui_font.c)
 
+# Release version shown on the start menu (task-80), from tools/release/VERSION.
+set(SIMGOLF_VERSION "dev")
+if(EXISTS "${CMAKE_SOURCE_DIR}/../tools/release/VERSION")
+  file(STRINGS "${CMAKE_SOURCE_DIR}/../tools/release/VERSION" SIMGOLF_VERSION LIMIT_COUNT 1)
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/../tools/release/VERSION")
+endif()
 target_compile_definitions(golf PRIVATE SIMGOLF_PORT_FS _CRT_SECURE_NO_WARNINGS _CRT_NONSTDC_NO_WARNINGS _USE_MATH_DEFINES
-  "SIMGOLF_DEFAULT_GAME=\"${SIMGOLF_GAME}\"" "SIMGOLF_DEFAULT_ART_DIR=\"${SIMGOLF_ART}\"")
+  "SIMGOLF_DEFAULT_GAME=\"${SIMGOLF_GAME}\"" "SIMGOLF_DEFAULT_ART_DIR=\"${SIMGOLF_ART}\""
+  "SIMGOLF_VERSION=\"${SIMGOLF_VERSION}\"")
 target_include_directories(golf PRIVATE src third_party/stb src/compat/msvc "${SIMGOLF_SDL2}/include")
 # Mod platform (task-11): sources, defaults and the modctl_core / mods_tests tools.
 include(cmake/mods.cmake)
