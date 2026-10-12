@@ -1,5 +1,6 @@
 // Frosted Mint front end (task-32): see ui_frontend.h.
 #include "port/ui/ui_frontend.h"
+#include "port/ui/ui_text.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -174,7 +175,7 @@ static int draw_title(Scene *s, const FeSnap *snap, SDL_Texture *const *art, FeA
     logo_h = logo_w * th / (float)tw;
   }
   float tile_h = 126, gap = 12;
-  const float rem_h = 40;   // task-80: the "Remastered" line under the logo
+  const float rem_h = 34;   // task-80: room for "Remastered", which overlaps the logo's bottom edge
   float ph = 40 + logo_h + rem_h + 20 + tile_h * 2 + gap + 22 + 40 + 30;
   UiRect p = R(s, (1920 - PW) / 2, (1080 - ph) / 2, PW, ph);
   ui_panel(c, p, U(s, t->radius_panel), UI_PANEL_READABLE);
@@ -185,9 +186,28 @@ static int draw_title(Scene *s, const FeSnap *snap, SDL_Texture *const *art, FeA
     UiRect lr = R(s, (1920 - logo_w) / 2, (1080 - ph) / 2 + 40, logo_w, logo_h);
     ui_text_in(c, lr, UI_TYPE_DISPLAY, t->text_primary, "SimGolf", 0.5f);
   }
-  // task-80: "Remastered" tucked under the right half of the logo, in the accent green.
-  ui_text_in(c, R(s, (1920 - logo_w) / 2, (1080 - ph) / 2 + 40 + logo_h - 6, logo_w - 8, rem_h), UI_TYPE_TITLE, t->accent,
-             "Remastered", 1.0f);
+  // task-80: "Remastered" styled like the logo's lettering (heavy green letters, white rim, dark green
+  // edge and drop shadow), tucked up into the bottom right of the logo so it reads as part of it.
+  {
+    UiText *tx = ui_texter(c);
+    const char *word = "Remastered";
+    float px = 50 * s->u, rim = 3.2f * s->u, edge = 5.4f * s->u;
+    float w = uit_measure(tx, 800, px, word, -0.01f);
+    float x = s->S.x + ((1920 + logo_w) / 2 - 18) * s->u - w;
+    float base = s->S.y + ((1080 - ph) / 2 + 40 + logo_h + 22) * s->u;
+    const UiColor shadow = {6, 48, 18, 110}, dark = {12, 82, 30, 255}, white = {255, 255, 255, 255}, green = {38, 150, 58, 255};
+    uit_draw(tx, x + 2 * s->u, base + 4 * s->u, 800, px, word, -0.01f, shadow);
+    for (int i = 0; i < 16; i++) {   // dark outer edge, then the white rim, sampled around a circle
+      float a = i * 0.3927f;
+      uit_draw(tx, x + cosf(a) * edge, base + sinf(a) * edge, 800, px, word, -0.01f, dark);
+    }
+    for (int i = 0; i < 16; i++) {
+      float a = i * 0.3927f;
+      uit_draw(tx, x + cosf(a) * rim, base + sinf(a) * rim, 800, px, word, -0.01f, white);
+    }
+    uit_draw(tx, x, base, 800, px, word, -0.01f, green);
+    uit_draw(tx, x, base - 1.2f * s->u, 800, px, word, -0.01f, (UiColor){70, 182, 84, 120});   // light top edge, like the logo bevel
+  }
   float gx = (1920 - PW) / 2 + PAD, gy = (1080 - ph) / 2 + 40 + logo_h + rem_h + 20;
   float gw = PW - 2 * PAD, tw3 = (gw - 2 * gap) / 3;
   char sub[64];
