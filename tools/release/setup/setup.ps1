@@ -19,6 +19,10 @@ param(
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Windows.Forms, System.IO.Compression.FileSystem
 [System.Windows.Forms.Application]::EnableVisualStyles()
+# GitHub only speaks TLS 1.2+; Windows PowerShell 5.1 may default to older protocols.
+[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+# Hidden top-most owner so every dialog opens in front of the console window, not behind it.
+$owner = New-Object System.Windows.Forms.Form -Property @{ TopMost = $true; ShowInTaskbar = $false; WindowState = "Minimized" }
 
 $here = $PSScriptRoot
 $app = Join-Path $here "app"
@@ -26,29 +30,29 @@ $NOCD_SHA1 = "6f05a3ae3b5050ed82dc0010c03842a2e0ab166b"
 $title = "SimGolf Remastered setup"
 
 function Say($t) { Write-Host $t }
-function Info($t) { if (-not $Quiet) { [void][System.Windows.Forms.MessageBox]::Show($t, $title, "OK", "Information") } else { Say $t } }
+function Info($t) { if (-not $Quiet) { [void][System.Windows.Forms.MessageBox]::Show($owner, $t, $title, "OK", "Information") } else { Say $t } }
 function Die($t) {
   Write-Host ""
   Write-Host "Problem: $t" -ForegroundColor Red
-  if (-not $Quiet) { [void][System.Windows.Forms.MessageBox]::Show($t, "$title - problem", "OK", "Error") }
+  if (-not $Quiet) { [void][System.Windows.Forms.MessageBox]::Show($owner, $t, "$title - problem", "OK", "Error") }
   exit 1
 }
 function Ask($t) {
   if ($Quiet) { return $true }
-  return [System.Windows.Forms.MessageBox]::Show($t, $title, "YesNo", "Question") -eq "Yes"
+  return [System.Windows.Forms.MessageBox]::Show($owner, $t, $title, "YesNo", "Question") -eq "Yes"
 }
 function Pick($text, $filter) {
   $d = New-Object System.Windows.Forms.OpenFileDialog
   $d.Title = $text
   $d.Filter = $filter
-  if ($d.ShowDialog() -ne "OK") { Die "Setup was cancelled." }
+  if ($d.ShowDialog($owner) -ne "OK") { Die "Setup was cancelled." }
   return $d.FileName
 }
 function Pick-Folder($text, $start) {
   $d = New-Object System.Windows.Forms.FolderBrowserDialog
   $d.Description = $text
   $d.SelectedPath = $start
-  if ($d.ShowDialog() -ne "OK") { Die "Setup was cancelled." }
+  if ($d.ShowDialog($owner) -ne "OK") { Die "Setup was cancelled." }
   return $d.SelectedPath
 }
 function Sha1-Of($path) { (Get-FileHash -Algorithm SHA1 -LiteralPath $path).Hash.ToLower() }
@@ -120,7 +124,7 @@ try {
   $p = Start-Process -FilePath $sg -ArgumentList @("install", "`"$Disc`"", "`"$exe`"", "`"$Dir`"") -NoNewWindow -Wait -PassThru -RedirectStandardOutput $log -RedirectStandardError $err
   $msg = (Get-Content $err -ErrorAction SilentlyContinue | Where-Object { $_ -like "error:*" } | Select-Object -Last 1)
   if ($p.ExitCode -ne 0) {
-    if ($msg) { Die ($msg -replace '^error:\s*', '') + "`n`nSee INSTALL.txt, 'If something goes wrong'." }
+    if ($msg) { Die (($msg -replace '^error:\s*', '') + "`n`nSee INSTALL.txt, 'If something goes wrong'.") }
     Die "Unpacking the disc failed (code $($p.ExitCode))."
   }
   Say ((Get-Content $log | Select-Object -Last 1))
