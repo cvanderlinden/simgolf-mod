@@ -1,0 +1,20 @@
+# Built-in mod: the Frosted Mint reports (card task-28).
+# Sets ui.reports=frosted_mint: golf's report screens (course report, player
+# comments, histograph, SGA evaluation, financial report, membership roster,
+# best scores, keyboard shortcuts) as one tabbed glass panel at the screen's
+# resolution. The original report loops keep running underneath and draw the
+# same text; the panel shows it, so the game state is the same either way.
+# Switch it off with `ui_reports=0` in data/mods.ini, `[ui] reports=original`
+# there, the vanilla profile, or --no-mods. Needs the native presenter
+# (hd_presentation).
+id = "ui_reports"
+name = "Frosted Mint reports"
+version = "0.1.0"
+authors = ["SimGolf mod team"]
+description = "The report screens as one tabbed panel in the Frosted Mint style."
+platform = "^1.0"
+game = ">=1.2.0"
+load_after = ["hd_presentation", "ui_font", "ui_hud", "ui_golfers", "ui_frontend"]
+
+[settings]
+"ui.reports" = "frosted_mint"

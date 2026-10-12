@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "simgolf:tables/economy",
+  "title": "Economy",
+  "description": "Money rules that are constants in golf.exe's code (one row, \"game\", so a mod may write just the field: \"set\": {\"hole_upkeep\": 2}). Money is in units of $100. Money that changes with the difficulty (start cash, wage period) is in the difficulty table.",
+  "type": "object",
+  "properties": {
+    "sandbox_cash": {
+      "type": "integer", "minimum": 0, "maximum": 100000000,
+      "description": "Cash of a new Sandbox game, in $100.",
+      "x-code": true, "x-where": "FUN_0040f5c0 (main frame, new game)"
+    },
+    "hole_upkeep": {
+      "type": "integer", "minimum": 0, "maximum": 10000,
+      "description": "Charged per open hole at every wage period, in $100 (Maint./Interest).",
+      "x-code": true, "x-where": "FUN_0040f5c0 (main frame, periodic charges)"
+    },
+    "debt_interest_divisor": {
+      "type": "integer", "minimum": 1, "maximum": 100000,
+      "description": "Once a month negative cash grows by cash / this (50 is 2 percent of the debt).",
+      "x-code": true, "x-where": "FUN_0040f5c0 (main frame, month end)"
+    },
+    "fire_fee": {
+      "type": "integer", "minimum": 0, "maximum": 10000,
+      "description": "Paid when an employee is fired, in $100 (Salaries).",
+      "x-code": true, "x-where": "employee dialog"
+    }
+  },
+  "additionalProperties": false,
+  "x-table": {
+    "single": true,
+    "rows": [
+      {"id": "game", "sandbox_cash": 10000, "hole_upkeep": 1, "debt_interest_divisor": 50, "fire_fee": 25}
+    ]
+  }
+}

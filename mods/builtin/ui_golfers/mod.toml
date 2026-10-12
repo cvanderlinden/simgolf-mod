@@ -1,0 +1,36 @@
+# Built-in mod: Frosted Mint golfers in the world (card task-31).
+# Sets ui.golfers=frosted_mint: golfer name tags under the golfers, frosted
+# thought bubbles above them and the golfer card as a popover beside the
+# selected golfer, drawn at the screen's resolution and pinned to the golfers
+# (smooth scrolling and the sub-tile camera included). The card's buttons run
+# the original card's own controls. Switch it off with `ui_golfers=0` in
+# data/mods.ini, `[ui] golfers=original` there, the vanilla profile, or
+# --no-mods. Needs the native presenter (hd_presentation).
+id = "ui_golfers"
+name = "Frosted Mint golfers"
+version = "0.1.0"
+authors = ["SimGolf mod team"]
+description = "Name tags, thought bubbles and the golfer card in the Frosted Mint style."
+platform = "^1.0"
+game = ">=1.2.0"
+load_after = ["hd_presentation", "ui_font", "ui_hud"]
+
+[settings]
+"ui.golfers" = "frosted_mint"
+# Less intrusive names and thoughts (card task-60, defaults still open).
+# ui.tags: hover (only the golfer under the pointer and the selected one; the show-all
+#   key, N, toggles every golfer's name; staff names on hover), always (every name), off.
+# ui.bubbles: brief (a big thought, good or bad, is a bubble for a few seconds; a minor one
+#   is only a small mood face over the head; hover shows the words), full (every thought
+#   as a bubble while the game shows it), icons (faces only), off.
+# ui.tag_style: plain (outlined text, a pill only on hover or selection) or pill.
+# ui.tag_scale: size of names and bubbles against the first design (1 = as in task-31).
+# ui.tag_opacity: glass opacity against the first design; the text stays solid.
+# ui.bubble_ms: how long a brief bubble stays; ui.tags_key: the show-all-names key.
+"ui.tags" = "hover"
+"ui.bubbles" = "brief"
+"ui.tag_style" = "plain"
+"ui.tag_scale" = "0.7"
+"ui.tag_opacity" = "0.85"
+"ui.bubble_ms" = "4000"
+"ui.tags_key" = "n"

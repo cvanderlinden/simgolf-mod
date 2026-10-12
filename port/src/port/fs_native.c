@@ -1,0 +1,96 @@
+// fs.h for the native Windows build (simgolf mod, task-2): the game's DOS
+// paths map straight onto the real game folder (host_game_dir()). Windows
+// paths are case-insensitive already, so there is no manifest and nothing to
+// fetch, and saves are ordinary files in the folder's "Saved Games".
+
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+
+#include <ctype.h>
+#include <direct.h>
+#include <stdio.h>
+#include <string.h>
+
+#include "port/fs.h"
+#include "port/host.h"
+#include "mods/mods.h"
+
+// The folder a game-relative path lives in: the per-instance user folder
+// (SIMGOLF_USER_DIR, task-13) for saves and snapshots, else the game folder.
+static const char *base_for(const char *rel) {
+  if (!_strnicmp(rel, "Saved Games", 11) || !_strnicmp(rel, "Snapshots", 9)) return host_user_dir();
+  return host_game_dir();
+}
+
+void fs_init(void) {
+  char p[MAX_PATH + 32];
+  // The retail installer creates these and the game never does (see fs.c).
+  snprintf(p, sizeof p, "%s/Saved Games", host_user_dir());
+  _mkdir(p);
+  snprintf(p, sizeof p, "%s/Snapshots", host_user_dir());
+  _mkdir(p);
+  fprintf(stderr, "fs: game files from %s\n", host_game_dir());
+}
+
+// DOS path -> path relative to the game folder ('/' separated), as fs.c does:
+// drive letters, the reported install folder C:\SimGolf and "./" go away.
+static void normalize(const char *dos, char *out, int outlen) {
+  char tmp[512];
+  int j = 0;
+  for (const char *p = dos; *p && j < (int)sizeof tmp - 1; p++) tmp[j++] = *p == '\\' ? '/' : *p;
+  tmp[j] = 0;
+  const char *s = tmp;
+  if (isalpha((unsigned char)s[0]) && s[1] == ':') s += 2;
+  if (!_strnicmp(s, "/simgolf/", 9)) s += 9;
+  while (*s == '/') s++;
+  int k = 0;
+  while (*s && k < outlen - 1) {
+    if (s[0] == '.' && s[1] == '/') { s += 2; continue; }
+    if (s[0] == '/' && k > 0 && out[k - 1] == '/') { s++; continue; }
+    out[k++] = *s++;
+  }
+  out[k] = 0;
+}
+
+int fs_resolve(const char *dospath, char *out, int outlen, int for_write) {
+  if (!dospath) return 0;
+  char rel[512];
+  normalize(dospath, rel, sizeof rel);
+  snprintf(out, outlen, "%s/%s", base_for(rel), rel);
+  harness_note_file(out);
+  DWORD a = GetFileAttributesA(out);
+  if (a != INVALID_FILE_ATTRIBUTES) {
+    if (!for_write) mods_save_opened(out);   // a .sve: check its mod record (task-11)
+    return 1;
+  }
+  if (!for_write) return 0;
+  // Writing: the file may be missing, its folder may not.
+  char dir[600];
+  snprintf(dir, sizeof dir, "%s", out);
+  char *slash = strrchr(dir, '/');
+  if (!slash) return 0;
+  *slash = 0;
+  a = GetFileAttributesA(dir);
+  return a != INVALID_FILE_ATTRIBUTES && (a & FILE_ATTRIBUTE_DIRECTORY);
+}
+
+// A .sve the game wrote gets a record of the loaded mods next to it (task-11).
+void fs_written(const char *realpath) { mods_save_written(realpath); }
+void fs_deleted(const char *realpath) { (void)realpath; }
+
+int fs_list(const char *dospattern, fs_list_fn fn, void *ctx) {
+  char rel[512], pat[600];
+  normalize(dospattern, rel, sizeof rel);
+  snprintf(pat, sizeof pat, "%s/%s", base_for(rel), rel);
+  WIN32_FIND_DATAA fd;
+  HANDLE h = FindFirstFileA(pat, &fd);
+  if (h == INVALID_HANDLE_VALUE) return 0;
+  int n = 0;
+  do {
+    if (!strcmp(fd.cFileName, ".") || !strcmp(fd.cFileName, "..")) continue;
+    fn(ctx, fd.cFileName, (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0, fd.nFileSizeLow);
+    n++;
+  } while (FindNextFileA(h, &fd));
+  FindClose(h);
+  return n;
+}

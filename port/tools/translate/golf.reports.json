@@ -1,0 +1,273 @@
+{
+  "comment": "task-28 (UI-8 reports): translator patches for the Frosted Mint reports panel. Merged into golf.json's patches (translate.py, <stem>.<topic>.json). The main loop (FUN_0040f5c0) wraps each report screen in rp_begin / rp_done and calls rp_tick every frame; inside each report (course report and SGA FUN_0044fb30, comments FUN_004546b0, histograph FUN_00455ed0, shortcuts FUN_0044e770, financial FUN_0044f6b0, roster FUN_00454c50, best scores FUN_00455a30, opened from the Information menu FUN_00432720) the text calls go through rp_t* / rp_tc (record, then draw as before) and rp_frame runs before each present and each loop pump. Hooks: port/src/port/reports_game.c (native), golf/reports_hooks.c (browser: originals). With ui.reports=original they record nothing and change nothing.",
+  "patches": {
+    "FUN_0044fb30": [
+      [
+        "FUN_00476650(",
+        "rp_t650("
+      ],
+      [
+        "FUN_00476700(",
+        "rp_t700("
+      ],
+      [
+        "FUN_00476750(",
+        "rp_t750("
+      ],
+      [
+        "FUN_00476310(",
+        "rp_quad("
+      ],
+      [
+        "FUN_0045c030();",
+        "rp_frame();\n    FUN_0045c030();"
+      ],
+      [
+        "FUN_00483d30();",
+        "rp_frame();\n  FUN_00483d30();"
+      ],
+      [
+        "FUN_00473e60(",
+        "rp_chip("
+      ]
+    ],
+    "FUN_004546b0": [
+      [
+        "FUN_00476650(",
+        "rp_t650("
+      ],
+      [
+        "FUN_00476700(",
+        "rp_t700("
+      ],
+      [
+        "FUN_00476310(",
+        "rp_quad("
+      ],
+      [
+        "FUN_0045c030();",
+        "rp_frame();\n    FUN_0045c030();"
+      ],
+      [
+        "FUN_00483d30();",
+        "rp_frame();\n  FUN_00483d30();"
+      ]
+    ],
+    "FUN_00455ed0": [
+      [
+        "FUN_00476700(",
+        "rp_t700("
+      ],
+      [
+        "FUN_00476310(",
+        "rp_quad("
+      ],
+      [
+        "FUN_00404b70(",
+        "rp_tc(0,"
+      ],
+      [
+        "FUN_004049d0(",
+        "rp_tc(2,"
+      ],
+      [
+        "FUN_0045c030();",
+        "rp_frame();\n    FUN_0045c030();"
+      ],
+      [
+        "FUN_00483d30();",
+        "rp_frame();\n  FUN_00483d30();"
+      ],
+      [
+        "FUN_00478b80(",
+        "rp_line("
+      ],
+      [
+        "FUN_00480b00(",
+        "rp_rect("
+      ]
+    ],
+    "FUN_0044e770": [
+      [
+        "FUN_00476650(",
+        "rp_t650("
+      ],
+      [
+        "FUN_00476700(",
+        "rp_t700("
+      ],
+      [
+        "FUN_00476310(",
+        "rp_quad("
+      ],
+      [
+        "FUN_0045c030();",
+        "rp_frame();\n    FUN_0045c030();"
+      ],
+      [
+        "FUN_00483d30();",
+        "rp_frame();\n  FUN_00483d30();"
+      ]
+    ],
+    "FUN_0044f6b0": [
+      [
+        "FUN_00476650(",
+        "rp_t650("
+      ],
+      [
+        "FUN_00476700(",
+        "rp_t700("
+      ],
+      [
+        "FUN_00476750(",
+        "rp_t750("
+      ],
+      [
+        "FUN_00476310(",
+        "rp_quad("
+      ],
+      [
+        "FUN_0045c030();",
+        "rp_frame();\n    FUN_0045c030();"
+      ],
+      [
+        "FUN_00483d30();",
+        "rp_frame();\n  FUN_00483d30();"
+      ]
+    ],
+    "FUN_00454c50": [
+      [
+        "FUN_00476650(",
+        "rp_t650("
+      ],
+      [
+        "FUN_004766a0(",
+        "rp_t6a0("
+      ],
+      [
+        "FUN_00476700(",
+        "rp_t700("
+      ],
+      [
+        "FUN_00476310(",
+        "rp_quad("
+      ],
+      [
+        "FUN_0045c030();",
+        "rp_frame();\n    FUN_0045c030();"
+      ],
+      [
+        "FUN_00483d30();",
+        "rp_frame();\n  FUN_00483d30();"
+      ],
+      [
+        "FUN_00480b00(",
+        "rp_rect("
+      ],
+      [
+        "FUN_00473e60(&DAT_00821fa0",
+        "rp_chip(&DAT_00821fa0"
+      ],
+      [
+        "FUN_00473e60(&DAT_00821fcc",
+        "rp_chip(&DAT_00821fcc"
+      ]
+    ],
+    "FUN_00455a30": [
+      [
+        "FUN_00476650(",
+        "rp_t650("
+      ],
+      [
+        "FUN_00476700(",
+        "rp_t700("
+      ],
+      [
+        "FUN_00476310(",
+        "rp_quad("
+      ],
+      [
+        "FUN_0045c030();",
+        "rp_frame();\n    FUN_0045c030();"
+      ],
+      [
+        "FUN_00483d30();",
+        "rp_frame();\n  FUN_00483d30();"
+      ]
+    ],
+    "FUN_0040f5c0": [
+      [
+        "if (DAT_00569498 == 2) {",
+        "rp_tick();\n  if (DAT_00569498 == 2) {"
+      ],
+      [
+        "FUN_0044fb30(0);",
+        "rp_begin(2);\n    FUN_0044fb30(0);\n    rp_done();"
+      ],
+      [
+        "FUN_004546b0();",
+        "rp_begin(3);\n    FUN_004546b0();\n    rp_done();"
+      ],
+      [
+        "FUN_00455ed0();",
+        "rp_begin(4);\n    FUN_00455ed0();\n    rp_done();"
+      ],
+      [
+        "FUN_0044e770();",
+        "rp_begin(5);\n    FUN_0044e770();\n    rp_done();"
+      ],
+      [
+        "FUN_0044f6b0();",
+        "rp_begin(6);\n    FUN_0044f6b0();\n    rp_done();"
+      ],
+      [
+        "FUN_0044fb30(1);",
+        "rp_begin(9);\n    FUN_0044fb30(1);\n    rp_done();"
+      ],
+      [
+        "FUN_00454c50();",
+        "rp_begin(10);\n    FUN_00454c50();\n    rp_done();"
+      ],
+      [
+        "FUN_0044fb30(2);",
+        "rp_begin(21);\n          FUN_0044fb30(2);\n          rp_done();"
+      ],
+      [
+        "FUN_00453330(-DAT_0053df54);",
+        "rp_begin(22);\n        FUN_00453330(-DAT_0053df54);\n        rp_done();"
+      ]
+    ],
+    "FUN_00432720": [
+      [
+        "FUN_00455a30();",
+        "rp_begin(20);\n        FUN_00455a30();\n        rp_done();"
+      ]
+    ],
+    "FUN_00453330": [
+      [
+        "FUN_00476650(",
+        "rp_t650("
+      ],
+      [
+        "FUN_00476700(",
+        "rp_t700("
+      ],
+      [
+        "FUN_00476310(",
+        "rp_quad("
+      ],
+      [
+        "FUN_0045c030();",
+        "rp_frame();\n    FUN_0045c030();"
+      ],
+      [
+        "FUN_00483d30();",
+        "rp_frame();\n  FUN_00483d30();"
+      ],
+      [
+        "FUN_00473e60(",
+        "rp_chip("
+      ]
+    ]
+  }
+}

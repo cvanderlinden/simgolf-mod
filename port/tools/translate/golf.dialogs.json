@@ -1,0 +1,91 @@
+{
+  "comment": "task-27 (UI-7 dialogs): translator patches for the Frosted Mint popup menus, check lists and text entry. Merged into golf.json's patches (translate.py, <stem>.<topic>.json). Every hook is in port/src/port/dialogs_game.c (native) and golf/dialogs_hooks.c (browser build: no-ops). The original loops keep running; with ui.dialogs=original the hooks do nothing.",
+  "patches": {
+    "FUN_0046d6e0": [
+      [
+        "return param_3;",
+        "return dlg_done(param_3);"
+      ],
+      [
+        "return 0xffffffff;",
+        "return dlg_done(0xffffffff);"
+      ],
+      [
+        "return local_10;",
+        "return dlg_done(local_10);"
+      ],
+      [
+        "FUN_004762d0(PTR_DAT_004c1570,0x519928,0,0,0);",
+        "FUN_004762d0(PTR_DAT_004c1570,0x519928,0,0,0);\n  dlg_begin(0);"
+      ],
+      [
+        "FUN_0045c030();\n    if (param_4 != 0) {",
+        "FUN_0045c030();\n    if (param_4 == 0 && FUN_0045ae70() != 0 && FUN_0045ae30() == 0x1b) {\n      FUN_00483d30();\n      return dlg_done(local_44);\n    }\n    if (param_4 != 0) {"
+      ],
+      [
+        "FUN_00480c80(&DAT_00519a60);\n    FUN_0045bf80(10,0);",
+        "if (dlg_menu(param_1,param_2,(int)param_3,param_4 == 0,local_44,param_5,iStack_28,iStack_20,iStack_40,(int)uVar10,(int)uVar19)) {\n      FUN_00483d30();\n      return dlg_done(param_4 == 0 ? local_44 : 0xffffffff);\n    }\n    FUN_00480c80(&DAT_00519a60);\n    FUN_0045bf80(10,0);"
+      ]
+    ],
+    "FUN_0045b2c0": [
+      [
+        "return iVar5;",
+        "return (int)dlg_done((unsigned)iVar5);"
+      ],
+      [
+        "iVar3 = param_4 * 0xc;",
+        "iVar3 = param_4 * 0xc;\n  dlg_begin(1);"
+      ],
+      [
+        "FUN_00480c80(&DAT_00519a60);\n    do {\n      FUN_0045bf80(1,0);\n      FUN_0045c030();",
+        "{\n      int dlg_r = dlg_entry(local_120,(char *)&DAT_0051a068,(int)uVar6,param_4);\n      if (dlg_r == 1) {\n        *(undefined1 *)((int)&DAT_0051a068 + local_128) = 0;\n        return (int)dlg_done(0);\n      }\n      if (dlg_r == 2) {\n        *(undefined1 *)&DAT_0051a068 = 0;\n        return (int)dlg_done(0);\n      }\n    }\n    FUN_00480c80(&DAT_00519a60);\n    do {\n      FUN_0045bf80(1,0);\n    {\n      int dlg_r = dlg_entry(local_120,(char *)&DAT_0051a068,(int)uVar6,param_4);\n      if (dlg_r == 1) {\n        *(undefined1 *)((int)&DAT_0051a068 + local_128) = 0;\n        return (int)dlg_done(0);\n      }\n      if (dlg_r == 2) {\n        *(undefined1 *)&DAT_0051a068 = 0;\n        return (int)dlg_done(0);\n      }\n    }\n      FUN_0045c030();"
+      ]
+    ],
+    "FUN_00405b10": [
+      [
+        "FUN_0040cc00(0x36,0x50,0x274,0x50);",
+        "dlg_pre();\n  FUN_0040cc00(0x36,0x50,0x274,0x50);"
+      ]
+    ],
+    "FUN_00459400": [
+      [
+        "return -1;",
+        "return (int)dlg_done((unsigned)-1);"
+      ],
+      [
+        "return ((int)local_18 / 2) * 3 + 1 + (local_18 & 1);",
+        "return (int)dlg_done((unsigned)(((int)local_18 / 2) * 3 + 1 + (local_18 & 1)));"
+      ],
+      [
+        "local_10 = 0;\n  FUN_00474440(&DAT_00821040,",
+        "local_10 = 0;\n  dlg_begin(2);\n  FUN_00474440(&DAT_00821040,"
+      ],
+      [
+        "FUN_00480c80(&DAT_00519a60);\n    FUN_0045c030();\n    FUN_0045bf80(1,0);",
+        "if (dlg_hire((int)local_18)) {\n      return (int)dlg_done((unsigned)-1);\n    }\n    FUN_00480c80(&DAT_00519a60);\n    FUN_0045c030();\n    FUN_0045bf80(1,0);"
+      ]
+    ],
+    "FUN_0040d320": [
+      [
+        "FUN_004762d0(PTR_DAT_004c1570,0x51b360,0,0,0);\n  iVar1 = FUN_0045af30(",
+        "if (param_4 == -2) {\n    dlg_hint_pre();\n  }\n  FUN_004762d0(PTR_DAT_004c1570,0x51b360,0,0,0);\n  iVar1 = FUN_0045af30("
+      ]
+    ],
+    "FUN_0045c0c0": [
+      [
+        "FUN_0045c030();\n    DVar2 = timeGetTime();",
+        "FUN_0045c030();\n    dlg_wait();\n    DVar2 = timeGetTime();"
+      ],
+      [
+        "FUN_00483d30();\n  return 1;",
+        "dlg_hint_end();\n  FUN_00483d30();\n  return 1;"
+      ]
+    ],
+    "FUN_004385d0": [
+      [
+        "FUN_0045bf80(5,0);\n      FUN_0045c030();\n      FUN_0045bf80(5,0);",
+        "FUN_0045bf80(5,0);\n      FUN_0045c030();\n      dlg_profile_tick();\n      FUN_0045bf80(5,0);"
+      ]
+    ]
+  }
+}

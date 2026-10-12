@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "simgolf:tables/traits",
+  "title": "Personality traits",
+  "description": "The five trait buttons of the character screen (bits 0 to 4 of a character's trait byte), from the label table at 0x4c2864. Golfer stories and pairings test these bits.",
+  "type": "object",
+  "properties": {
+    "label": {
+      "type": "string", "minLength": 1, "maxLength": 20,
+      "description": "The button's label.",
+      "x-image": {"offset": 0, "type": "strptr"}
+    }
+  },
+  "additionalProperties": false,
+  "x-table": {
+    "image": {"base": "0x4c2864", "stride": 4},
+    "rows": [{"id": "neat"}, {"id": "outgoing"}, {"id": "active"}, {"id": "playful"}, {"id": "nice"}]
+  }
+}

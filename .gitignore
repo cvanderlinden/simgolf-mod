@@ -1,0 +1,29 @@
+# game data and anything derived from it: never in git
+game/
+disc/
+upstream/
+build/
+*.gpr
+*.rep/
+*.iso
+*.bin
+*.cue
+*.7z
+# evidence media and engine caches
+evidence/**/*.png
+evidence/**/*.jpg
+evidence/*.mp4
+evidence/*.gif
+evidence/*.log
+.claude/worktrees/
+.claude/settings.local.json
+node_modules/
+# the playable folder tools/package.ps1 assembles
+dist/
+
+# local derived art (never in git)
+art_local/
+fixtures/
+
+# task-60: original game sprites written by SIMGOLF_FACES_DUMP (never commit game art)
+evidence/task-60/*/faces/

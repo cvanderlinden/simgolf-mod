@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "simgolf:tables/employees",
+  "title": "Employees",
+  "description": "Wages of the four kinds of staff, basic and skilled, from golf.exe's wage table at 0x4c2e2c (2 bytes per kind). A wage is charged per employee at every wage period (difficulty.wage_period) when a roll against the course grade passes. Money is in units of $100.",
+  "type": "object",
+  "properties": {
+    "wage": {
+      "type": "integer", "minimum": 0, "maximum": 127,
+      "description": "Wage of the basic form, in $100 per wage period.",
+      "x-image": {"offset": 0, "type": "i8"}
+    },
+    "wage_skilled": {
+      "type": "integer", "minimum": 0, "maximum": 127,
+      "description": "Wage of the skilled form (Celebrity, Marshall, Technician, Refresher), in $100 per wage period.",
+      "x-image": {"offset": 1, "type": "i8"}
+    }
+  },
+  "additionalProperties": false,
+  "x-table": {
+    "image": {"base": "0x4c2e2c", "stride": 2},
+    "rows": [
+      {"id": "club_pro"}, {"id": "ranger"}, {"id": "groundskeeper"}, {"id": "soda_vendor"}
+    ]
+  }
+}

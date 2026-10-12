@@ -1,0 +1,11 @@
+id = "grumpy_golfers"
+name = "Grumpy golfers"
+version = "1.0.0"
+authors = ["SimGolf mod team"]
+description = "A new personality, the Grump, with thoughts of its own. Sample of the data layer (docs/modding/DATA.md)."
+platform = "^1.0"
+game = ">=1.2.0"
+
+# Declared so `modctl conflicts` sees them without running the game.
+[touches.data]
+"personalities.grump" = "add"

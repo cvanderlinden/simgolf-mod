@@ -1,0 +1,19 @@
+# Plus Jakarta Sans for the game's faces (card task-25, ui.font=plus_jakarta).
+# Copied next to golf.exe (fonts/plus-jakarta-sans/font_map.txt) by the build.
+# Weights follow docs/ui/DESIGN_SYSTEM.md: titles and numbers 800, labels 700, body 600.
+#
+# fit      width of a sample sentence as a fraction of the original face's, so the
+#          text fits the boxes the game drew for the original (1.0 = same width).
+# tabular  1 = numerals on the tabular (tnum) glyphs: money, dates and counters stay
+#          the same width while they change.
+# face     <part of the game's face name> <weight> <weight when the game asks for bold>.
+#          First match wins; "*" matches anything.
+fit 0.95
+tabular 1
+
+face klepto 700 800     # hand-lettered titles and menu buttons
+face manual 600 700     # the hand-written body face
+face comic  800 800     # large display text ("Paused")
+face arial  600 700     # small system labels
+face times  600 700
+face *      600 700

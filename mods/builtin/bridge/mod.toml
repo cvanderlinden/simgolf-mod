@@ -1,0 +1,11 @@
+# Built-in mod: the game bridge for tools and AI chats (card task-13,
+# docs/BRIDGE.md). The bridge itself stays behind its own explicit switch
+# (--bridge or SIMGOLF_BRIDGE=1, localhost only) so test tools work under
+# every profile; this manifest puts it in the mod list and in save records.
+id = "bridge"
+name = "Game bridge"
+version = "1.0.0"
+authors = ["SimGolf mod team"]
+description = "Lets tools and AI chats drive the running game over a local connection (off unless started with --bridge)."
+platform = "^1.0"
+game = ">=1.2.0"

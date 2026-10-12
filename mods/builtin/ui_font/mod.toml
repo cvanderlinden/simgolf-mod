@@ -1,0 +1,14 @@
+# Built-in mod: modern UI font (card task-25).
+# Sets ui.font=plus_jakarta: the game's text is drawn in Plus Jakarta Sans,
+# anti-aliased, with tabular numerals. Switch it off with `ui_font=0` in
+# data/mods.ini, `[ui] font=original` there, the vanilla profile, or --no-mods.
+id = "ui_font"
+name = "Plus Jakarta Sans text"
+version = "0.1.0"
+authors = ["SimGolf mod team"]
+description = "Draws the game's text in Plus Jakarta Sans, smooth edges, steady numerals for money and dates."
+platform = "^1.0"
+game = ">=1.2.0"
+
+[settings]
+"ui.font" = "plus_jakarta"

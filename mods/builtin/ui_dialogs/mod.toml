@@ -1,0 +1,19 @@
+# Built-in mod: the Frosted Mint dialogs (card task-27).
+# Sets ui.dialogs=frosted_mint: golf's popup menus (options, information,
+# confirmations), the preferences list and the text entry strips (save name,
+# rename) drawn at the screen's resolution over the picture. The original
+# dialogs keep running underneath: every native choice clicks or types into the
+# original dialog, so the original handlers run. Switch it off with
+# `ui_dialogs=0` in data/mods.ini, `[ui] dialogs=original` there, the vanilla
+# profile, or --no-mods. Needs the native presenter (hd_presentation).
+id = "ui_dialogs"
+name = "Frosted Mint dialogs"
+version = "0.1.0"
+authors = ["SimGolf mod team"]
+description = "Popup menus, preferences and text entry in the Frosted Mint style."
+platform = "^1.0"
+game = ">=1.2.0"
+load_after = ["hd_presentation", "ui_font", "ui_hud", "ui_golfers", "ui_frontend"]
+
+[settings]
+"ui.dialogs" = "frosted_mint"

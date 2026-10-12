@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "simgolf:tables/buildings",
+  "title": "Buildings and amenities",
+  "description": "Everything on the Add Buildings dock, in the game's own order (the index is also the order they unlock in). Names, footprints and prices come from golf.exe's building table at 0x4c26b0 (0x14 bytes per row); the money a golfer pays per visit is a constant in the golfer update (FUN_004289e0). Money is in units of $100, as the game stores it: a cost of 150 is $15,000.",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string", "minLength": 1, "maxLength": 15,
+      "description": "Name on the build dock, the golfer card and the messages.",
+      "x-image": {"offset": 0, "type": "str", "len": 16}
+    },
+    "footprint": {
+      "type": "integer", "readOnly": true,
+      "description": "Edge of the square the building covers, in tiles. Read only: the art has this size.",
+      "x-image": {"offset": 16, "type": "u8"}
+    },
+    "cost": {
+      "type": "integer", "minimum": 0, "maximum": 32767,
+      "description": "Price in $100. Placing pays cost x (level + 2) / 2 plus site work; removing a path, bench, flower bed or ball washer refunds it; a home site's lot value uses it.",
+      "x-image": {"offset": 18, "type": "i16"}
+    },
+    "income": {
+      "type": "integer", "minimum": 0, "maximum": 1000,
+      "description": "What a golfer pays per visit, in $100 (Food/Drink in the financial report).",
+      "x-code": true, "x-where": "FUN_004289e0 (golfer update)"
+    },
+    "income_upgraded": {
+      "type": "integer", "minimum": 0, "maximum": 1000,
+      "description": "The same once the building type has been upgraded (level 2 or more).",
+      "x-code": true, "x-where": "FUN_004289e0 (golfer update)"
+    }
+  },
+  "additionalProperties": false,
+  "x-table": {
+    "image": {"base": "0x4c26b0", "stride": 20},
+    "rows": [
+      {"id": "pathway"},
+      {"id": "benches"},
+      {"id": "flower_bed"},
+      {"id": "ball_washer"},
+      {"id": "landmark"},
+      {"id": "home_site"},
+      {"id": "putting_green", "income": 4, "income_upgraded": 8},
+      {"id": "snack_bar", "income": 5},
+      {"id": "pro_shop", "income": 6, "income_upgraded": 10},
+      {"id": "swim_club"},
+      {"id": "driving_range", "income": 8, "income_upgraded": 12},
+      {"id": "cart_garage"},
+      {"id": "marina"},
+      {"id": "resort_hotel"},
+      {"id": "airstrip"},
+      {"id": "clubhouse"},
+      {"id": "willow_tree"},
+      {"id": "tv_tower"},
+      {"id": "tv_booth"},
+      {"id": "scenic_bridge"}
+    ]
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "$schema": "../../../../data/tables/economy.json",
+  "description": "Debt interest 4 percent a month instead of 2.",
+  "set": {"debt_interest_divisor": 25}
+}

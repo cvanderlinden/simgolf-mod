@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "simgolf:tables/trays",
+  "title": "Amenity trays",
+  "description": "How many designs the Amenities panel's pop-up strips list (one row, \"amenities\", so a mod may write just the field). The art, names and prices of the extra designs are already in golf.exe; the original strips stop short of them (card task-45, docs/CUT_CONTENT.md).",
+  "type": "object",
+  "properties": {
+    "landmark_designs": {
+      "type": "integer", "minimum": 14, "maximum": 16,
+      "description": "Landmark designs the strip can show (kinds 0 to this minus 1, those whose bit is in the available mask). The original shows 14; kinds 14 (oriental house) and 15 (dinosaur tarpit) have art, names and prices but no strip slot.",
+      "x-code": true, "x-where": "FUN_00434cf0 (Amenities panel, landmark strip)"
+    },
+    "bench_designs": {
+      "type": "integer", "minimum": 5, "maximum": 6,
+      "description": "Bench designs the strip shows. The original shows 5; the sixth (the lovers' bench) is loaded and never offered.",
+      "x-code": true, "x-where": "FUN_00434cf0 (Amenities panel, bench strip)"
+    },
+    "sandbox_landmark_mask": {
+      "type": "integer", "minimum": 0, "maximum": 65535,
+      "description": "Landmark designs a Sandbox game starts with, one bit per kind (the original 16383 is kinds 0 to 13).",
+      "x-code": true, "x-where": "FUN_0040f5c0 (new game, Sandbox)"
+    }
+  },
+  "additionalProperties": false,
+  "x-table": {
+    "single": true,
+    "rows": [
+      {"id": "amenities", "landmark_designs": 14, "bench_designs": 5, "sandbox_landmark_mask": 16383}
+    ]
+  }
+}

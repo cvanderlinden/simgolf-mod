@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "simgolf:tables/difficulty",
+  "title": "Difficulty",
+  "description": "The rules that change with the difficulty picked for a new game (row = the game's difficulty 0 to 3). The game computes these from the difficulty in its code; the rows hold the results so mods can reshape the curve. Money is in units of $100; a game month is 1024 ticks.",
+  "type": "object",
+  "properties": {
+    "label": {
+      "type": "string", "readOnly": true,
+      "description": "Our name for the level."
+    },
+    "start_cash": {
+      "type": "integer", "minimum": 0, "maximum": 100000000,
+      "description": "Cash of a new standard game, in $100. The land is bought from it, so it also decides which properties are affordable.",
+      "x-code": true, "x-where": "FUN_0040f5c0 (main frame, new game)"
+    },
+    "wage_period": {
+      "type": "integer", "minimum": 16, "maximum": 8192,
+      "description": "Ticks between two wage and hole upkeep charges (the game uses 1024 / (difficulty + 2)).",
+      "x-code": true, "x-where": "FUN_0040f5c0 (main frame, periodic charges)"
+    },
+    "start_mood": {
+      "type": "integer", "minimum": -9, "maximum": 10,
+      "description": "Lowest mood of a golfer arriving at the course (mood runs from -10 to 10; below -10 a golfer leaves).",
+      "x-code": true, "x-where": "FUN_0040f5c0 (golfer arrival)"
+    },
+    "start_mood_random": {
+      "type": "integer", "minimum": 0, "maximum": 10,
+      "description": "A random 0 to this is added to start_mood.",
+      "x-code": true, "x-where": "FUN_0040f5c0 (golfer arrival)"
+    },
+    "hole_fatigue": {
+      "type": "integer", "minimum": 0, "maximum": 20,
+      "description": "Weight of the mood drop after each hole (the game uses difficulty + 1).",
+      "x-code": true, "x-where": "FUN_004282f0 (mood after a hole)"
+    }
+  },
+  "additionalProperties": false,
+  "x-table": {
+    "rows": [
+      {"id": "easy", "label": "Easy", "start_cash": 1000, "wage_period": 512, "start_mood": 4, "start_mood_random": 0, "hole_fatigue": 1},
+      {"id": "moderate", "label": "Moderate", "start_cash": 1000, "wage_period": 341, "start_mood": 3, "start_mood_random": 2, "hole_fatigue": 2},
+      {"id": "difficult", "label": "Difficult", "start_cash": 1000, "wage_period": 256, "start_mood": 3, "start_mood_random": 2, "hole_fatigue": 3},
+      {"id": "impossible", "label": "Impossible", "start_cash": 1000, "wage_period": 204, "start_mood": 3, "start_mood_random": 2, "hole_fatigue": 4}
+    ]
+  }
+}

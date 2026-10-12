@@ -1,0 +1,8 @@
+# Which mods load, in which order (docs/modding/CORE.md).
+# Written by tools/modctl; editing by hand is fine.
+# The profile "vanilla" is always there and always empty: the original game.
+
+active = "default"
+
+[profiles.default]
+mods = ["hd_presentation", "camera_controls", "ui_font", "ui_hud", "ui_golfers", "ui_frontend", "ui_dialogs", "ui_reports", "ui_ball", "bridge"]

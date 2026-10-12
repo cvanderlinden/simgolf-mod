@@ -1,0 +1,91 @@
+// Frosted Mint reports (simgolf mod, task-28, UI-8): golf's report screens (course report, player
+// comments, histograph, SGA evaluation, financial report, membership roster, keyboard shortcuts, best
+// scores) drawn as one tabbed glass panel at the screen's resolution.
+//
+// Each report is still the original's own modal loop (draw once, then wait for a click or a key). With
+// ui.reports=frosted_mint and the presenter up, translator patches (port/tools/translate/golf.reports.json)
+// route the report's text calls through rp_t* (reports_game.c), which record every string with its place
+// and colour and then draw it as before, and call rp_frame once per loop iteration: the game thread
+// publishes an RpSnap, puts back the picture from before the report (golf's own board never shows) and
+// turns native actions into what the original takes (a key closes it; a tab sets golf's screen state or
+// calls the report's routine). The render thread (reports_frosted.c) draws ui_reports_draw over the
+// frosted course and takes every real pointer event while a report is up.
+#ifndef PORT_REPORTS_FROSTED_H
+#define PORT_REPORTS_FROSTED_H
+
+#include <stdint.h>
+
+#include "port/ui/ui_kit.h"
+
+// The report on show. The overlay reports use golf's screen_state number (0x569498).
+enum {
+  RP_NONE = 0,
+  RP_COURSE = 2,     // F1
+  RP_COMMENTS = 3,   // F2
+  RP_HISTO = 4,      // F3
+  RP_KEYS = 5,       // F8
+  RP_FINANCE = 6,    // F4
+  RP_SGA = 9,        // F7
+  RP_MONTH = 8,      // end of month ranking (drawn every frame of the main loop, FUN_0045f870)
+  RP_ROSTER = 10,    // F9
+  RP_BEST = 20,      // Information > Best scores (FUN_00455a30)
+  RP_YEAR = 21,      // end of year course report (FUN_0044fb30(2))
+  RP_HOLE = 22,      // hole stats (FUN_00453330)
+  RP_TOURNEY = 23,   // tournament results (FUN_0045a090)
+};
+
+enum { RP_AL_LEFT = 0, RP_AL_CENTRE = 1, RP_AL_RIGHT = 2 };
+
+#define RP_MAGIC 0x52505331u
+#define RP_ITEMS 520
+#define RP_TEXT 96
+#define RP_ART 32   // distinct golf sprites a report shows as art
+
+enum { RP_IT_TEXT = 0, RP_IT_RECT, RP_IT_LINE, RP_IT_CHIP };
+
+typedef struct {
+  int16_t x, y;     // golf's 800x600 page coordinates of the anchor (a line's first end)
+  int16_t w, h;     // RP_IT_RECT / RP_IT_CHIP: size; RP_IT_LINE: the second end
+  uint8_t type;     // RP_IT_*
+  uint8_t align;    // RP_AL_*
+  uint8_t big;      // text: drawn in golf's title font; RP_IT_CHIP: a flat highlight box of colour col
+  uint8_t art;      // RP_IT_CHIP: 1 + the art slot (rpf_publish_art)
+  uint16_t col;     // golf's 565 colour (text, rect, line; a chip's colour read back from the page)
+  char s[RP_TEXT];
+} RpItem;
+
+typedef struct {
+  uint32_t magic, serial;
+  int kind;              // RP_*
+  char title[64];        // the report's own title (first title-font text)
+  int n;
+  RpItem it[RP_ITEMS];
+} RpSnap;
+
+enum { RP_A_NONE, RP_A_CLOSE, RP_A_TAB, RP_A_CLICK };
+typedef struct {
+  int kind;   // RP_A_*
+  int arg;    // RP_A_TAB: the report; RP_A_CLICK: x | y << 16 in golf's page
+} RpAction;
+
+// ui/ui_reports.c: the panel as a pure function of a snapshot. Returns the number of actions written.
+int ui_reports_draw(UiCtx *c, const RpSnap *s, SDL_Texture *const *art, RpAction *acts, int max);
+// Where the last ui_reports_draw put its controls (target pixels; for the log and the tests).
+typedef struct {
+  UiRect panel;
+  float close_x, close_y;
+  int ntabs;
+  float tab_x[8], tab_y;
+} RpLayout;
+void ui_reports_layout(RpLayout *out);
+// The original page rectangle the panel maps (for tests and the gallery).
+void ui_reports_bounds(const RpSnap *s, float *x0, float *y0, float *x1, float *y1);
+
+// reports_frosted.c (render thread side, thread safe)
+int rpf_enabled(void);                        // ui.reports=frosted_mint, the layer is up and drawing
+void rpf_publish(const RpSnap *s);            // game thread, once per frame of the report
+void rpf_end(void);                           // the report closed
+int rpf_take_action(RpAction *a);             // game thread: next native action, 1 if any
+void rpf_publish_art(int slot, const uint32_t *argb, int w, int h);   // game thread: a sprite as ARGB
+
+#endif

@@ -1,0 +1,32 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "native",
+      "displayName": "Native Windows build (x86, clang-cl): build/native/golf.exe",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/../build/native",
+      "toolchainFile": "${sourceDir}/cmake/clang-cl-x86.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "SIMGOLF_GEN": "${sourceDir}/../build/gen",
+        "SIMGOLF_GAME": "${sourceDir}/../game"
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "Release build for the Windows zip (tools/release/package.sh): build/release",
+      "inherits": "native",
+      "binaryDir": "${sourceDir}/../build/release",
+      "cacheVariables": {
+        "SIMGOLF_RELEASE": "ON",
+        "SIMGOLF_GAME": { "type": "STRING", "value": "game" },
+        "SIMGOLF_ART": { "type": "STRING", "value": "art/upscaled" }
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "native", "configurePreset": "native", "targets": ["golf"] },
+    { "name": "release", "configurePreset": "release", "targets": ["golf", "sgsetup"] }
+  ]
+}

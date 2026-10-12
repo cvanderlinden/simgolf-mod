@@ -1,0 +1,13 @@
+# Built-in mod: our 4K and widescreen presentation (card task-3).
+# The feature checks mods_enabled("hd_presentation"); the profile "vanilla"
+# turns it off for an A/B against the original 800x600 frame. Its values are
+# golf.ini's display keys; display.<key> in the store (mods.ini [display],
+# another mod's [settings.display]) beats them, e.g. display.ui_scale = 2.
+id = "hd_presentation"
+name = "4K and widescreen"
+version = "0.1.0"
+authors = ["SimGolf mod team"]
+description = "Fills any monitor crisply: the 800x600 frame scaled sharply, then a wider view of the course."
+platform = "^1.0"
+game = ">=1.2.0"
+provides = ["presentation"]

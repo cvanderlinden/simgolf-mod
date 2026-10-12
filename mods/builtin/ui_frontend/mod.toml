@@ -1,0 +1,18 @@
+# Built-in mod: the Frosted Mint front end (card task-32).
+# Sets ui.frontend=frosted_mint: the start menu, the difficulty pick and the
+# other front-end screens drawn at the screen's resolution over the original
+# screens, which keep running underneath: every button clicks the original
+# control, so the original handlers run. Switch it off with `ui_frontend=0` in
+# data/mods.ini, `[ui] frontend=original` there, the vanilla profile, or
+# --no-mods. Needs the native presenter (hd_presentation).
+id = "ui_frontend"
+name = "Frosted Mint front end"
+version = "0.1.0"
+authors = ["SimGolf mod team"]
+description = "Start menu and new game screens in the Frosted Mint style."
+platform = "^1.0"
+game = ">=1.2.0"
+load_after = ["hd_presentation", "ui_font", "ui_hud", "ui_golfers"]
+
+[settings]
+"ui.frontend" = "frosted_mint"

@@ -1,0 +1,499 @@
+// Frosted Mint dialogs, game-thread side, native build (simgolf mod, task-27).
+// The overview is in port/dialogs_frosted.h. This file does not include
+// golf_protos.h (its types clash with the C library headers).
+//
+// The original's modal dialogs (golf's popup menu FUN_0046d6e0 and the text
+// entry FUN_0045b2c0) loop on the pointer and the keyboard and draw into the
+// back buffer. They keep running as they are. With ui.dialogs=frosted_mint and
+// the presenter up, translator patches (port/tools/translate/golf.dialogs.json)
+// call these hooks:
+//   dlg_menu / dlg_entry   once per frame, just before the loop presents:
+//       read what the dialog shows into a DlgSnap and publish it (the native
+//       layer draws the Frosted Mint dialog; golf's own picture of the dialog
+//       is hidden), run the click injector, and answer 1 when the player asked
+//       to close it.
+//   dlg_done               the dialog returns.
+// Clicks: a native choice only says what was asked (DlgAction); here it becomes
+// a scripted mouse move, press and release (SDL events without a window, which
+// the game takes as its pointer) at the ORIGINAL control's place, one step per
+// frame, so the original handlers run.
+#include <SDL.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "port/dialogs_frosted.h"
+#include "port/hd_native.h"
+
+#define G32(a) (*(volatile int32_t *)(uintptr_t)(a))
+
+#define TEXT_BUF 0x51a068   // golf's shared text buffer: the dialog's lines, the entry's text
+
+static int g_on;            // this dialog: the native version replaces the original
+static int g_kind;
+static int g_log = -1;
+static uint32_t g_serial;
+static DlgSnap g_snap;
+
+// the click injector
+static int g_inj, g_inj_x, g_inj_y, g_inj_stage, g_inj_wait;
+
+static void sdl_motion(int x, int y) {
+  SDL_Event e = {0};
+  e.type = SDL_MOUSEMOTION;
+  e.motion.x = x;
+  e.motion.y = y;
+  SDL_PushEvent(&e);
+}
+
+static void sdl_button(int x, int y, int down) {
+  SDL_Event e = {0};
+  e.type = down ? SDL_MOUSEBUTTONDOWN : SDL_MOUSEBUTTONUP;
+  e.button.button = SDL_BUTTON_LEFT;
+  e.button.state = down ? SDL_PRESSED : SDL_RELEASED;
+  e.button.clicks = 1;
+  e.button.x = x;
+  e.button.y = y;
+  SDL_PushEvent(&e);
+}
+
+static void inj_start(int x, int y) {
+  g_inj = 1;
+  g_inj_x = x;
+  g_inj_y = y;
+  g_inj_stage = 0;
+  g_inj_wait = 0;
+  if (g_log) fprintf(stderr, "dialogs: click at the original's %d,%d\n", x, y);
+}
+
+// One step per frame: move, press, release.
+static void inj_step(void) {
+  if (!g_inj) return;
+  if (g_inj_wait > 0) {
+    g_inj_wait--;
+    return;
+  }
+  switch (g_inj_stage) {
+    case 0: sdl_motion(g_inj_x, g_inj_y); g_inj_wait = 1; break;
+    case 1: sdl_button(g_inj_x, g_inj_y, 1); g_inj_wait = 2; break;
+    case 2: sdl_button(g_inj_x, g_inj_y, 0); g_inj_wait = 1; break;
+    default: g_inj = 0; return;
+  }
+  g_inj_stage++;
+}
+
+// What the pictures held when the dialog opened, put back before every present: the original draws its own
+// dialog (and the caller's strip) into golf's page buffers, the native one replaces them. golf draws into one
+// of several page buffers (the course and its UI layer, hud_game.c), so every page is kept.
+uint16_t *gdi_screen_dib(int i, int *w, int *h, int *pitch, int *is565);
+enum { PAGES = 8 };
+static uint16_t *g_keep[PAGES];
+static int g_keep_w[PAGES], g_keep_h[PAGES];
+
+static int g_kept;
+
+static void keep_free(void) {
+  g_kept = 0;
+  for (int i = 0; i < PAGES; i++) {
+    free(g_keep[i]);
+    g_keep[i] = NULL;
+  }
+}
+
+static void keep_save(void) {
+  keep_free();
+  g_kept = 1;
+  for (int i = 0; i < PAGES; i++) {
+    int w, h, pitch, is565;
+    uint16_t *bb = gdi_screen_dib(i, &w, &h, &pitch, &is565);
+    if (!bb) continue;
+    g_keep[i] = malloc((size_t)w * h * 2);
+    if (!g_keep[i]) continue;
+    for (int y = 0; y < h; y++) memcpy(g_keep[i] + (size_t)y * w, bb + (ptrdiff_t)y * pitch, (size_t)w * 2);
+    g_keep_w[i] = w, g_keep_h[i] = h;
+  }
+}
+
+static void keep_restore(void) {
+  for (int i = 0; i < PAGES; i++) {
+    if (!g_keep[i]) continue;
+    int w, h, pitch, is565;
+    uint16_t *bb = gdi_screen_dib(i, &w, &h, &pitch, &is565);
+    if (!bb || w != g_keep_w[i] || h != g_keep_h[i]) continue;
+    for (int y = 0; y < h; y++) memcpy(bb + (ptrdiff_t)y * pitch, g_keep[i] + (size_t)y * w, (size_t)w * 2);
+  }
+}
+
+static unsigned g_pre_t;   // dlg_pre kept the picture at this time
+
+// The save-name dialog's caller draws its own strip before the entry opens: it keeps the picture first.
+void dlg_pre(void) {
+  if (!dlgf_enabled()) return;
+  keep_save();
+  g_pre_t = SDL_GetTicks() | 1;
+}
+
+void hud_clean_pages(void);   // hud_game.c
+
+static void begin(int kind) {
+  if (g_log < 0) g_log = getenv("SIMGOLF_DIALOGS_LOG") != NULL;
+  g_on = dlgf_enabled();
+  g_kind = kind;
+  g_inj = 0;
+  if (g_log && g_on) fprintf(stderr, "dialogs: open %s\n", kind == 1 ? "entry" : "menu");
+  if (g_on) {
+    hd_ui_show_golf_ui(0);   // golf's own UI layer (and the old HUD under it) stays hidden
+    hud_clean_pages();
+    if (!(g_pre_t && SDL_GetTicks() - g_pre_t < 1000 && g_kept)) keep_save();
+    g_pre_t = 0;
+  }
+}
+
+void dlg_begin(int kind) { begin(kind); }
+
+static void copy_str(char *dst, int cap, const char *src) {
+  int n = 0;
+  while (n < cap - 1 && src && src[n]) {
+    dst[n] = src[n];
+    n++;
+  }
+  dst[n] = 0;
+}
+
+// ------------------------------------------------------------------ popup menu (FUN_0046d6e0)
+
+// The geometry the original uses for hit tests (see the loop): left, first row y, 0x18 per row, the OK disc.
+int dlg_menu(int px, int py, int sel, int checks, unsigned mask, unsigned disabled, int left, int first_y, int n_items, int width, int height) {
+  if (!g_on) return 0;
+  hd_ui_show_golf_ui(0);
+  DlgSnap *s = &g_snap;
+  memset(s, 0, sizeof *s);
+  s->magic = DLG_MAGIC;
+  s->serial = ++g_serial;
+  s->kind = checks ? DLG_CHECKS : DLG_MENU;
+  const char *t = (const char *)(uintptr_t)TEXT_BUF;
+  int item = 0;
+  for (const char *p = t; *p && s->n_lines < DLG_LINES;) {
+    const char *e = strchr(p, '\n');
+    int len = e ? (int)(e - p) : (int)strlen(p);
+    char tmp[DLG_TEXT];
+    if (len > DLG_TEXT - 1) len = DLG_TEXT - 1;
+    memcpy(tmp, p, (size_t)len);
+    tmp[len] = 0;
+    int is_item = tmp[0] == ' ';
+    s->line[s->n_lines].item = is_item ? item++ : -1;
+    copy_str(s->line[s->n_lines].text, DLG_TEXT, tmp);
+    s->n_lines++;
+    if (!e) break;
+    p = e + 1;
+  }
+  s->n_items = item;
+  s->sel = (checks || sel < 0 || sel >= item) ? -1 : sel;
+  s->mask = checks ? mask : 0;
+  s->disabled = disabled;
+  dlgf_publish(s);
+  if (g_log) {
+    static int last_n = -1;
+    if (last_n != s->serial / 600) {
+      last_n = (int)(s->serial / 600);
+      fprintf(stderr, "dialogs: menu checks %d items %d mask %x at left %d first_y %d width %d height %d center %d,%d\n", checks, item, mask, left,
+              first_y, width, height, px, py);
+    }
+  }
+  int cancel = 0;
+  DlgAction a;
+  while (!g_inj && dlgf_take_action(&a)) {
+    if (a.kind == DLG_A_ITEM) {
+      inj_start(left + 0x40, first_y + a.arg * 0x18 + 0xc);
+    } else if (a.kind == DLG_A_OK && checks) {
+      inj_start(px + width / 2 - 0x14, py + height - 0x14);
+    } else if (a.kind == DLG_A_CANCEL || a.kind == DLG_A_OK) {
+      cancel = 1;
+    }
+  }
+  inj_step();
+  keep_restore();
+  return cancel;
+}
+
+// ------------------------------------------------------------------ text entry (FUN_0045b2c0)
+
+// Returns 1 for Enter (OK), 2 for Esc (Cancel), 0 otherwise.
+int dlg_entry(const char *prompt, const char *text, int caret, int max_chars) {
+  if (!g_on) return 0;
+  hd_ui_show_golf_ui(0);
+  DlgSnap *s = &g_snap;
+  memset(s, 0, sizeof *s);
+  s->magic = DLG_MAGIC;
+  s->serial = ++g_serial;
+  s->kind = DLG_ENTRY;
+  copy_str(s->prompt, sizeof s->prompt, prompt);
+  copy_str(s->field, sizeof s->field, text);
+  s->caret = caret;
+  s->max_chars = max_chars;
+  dlgf_publish(s);
+  int r = 0;
+  DlgAction a;
+  while (dlgf_take_action(&a)) {
+    if (a.kind == DLG_A_OK) r = 1;
+    else if (a.kind == DLG_A_CANCEL) r = 2;
+  }
+  keep_restore();
+  return r;
+}
+
+// ------------------------------------------------------------------ hints with a speaker (FUN_0040d320 + FUN_0045c0c0)
+
+// gdi.c: the screen-sized DIB whose pixels contain address p
+uint16_t *gdi_dib_at(uintptr_t p, int *w, int *h, int *pitch, int *is565);
+extern int win_screen_w, win_screen_h;
+int FUN_00473f60(void *sprite, int mask, int target, int x, int y, int clip);
+int FUN_00473cb0(void *sprite, int target, int x, int y, int sx, int sy, int div, int clip);
+int FUN_0045c200(int who, int x, int y, int z);   // a golfer's face
+void FUN_00480c80(void *page);                    // flush the page's changes to the screen
+
+// golf's back buffer as pixels (the page it draws into), NULL when it is not what we expect
+static uint16_t *back_pixels(int *pitch, int *is565, int *w, int *h) {
+  uint32_t wrap = (uint32_t)G32(0x4c1570);
+  if (wrap < 0x10000) return NULL;
+  uint32_t p = (uint32_t)G32(wrap + 4);
+  if (p < 0x10000) return NULL;
+  uint8_t *s = (uint8_t *)(uintptr_t)p;
+  if (*(int32_t *)(s + 0x24) != 16 || *(int32_t *)(s + 0x40) < win_screen_w || !*(uint32_t *)(s + 0x4c0)) return NULL;
+  uint32_t bits = *(uint32_t *)(s + 0x4c0);
+  int dw, dh, dp;
+  if (!gdi_dib_at(bits, &dw, &dh, &dp, is565)) return NULL;
+  *pitch = *(int32_t *)(s + 0x40);
+  *w = *(int32_t *)(s + 0x38);
+  *h = *(int32_t *)(s + 0x3c);
+  return (uint16_t *)(uintptr_t)bits;
+}
+
+static void rgb_of(uint16_t v, int is565, int *r, int *g, int *b) {
+  if (is565) {
+    *r = ((v >> 11) & 31) * 255 / 31;
+    *g = ((v >> 5) & 63) * 255 / 63;
+    *b = (v & 31) * 255 / 31;
+  } else {
+    *r = ((v >> 10) & 31) * 255 / 31;
+    *g = ((v >> 5) & 31) * 255 / 31;
+    *b = (v & 31) * 255 / 31;
+  }
+}
+
+// Draws something into a scratch box of the back buffer over black and over white, turns the two into ARGB with
+// alpha (a = 1 - (white - black)) and puts the pixels back (as frontend_game.c).
+typedef void (*DrawFn)(int bx, int by, void *user);
+static uint32_t *capture(int BW, int BH, DrawFn draw, void *user, int *ow, int *oh) {
+  int pitch, is565, w, h;
+  uint16_t *bb = back_pixels(&pitch, &is565, &w, &h);
+  if (!bb || BW > w || BH > h) return NULL;
+  size_t n = (size_t)BW * BH;
+  uint16_t *saved = malloc(n * 2 * 3);
+  if (!saved) return NULL;
+  uint16_t *shot[2] = {saved + n, saved + 2 * n};
+  for (int y = 0; y < BH; y++) memcpy(saved + (size_t)y * BW, bb + (ptrdiff_t)y * pitch, (size_t)BW * 2);
+  uint16_t white = is565 ? 0xffff : 0x7fff;
+  for (int pass = 0; pass < 2; pass++) {
+    uint16_t fillc = pass ? white : 0;
+    for (int y = 0; y < BH; y++)
+      for (int x = 0; x < BW; x++) bb[(ptrdiff_t)y * pitch + x] = fillc;
+    draw(0, 0, user);
+    for (int y = 0; y < BH; y++) memcpy(shot[pass] + (size_t)y * BW, bb + (ptrdiff_t)y * pitch, (size_t)BW * 2);
+  }
+  for (int y = 0; y < BH; y++) memcpy(bb + (ptrdiff_t)y * pitch, saved + (size_t)y * BW, (size_t)BW * 2);
+  int x0 = BW, y0 = BH, x1 = -1, y1 = -1;
+  for (int y = 0; y < BH; y++)
+    for (int x = 0; x < BW; x++)
+      if (shot[0][y * BW + x] != 0 || shot[1][y * BW + x] != white) {
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+      }
+  if (x1 < x0) {
+    free(saved);
+    return NULL;
+  }
+  int cw = x1 - x0 + 1, ch = y1 - y0 + 1;
+  uint32_t *out = malloc((size_t)cw * ch * 4);
+  if (out) {
+    for (int y = 0; y < ch; y++)
+      for (int x = 0; x < cw; x++) {
+        int br, bg, bl, wr, wg, wb;
+        rgb_of(shot[0][(y0 + y) * BW + x0 + x], is565, &br, &bg, &bl);
+        rgb_of(shot[1][(y0 + y) * BW + x0 + x], is565, &wr, &wg, &wb);
+        int d = ((wr - br) + (wg - bg) + (wb - bl)) / 3;
+        int a = 255 - d;
+        if (a < 0) a = 0;
+        if (a > 255) a = 255;
+        uint32_t px = 0;
+        if (a > 0) {
+          int r = br * 255 / a, g = bg * 255 / a, bb2 = bl * 255 / a;
+          r = r > 255 ? 255 : r, g = g > 255 ? 255 : g, bb2 = bb2 > 255 ? 255 : bb2;
+          px = (uint32_t)a << 24 | (uint32_t)r << 16 | (uint32_t)g << 8 | (uint32_t)bb2;
+        }
+        out[y * cw + x] = px;
+      }
+    *ow = cw;
+    *oh = ch;
+  }
+  free(saved);
+  return out;
+}
+
+// The speaker's picture as FUN_0040d320 draws it (golf's speaker code in 0x4c2e08), at the box's origin.
+static void draw_speaker(int bx, int by, void *user) {
+  int sp = (int)(intptr_t)user;
+  int tgt = G32(0x4c1570);
+  int x = bx + 60, y = by + 50;
+  if (sp >= 0) {
+    FUN_00473f60((void *)0x5a58c4, 0x58bb7c, tgt, x - 0x32, y - 0x28, 0);
+    FUN_0045c200(sp, x - 0x32, y - 0x28, -1);
+  } else if (sp < -5 && sp > -0xf) {
+    FUN_00473cb0((void *)(uintptr_t)(0x53df84 + (sp * 0xb + 0x42) * -0x10), tgt, x + 8, y - 0x14, 1, 1, 1, 0);
+  } else if (sp == -5) {
+    FUN_00473f60((void *)0x5a58c4, 0x58bb7c, tgt, x - 0x28, y - 0x28, 0);
+  } else if (sp == -3) {
+    FUN_00473f60((void *)0x567a4c, 0x53dea4, tgt, x, y + 0x10, 0);
+  } else if (sp == -2) {
+    FUN_00473f60((void *)0x567a78, 0x53ded0, tgt, x, y + 0x10, 0);
+  } else if (sp == -0x14) {
+    FUN_00473f60((void *)0x567a20, 0x53de78, tgt, x, y + 0x10, 0);
+  } else if (sp == -0x15) {
+    FUN_00473f60((void *)0x567ad0, 0x53df28, tgt, x, y + 0x10, 0);
+  } else if (sp == -0x16) {
+    FUN_00473f60((void *)0x567aa4, 0x53defc, tgt, x, y + 0x10, 0);
+  }
+}
+
+#define SPEAKER 0x4c2e08
+static unsigned g_hint_t;   // ticks when FUN_0040d320 last drew a message panel
+static int g_hint_on;
+
+// Before FUN_0040d320 draws a message panel (its param_4 is -2): keep the picture to bring back under the native hint.
+void dlg_hint_pre(void) {
+  if (!dlgf_enabled()) return;
+  if (g_on) return;   // a native dialog is already up
+  unsigned now = SDL_GetTicks();
+  if (g_hint_t && now - g_hint_t < 300 && g_kept) {
+    g_hint_t = now | 1;
+    return;
+  }
+  hud_clean_pages();
+  keep_save();
+  g_hint_t = now | 1;
+}
+
+// Once per iteration of FUN_0045c0c0, golf's wait for a click or a key. 1 when the native hint was closed.
+int dlg_wait(void) {
+  if (!g_hint_on) {
+    if (g_on || !g_hint_t || SDL_GetTicks() - g_hint_t > 400 || !g_kept || !dlgf_enabled()) return 0;
+    if (g_log < 0) g_log = getenv("SIMGOLF_DIALOGS_LOG") != NULL;
+    g_hint_on = 1;
+    g_on = 1;
+    g_inj = 0;
+    hd_ui_show_golf_ui(0);
+    int sp = G32(SPEAKER), w = 0, h = 0;
+    uint32_t *px = capture(160, 140, draw_speaker, (void *)(intptr_t)sp, &w, &h);
+    if (g_log && px) {
+      int nz = 0;
+      for (int i = 0; i < w * h; i++) nz += (px[i] >> 24) > 8;
+      fprintf(stderr, "dialogs: portrait opaque pixels %d of %d, first %08x mid %08x", nz, w * h, px[0], px[(h / 2) * w + w / 2]);
+      fputc(10, stderr);
+    }
+    dlgf_publish_art(DLG_ART_PORTRAIT, px, w, h);
+    g_snap.has_art = px != NULL;
+    free(px);
+    if (g_log) fprintf(stderr, "dialogs: open hint speaker %d portrait %dx%d\n", sp, w, h);
+  }
+  DlgSnap *s = &g_snap;
+  int has_art = s->has_art;
+  memset(s, 0, sizeof *s);
+  s->magic = DLG_MAGIC;
+  s->serial = ++g_serial;
+  s->kind = DLG_HINT;
+  s->has_art = has_art;
+  s->speaker = G32(SPEAKER);
+  copy_str(s->text, sizeof s->text, (const char *)(uintptr_t)TEXT_BUF);
+  dlgf_publish(s);
+  DlgAction a;
+  while (!g_inj && dlgf_take_action(&a))
+    if (a.kind == DLG_A_OK || a.kind == DLG_A_CANCEL) inj_start(400, 300);
+  inj_step();
+  keep_restore();
+  FUN_00480c80((void *)0x519a60);   // golf's wait loop flushes nothing: the picture without the original panel goes out now
+  return 0;
+}
+
+// ------------------------------------------------------------------ golfer profile page (FUN_004385d0)
+
+int FUN_0045ae70(void);   // a key is waiting
+int FUN_0045ae30(void);   // takes the special key (VK code)
+
+// The page closes only with its OK disc: Esc presses it (the disc's place is in golf's hit table, entry 0x13).
+// Whatever the dialogs setting: the original look keeps this too.
+void dlg_profile_tick(void) {
+  if (!g_inj && FUN_0045ae70() && FUN_0045ae30() == 0x1b) {
+    int x = *(volatile int16_t *)(uintptr_t)(0x4c7b38 + 4 * 0x13), y = *(volatile int16_t *)(uintptr_t)(0x4c7b38 + 4 * 0x13 + 2);
+    inj_start(x, y);
+  }
+  inj_step();
+}
+
+// ------------------------------------------------------------------ hire an employee (FUN_00459400)
+
+#define JOB_NAMES 0x4c1464   // eight pointers to the job names
+#define JOB_WAGES 0x4c2e2c   // eight bytes: the weekly wage in hundreds of dollars
+static const unsigned g_group_str[4] = {0x4d3720, 0x4d370c, 0x4d36fc, 0x4d36e8};   // "Greeters...", "Speed up play...", ...
+// the rows' middles in the original's coordinates (the original reads the pointer's y only)
+static const int g_job_y[8] = {180, 200, 252, 271, 323, 342, 394, 413};
+
+int dlg_hire(int hover) {
+  if (!g_on) return 0;
+  hd_ui_show_golf_ui(0);
+  DlgSnap *s = &g_snap;
+  memset(s, 0, sizeof *s);
+  s->magic = DLG_MAGIC;
+  s->serial = ++g_serial;
+  s->kind = DLG_HIRE;
+  for (int g = 0; g < 4; g++) copy_str(s->group[g], sizeof s->group[g], (const char *)(uintptr_t)g_group_str[g]);
+  for (int i = 0; i < 8; i++) {
+    const char *nm = (const char *)(uintptr_t)(uint32_t)G32(JOB_NAMES + 4 * i);
+    copy_str(s->job[i], sizeof s->job[i], nm);
+    s->wage[i] = *(volatile int8_t *)(uintptr_t)(JOB_WAGES + i) * 100;
+  }
+  s->hover = hover;
+  dlgf_publish(s);
+  int cancel = 0;
+  DlgAction a;
+  while (!g_inj && dlgf_take_action(&a)) {
+    if (a.kind == DLG_A_ITEM && a.arg >= 0 && a.arg < 8) inj_start(400, g_job_y[a.arg]);
+    else if (a.kind == DLG_A_CANCEL) cancel = 1;
+  }
+  inj_step();
+  keep_restore();
+  return cancel;
+}
+
+unsigned dlg_done(unsigned v);
+
+void dlg_hint_end(void) {
+  if (g_hint_on) dlg_done(0);
+}
+
+unsigned dlg_done(unsigned v) {
+  if (g_on) {
+    if (g_log) fprintf(stderr, "dialogs: closed with %d\n", (int)v);
+    dlgf_end();
+    hd_ui_show_golf_ui(1);
+    keep_free();
+    g_on = 0;
+    g_hint_on = 0;
+    g_hint_t = 0;
+    g_inj = 0;
+  }
+  return v;
+}

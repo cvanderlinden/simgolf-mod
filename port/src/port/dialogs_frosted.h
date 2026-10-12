@@ -1,0 +1,36 @@
+// Frosted Mint dialogs (simgolf mod, task-27): popup menus, check lists, text
+// entry and the other small modal screens of the original.
+//
+// Two halves that meet here (same idea as the front end, frontend_frosted.h):
+//   dialogs_game.c      game thread: hooks the translator patches call
+//                       (port/tools/translate/golf.dialogs.json). Reads what the
+//                       original dialog shows into a DlgSnap and turns what the
+//                       player chose into a click or key for the ORIGINAL
+//                       dialog, so its handlers run.
+//   dialogs_frosted.c   render thread: a native UI layer (hd_native.h) that
+//                       draws the dialog (ui/ui_dialogs.c) over the picture and
+//                       takes the pointer.
+// Switch: ui.dialogs = frosted_mint | original (mods store; the built-in mod
+// ui_dialogs sets frosted_mint). docs/ui/KIT.md.
+#pragma once
+
+#include <stdint.h>
+
+#include "port/ui/ui_dialogs.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// game thread
+int dlgf_enabled(void);                  // ui.dialogs=frosted_mint and the native layer is up
+void dlgf_publish(const DlgSnap *s);     // the dialog the original is showing now
+void dlgf_end(void);                     // the original dialog has returned
+int dlgf_take_action(DlgAction *a);      // next choice on the native dialog, 1 if any
+void dlgf_publish_art(int key, const uint32_t *argb, int w, int h);   // DLG_ART_* key; NULL clears
+// any thread: a native dialog is up (the front end keeps its screen under it)
+int dlgf_active(void);
+
+#ifdef __cplusplus
+}
+#endif

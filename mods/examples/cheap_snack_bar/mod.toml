@@ -1,0 +1,11 @@
+id = "cheap_snack_bar"
+name = "Cheap snack bar"
+version = "1.0.0"
+authors = ["SimGolf mod team"]
+description = "The Snack Bar costs a third ($5,000 instead of $15,000) and earns a little more per visit. Sample of the data layer (docs/modding/DATA.md)."
+platform = "^1.0"
+game = ">=1.2.0"
+
+[touches.data]
+"buildings.snack_bar.cost" = "set"
+"buildings.snack_bar.income" = "add"

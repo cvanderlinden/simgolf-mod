@@ -1,0 +1,10 @@
+{
+  "$schema": "../../../../data/tables/difficulty.json",
+  "description": "Original curve: start cash 1000 on every level, wage period 512 / 341 / 256 / 204 ticks, start mood 4 / 3 / 3 / 3 (+0 to 2), hole fatigue 1 / 2 / 3 / 4.",
+  "set": {"easy.start_cash": 900},
+  "merge": {
+    "moderate": {"start_cash": 800, "wage_period": 300, "start_mood": 2},
+    "difficult": {"start_cash": 650, "wage_period": 200, "start_mood": 1, "hole_fatigue": 5},
+    "impossible": {"start_cash": 520, "wage_period": 128, "start_mood": 0, "start_mood_random": 3, "hole_fatigue": 7}
+  }
+}

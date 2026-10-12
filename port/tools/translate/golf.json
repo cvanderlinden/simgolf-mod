@@ -1,0 +1,495 @@
+{
+  "comment": "golf.exe translation config. native: CRT address -> replacement in src/port/crt.c",
+  "native": {
+    "004a4ffc": "crt_free",
+    "004a5007": "crt_free_",
+    "004a504f": "crt_malloc",
+    "004a57f1": "crt_operator_new",
+    "004a6980": "crt_realloc",
+    "004a5108": "crt_exit",
+    "004a55d2": "crt_vec_ctor",
+    "004a5713": "crt_vec_dtor",
+    "004a56d2": "crt_atexit",
+    "004a5800": "crt_strpbrk",
+    "004a583a": "crt_read",
+    "004a5a78": "crt_close",
+    "004a5b58": "crt_write",
+    "004a5d48": "crt_open",
+    "004a95bb": "crt_lseek",
+    "004a6057": "crt_tell",
+    "004a6070": "crt_chkstk",
+    "004a609f": "crt_fclose",
+    "004a614d": "crt_fopen",
+    "004a622c": "crt_fprintf",
+    "004a6268": "crt_fwrite",
+    "004a63a1": "crt_fread",
+    "004a64b8": "crt_remove",
+    "004a6570": "crt_isdigit",
+    "004a6598": "crt_isspace",
+    "004a65c0": "crt_isprint",
+    "004a65ee": "crt_fgets",
+    "004a6650": "crt_toupper",
+    "004a678b": "crt_strtok",
+    "004a6b08": "crt_atol",
+    "004a6b93": "crt_atoi",
+    "004a6d80": "crt_memmove",
+    "004a70b5": "crt_rewind",
+    "004a7119": "crt_fseek",
+    "004a71d2": "crt_tolower",
+    "004ad425": "crt_itoa",
+    "004ad4b0": "crt_stricmp",
+    "004ad580": "crt_strnicmp",
+    "004aa9f5": "crt_filbuf",
+    "004aa5a2": "crt_flsbuf",
+    "004a6170": "crt_strchr",
+    "004a64f0": "crt_strstr",
+    "004a6ad0": "crt_strncmp",
+    "004a6ba0": "crt_memchr",
+    "004a6c50": "crt_strrchr",
+    "004a6c80": "crt_strncpy",
+    "004abd90": "crt_memset",
+    "004abdf0": "crt_strlen",
+    "004abf30": "crt_strcmp",
+    "004a6030": "crt_ftol",
+    "004b65d6": "crt_sprintf",
+    "004b6628": "crt_sscanf"
+  },
+  "skip": [],
+  "patches": {
+    "FUN_00475840": [
+      ["FUN_00492d80(&local_128);", "art_pcx_load(this, param_1);\n  FUN_00492d80(&local_128);"]
+    ],
+    "FUN_0045baf0": [
+      ["DAT_00822c8c = 800;\n  DAT_00822c90 = 600;", "DAT_00822c8c = win_screen_w;\n  DAT_00822c90 = win_screen_h;"],
+      ["FUN_00404970(0xf0)", "win_screen_h"],
+      ["FUN_00404970(0x140)", "win_screen_w"]
+    ],
+    "FUN_00432720": [
+      ["FUN_00432560();", "opt_edit_prefs();"],
+      ["FUN_0046d6e0(200,0xfa,", "FUN_0046d6e0(200,0xfa + HD_UI_DY,"],
+      ["FUN_0046d6e0(0xfa,0x154,", "FUN_0046d6e0(0xfa,0x154 + HD_UI_DY,"]
+    ],
+    "FUN_0040c500": [
+      ["500 < param_2", "win_screen_h - 100 < param_2"],
+      ["799 < param_3", "win_screen_w - 1 < param_3"],
+      ["FUN_00467130(param_3,0,799)", "FUN_00467130(param_3,0,win_screen_w - 1)"],
+      ["FUN_00467130(param_2,0,599)", "FUN_00467130(param_2,0,win_screen_h - 1)"],
+      ["param_3 = param_3 * 2 + -400;", "param_3 = param_3 * 2 - win_screen_w / 2;"],
+      ["(param_3 * 0x7f) / 800", "(param_3 * 0x7f) / win_screen_w"],
+      ["param_3 - 400U", "param_3 - (uint)(win_screen_w / 2)"]
+    ],
+    "FUN_00404970": [
+      ["DAT_00822c8c * param_1", "win_tier_w * param_1"]
+    ],
+    "FUN_0042fb90": [
+      ["DAT_00822c8c == 0x400", "win_tier_w == 0x400"],
+      ["DAT_00822c8c != 0x500", "win_tier_w != 0x500"],
+      ["DAT_00822c8c / 2", "(DAT_00822c8c / 2 + hd_cam_ox)"],
+      ["DAT_00822c90 / 2", "(DAT_00822c90 / 2 + hd_cam_oy)"],
+      ["local_10 = -param_5;", "local_10 = -param_5 - hd_os_l;"],
+      ["DAT_00822c8c + param_5", "DAT_00822c8c + param_5 + hd_os_r"],
+      ["local_c = -(param_5 / 2);", "local_c = -(param_5 / 2) - hd_os_t;"],
+      ["local_8 = param_5 / 2,", "local_8 = param_5 / 2 + hd_os_b,"]
+    ],
+    "FUN_0042f940": [
+      ["(-0x41 < *param_3)", "(-0x41 - hd_os_l < *param_3)"],
+      ["*param_3 < DAT_00822c8c + 0x40", "*param_3 < DAT_00822c8c + 0x40 + hd_os_r"],
+      ["(-0x2b < *param_4", "(-0x2b - hd_os_t < *param_4"],
+      ["*param_4 < DAT_00822c90 + 0x2a", "*param_4 < DAT_00822c90 + 0x2a + hd_os_b"]
+    ],
+    "FUN_00430020": [
+      ["param_1 - DAT_00822c8c / 2", "param_1 - (DAT_00822c8c / 2 + hd_cam_ox)"],
+      ["param_2 - DAT_00822c90 / 2", "param_2 - (DAT_00822c90 / 2 + hd_cam_oy)"]
+    ],
+    "FUN_0044a6e0": [
+      ["DAT_00820f30 == 800", "win_tier_w == 800"],
+      ["DAT_00820f34 == 600", "win_tier_h == 600"],
+      ["DAT_00820f30 == 0x400", "win_tier_w == 0x400"],
+      ["DAT_00820f34 == 0x300", "win_tier_h == 0x300"],
+      ["DAT_00820f30 == 0x500", "win_tier_w == 0x500"],
+      ["DAT_00820f34 == 0x400", "win_tier_h == 0x400"]
+    ],
+    "FUN_004628d0": [
+      ["1000 < DAT_00822c8c", "1000 < win_tier_w"],
+      ["0x4af < DAT_00822c8c", "0x4af < win_tier_w"],
+      ["  iVar1 = DAT_00838200;\n  iVar2 = DAT_004c2844;\n  iVar4 = 0x10;", "  if (g_decor_tree_pass && hide_decor_trees()) return 0;  /* simgolf mod task-44 */\n  iVar1 = DAT_00838200;\n  iVar2 = DAT_004c2844;\n  iVar4 = 0x10;"]
+    ],
+    "FUN_00462a30": [
+      ["1000 < DAT_00822c8c", "1000 < win_tier_w"],
+      ["0x4af < DAT_00822c8c", "0x4af < win_tier_w"],
+      ["  iVar1 = DAT_004c2844;\n  if (0x3fe < DAT_00838200) {", "  if (g_decor_tree_pass && hide_decor_trees()) return 0;  /* simgolf mod task-44 */\n  iVar1 = DAT_004c2844;\n  if (0x3fe < DAT_00838200) {"]
+    ],
+    "FUN_00462be0": [
+      ["1000 < DAT_00822c8c", "1000 < win_tier_w"],
+      ["0x4af < DAT_00822c8c", "0x4af < win_tier_w"]
+    ],
+    "FUN_0049ccc0": [
+      [
+        "FUN_0049cf50(iVar1)",
+        "FUN_0049cf50(param_1,iVar1)"
+      ]
+    ],
+    "FUN_0040f5c0": [
+      [
+        "&uStack_c30",
+        "auStack_c2c"
+      ],
+      [
+        "&uStack_978",
+        "auStack_974"
+      ],
+      [
+        "FUN_004498a0(DAT_004c2ba0,DAT_004c2ba4,DAT_004c2844,DAT_005685f4);",
+        "hd_ui_frame_camera();\n    FUN_004498a0(DAT_004c2ba0,DAT_004c2ba4,DAT_004c2844,I2F(*(int *)0x5685f4));"
+      ],
+      ["0,0,800,600,0,0,DAT_00822c8c,DAT_00822c90", "0,0,800,600,0,0,800,600"],
+      ["0x289,0xd", "0x289 + (win_screen_w - 800),0xd"],
+      ["0x2a5,0x37", "0x2a5 + (win_screen_w - 800),0x37"],
+      ["699,99", "699 + (win_screen_w - 800),99"],
+      ["0x2c4,0x23", "0x2c4 + (win_screen_w - 800),0x23"],
+      ["0x2d2,0x4e", "0x2d2 + (win_screen_w - 800),0x4e"],
+      ["0x2dc,0x79", "0x2dc + (win_screen_w - 800),0x79"],
+      ["aiStack_1198[0] < 0x294", "aiStack_1198[0] < 0x294 + (win_screen_w - 800)"],
+      ["0x31e < iStack_103c", "win_screen_w - 2 < iStack_103c"],
+      ["0x256 < iStack_1068", "win_screen_h - 2 < iStack_1068"],
+      ["0x519cd4,200,0x96,400,300,0,0,800,600", "0x519cd4,win_screen_w / 4,win_screen_h / 4,win_screen_w / 2,win_screen_h / 2,0,0,win_screen_w,win_screen_h"],
+      ["iVar20 * 2 + -400", "iVar20 * 2 - win_screen_w / 2"],
+      ["iVar16 * 2 + -300", "iVar16 * 2 - win_screen_h / 2"],
+      ["iVar28 < 800", "iVar28 < win_screen_w"],
+      ["iVar39 < 600", "iVar39 < win_screen_h"],
+      ["iVar20 * 2 + -0x192", "iVar20 * 2 - (win_screen_w / 2 + 2)"],
+      ["iVar16 * 2 + -0x12d", "iVar16 * 2 - (win_screen_h / 2 + 1)"],
+      ["FUN_00432ba0(aiStack_1198[0],iStack_11a0);", "hd_ui_view_begin(0,HD_UI_DY);\n    FUN_00432ba0(aiStack_1198[0],iStack_11a0 - HD_UI_DY);"],
+      ["FUN_00433190(aiStack_1198[0],iStack_11a0);", "FUN_00433190(aiStack_1198[0],iStack_11a0 - HD_UI_DY);"],
+      ["FUN_00434350(aiStack_1198[0],iStack_11a0);", "FUN_00434350(aiStack_1198[0],iStack_11a0 - HD_UI_DY);"],
+      ["FUN_00435760(aiStack_1198[0],iStack_11a0);", "FUN_00435760(aiStack_1198[0],iStack_11a0 - HD_UI_DY);"],
+      ["FUN_004362f0(aiStack_1198[0],iStack_11a0);", "FUN_004362f0(aiStack_1198[0],iStack_11a0 - HD_UI_DY);"],
+      ["if (((DAT_00567afc == 0) && (DAT_004c2854 == 5)) && (DAT_0056d1b0 < 1)) {", "hd_ui_view_end();\n    if (((DAT_00567afc == 0) && (DAT_004c2854 == 5)) && (DAT_0056d1b0 < 1)) {"],
+      ["if (0x1b8 < DAT_00822d64) {", "if (0x1b8 + HD_UI_DY < DAT_00822d64) {"],
+      ["FUN_00432720(DAT_00822d60,DAT_00822d64)", "FUN_00432720(DAT_00822d60,DAT_00822d64 - HD_UI_DY)"],
+      ["if (DAT_00822d64 < 0x1e1) goto", "if (DAT_00822d64 < 0x1e1 + HD_UI_DY) goto"],
+      ["FUN_00433040(DAT_00822d60,DAT_00822d64)", "FUN_00433040(DAT_00822d60,DAT_00822d64 - HD_UI_DY)"],
+      ["FUN_00434140(DAT_00822d60,DAT_00822d64)", "FUN_00434140(DAT_00822d60,DAT_00822d64 - HD_UI_DY)"],
+      ["FUN_00435680(DAT_00822d60,DAT_00822d64)", "FUN_00435680(DAT_00822d60,DAT_00822d64 - HD_UI_DY)"],
+      ["FUN_00436060(DAT_00822d60,DAT_00822d64)", "FUN_00436060(DAT_00822d60,DAT_00822d64 - HD_UI_DY)"],
+      ["(0x23f < DAT_00822d64)", "(0x23f + HD_UI_DY < DAT_00822d64)"],
+      ["(DAT_00822d64 < 0x1e0)", "(DAT_00822d64 < 0x1e0 + HD_UI_DY)"],
+      ["(iStack_11f8 < 500)", "(iStack_11f8 < 500 + HD_UI_DY)"],
+      ["(iStack_11f8 < 0x1e0)", "(iStack_11f8 < 0x1e0 + HD_UI_DY)"],
+      ["(0x1df < iStack_11f8)", "(0x1df + HD_UI_DY < iStack_11f8)"],
+      ["iVar28,0x23f,1,1,1,0)", "iVar28,0x23f + HD_UI_DY,1,1,1,0)"],
+      ["iVar28 + 1,0x24f,", "iVar28 + 1,0x24f + HD_UI_DY,"],
+      ["iVar28 + 8,0x24f,", "iVar28 + 8,0x24f + HD_UI_DY,"],
+      ["if (0x310 < iVar28) break;", "if ((win_screen_w - 0x10 < 0xa3c ? win_screen_w - 0x10 : 0xa3c) < iVar28) break;"],
+      ["0x2e0,0x195,", "0x2e0,0x195 + HD_UI_DY,"],
+      ["0x2e0,0x1a4,", "0x2e0,0x1a4 + HD_UI_DY,"],
+      ["0x2e0,0x1b3,", "0x2e0,0x1b3 + HD_UI_DY,"],
+      ["0x2e0,0x1c7,", "0x2e0,0x1c7 + HD_UI_DY,"],
+      ["0x2b0,0x1c2,0x310,0x1c2,", "0x2b0,0x1c2 + HD_UI_DY,0x310,0x1c2 + HD_UI_DY,"],
+      ["0x196,0x22c,", "0x196,0x22c + HD_UI_DY,"],
+      ["0x196,0x21e,", "0x196,0x21e + HD_UI_DY,"],
+      ["0x196,0x248,", "0x196,0x248 + HD_UI_DY,"],
+      ["0x196,0x23a,", "0x196,0x23a + HD_UI_DY,"],
+      ["iVar23 = DAT_00571fd4;\n    DAT_005a9cb4 = DAT_00571fd4 / 1000;", "hd_ui_course_done();\n    iVar23 = DAT_00571fd4;\n    DAT_005a9cb4 = DAT_00571fd4 / 1000;"],
+      ["DAT_004c2ba4 = FUN_00467130(DAT_004c2ba4,0,0x31);", "DAT_004c2ba4 = FUN_00467130(DAT_004c2ba4,0,0x31);\n  hd_ui_camera_clamp();"],
+      ["if ((DAT_0059e7b8 & 0x200000) != 0) goto LAB_004194b5;", "hud_save();\n    if ((DAT_0059e7b8 & 0x200000) != 0) goto LAB_004194b5;"],
+      ["DAT_004c2844 = DAT_005a34e8;", "DAT_004c2844 = DAT_005a34e8;\n    hud_restore();"],
+      ["(aiStack_1198[0],iStack_11a0 - HD_UI_DY);", "(hud_mx(aiStack_1198[0]),hud_my(iStack_11a0 - HD_UI_DY));"],
+      ["FUN_00404bc0((char *)&DAT_0051a068,400,10,0x80007fff);", "if (!hud_on()) FUN_00404bc0((char *)&DAT_0051a068,400,10,0x80007fff);"],
+      ["if (0x1b8 + HD_UI_DY < DAT_00822d64) {", "if (hud_old_click() && 0x1b8 + HD_UI_DY < DAT_00822d64) {"],
+      ["uStack_1228 = FUN_0040db90(DAT_00543d08,DAT_00543d0c,iVar23,DAT_004c2854);", "uStack_1228 = fix_place_check(DAT_00543d08,DAT_00543d0c,iVar23,DAT_004c2854);"],
+      ["iVar23 = FUN_0040db90(iStack_1234,iStack_122c,", "iVar23 = fix_place_check(iStack_1234,iStack_122c,"],
+      ["(0x23f + HD_UI_DY < DAT_00822d64)", "(0x23f + HD_UI_DY < DAT_00822d64 && hud_strip_click())"],
+      ["(iStack_11f8 < 500 + HD_UI_DY)", "(iStack_11f8 < hud_ylim(500 + HD_UI_DY))"],
+      ["(iStack_11f8 < 0x1e0 + HD_UI_DY)", "(iStack_11f8 < hud_ylim(0x1e0 + HD_UI_DY))"],
+      ["(0x1df + HD_UI_DY < iStack_11f8)", "(hud_ylim(0x1df + HD_UI_DY) < iStack_11f8)"],
+      [
+        "      if ((int)(DAT_00834170 & 3) <= (int)DAT_00822c88) {\n        uVar13 = FUN_0045c1e0(&DAT_00822d9c,0x32);\n        uVar13 = uVar13 & 0xffff;\n        uVar24 = FUN_0045c1e0(&DAT_00822d9c,0x32);",
+        "      for (int weed_pick = GEN_TIMES; weed_pick-- > 0 && (int)(DAT_00834170 & 3) <= (int)DAT_00822c88; ) {\n        uVar13 = FUN_0045c1e0(&DAT_00822d9c,g_map_w);\n        uVar13 = uVar13 & 0xffff;\n        uVar24 = FUN_0045c1e0(&DAT_00822d9c,g_map_w);"
+      ],
+      [
+        "        iVar23 = DAT_00543d0c + DAT_00543d08 * 0x22;\n        bVar22 = *(char *)((int)&DAT_005a4998 + iVar23 + DAT_00543d08 * 0x11) + 1;\n        *(byte *)((int)&DAT_005a4998 + iVar23 + DAT_00543d08 * 0x11) = bVar22;",
+        "        iVar23 = DAT_00543d0c + DAT_00543d08 * 0x33;\n        bVar22 = *(char *)((int)&DAT_005a4998 + iVar23) + 1;\n        *(byte *)((int)&DAT_005a4998 + iVar23) = bVar22;"
+      ],
+      [
+        "          for (iVar23 = 0xc; iVar23 != 0; iVar23 = iVar23 + -1) {\n            *puVar32 = 0x4040404;\n            puVar32 = puVar32 + 1;\n          }\n          *(undefined2 *)puVar32 = 0x404;",
+        "          for (iVar23 = 0; iVar23 < g_map_w; iVar23 = iVar23 + 1) {\n            ((char *)puVar32)[iVar23] = 4;\n          }"
+      ],
+      [
+        "FUN_004628d0(iStack_1214,iStack_1218,iStack_1218,0x28,0x28,DAT_005a9cc8,4,0x59);\n                DAT_005a9cc8 = FUN_0043d6f0(0xfd,0,uVar24);",
+        "FUN_004628d0(iStack_1214,iStack_1218,iStack_1218,0x28,0x28,DAT_005a9cc8,4,0x59);\n                g_decor_tree_pass = 1;  /* simgolf mod task-44: scenic tree decoration */\n                DAT_005a9cc8 = FUN_0043d6f0(0xfd,0,uVar24);"
+      ],
+      [
+        "FUN_004628d0(iStack_1214,iStack_1218,iStack_1218,0x28,0x28,DAT_005a9cc8,4,0x59);\n                if ((&DAT_005722e8)[iVar23] == '\\x10') {",
+        "FUN_004628d0(iStack_1214,iStack_1218,iStack_1218,0x28,0x28,DAT_005a9cc8,4,0x59);\n                g_decor_tree_pass = 1;  /* simgolf mod task-44: scenic trees, cactus group */\n                if ((&DAT_005722e8)[iVar23] == '\\x10') {"
+      ],
+      [
+        "                if (DAT_005a34e0 != '\\x01') {\n                  DAT_005a9cc8 = FUN_0043d6f0(300,0,uVar24);",
+        "                if (DAT_005a34e0 != '\\x01') {\n                  g_decor_tree_pass = 1;  /* simgolf mod task-44: dead swamp trees */\n                  DAT_005a9cc8 = FUN_0043d6f0(300,0,uVar24);"
+      ],
+      [
+        "            uVar13 = *(byte *)(&DAT_0053caf0 + iVar23) & 0x1f;\n            if ((((&DAT_005722e8)[iVar23] == '\\x15')",
+        "            g_decor_tree_pass = 0;  /* simgolf mod task-44: end of the decoration switch */\n            uVar13 = *(byte *)(&DAT_0053caf0 + iVar23) & 0x1f;\n            if ((((&DAT_005722e8)[iVar23] == '\\x15')"
+      ]
+    ],
+    "FUN_00470a60": [
+      [
+        "uVar21 = ((byte)~bVar6 | 6) << 1;",
+        "uVar21 = ((byte)~bVar6 & 1 | 6) << 1;"
+      ],
+      [
+        "    uVar12 = FUN_0045c1e0(&DAT_00822d9c,0x32);\n    uVar12 = uVar12 & 0xffff;\n    uVar13 = FUN_0045c1e0(&DAT_00822d9c,0x32);",
+        "    uVar12 = FUN_0045c1e0(&DAT_00822d9c,g_map_w);\n    uVar12 = uVar12 & 0xffff;\n    uVar13 = FUN_0045c1e0(&DAT_00822d9c,g_map_w);"
+      ],
+      [
+        "      uVar21 = (0x18 < uVar13) + 0xd;",
+        "      uVar21 = ((uint)(g_map_w / 2 - 1) < uVar13) + 0xd;"
+      ],
+      [
+        "      if (local_28 == 0x30) {",
+        "      if (local_28 == 48) {"
+      ],
+      [
+        "    if (0x4e2 < local_1c) break;\n    local_24 = local_24 + 0x9c4;",
+        "    if (GEN_AREA(1250) < local_1c) break;\n    local_24 = local_24 + 2500;"
+      ],
+      [
+        "  } while ((int)local_24 < 45000);",
+        "  } while ((int)local_24 < 45000 || (g_map_w * g_map_h > 2500 && (local_24 = 5000, 1)));"
+      ],
+      [
+        "  local_c = (undefined1 *)(uint)((&DAT_00571ff7)[iVar10] != '\\x02');",
+        "  local_c = (undefined1 *)(uint)(((&DAT_00571ff7)[iVar10] != '\\x02') * GEN_CREEKS);"
+      ],
+      [
+        "      uVar21 = FUN_0045c1e0(&DAT_00822d9c,0x10);\n      local_28 = 0x31;\n      local_14 = 0;\n      iVar11 = (int)((param_1 * 5 + 5) * 10) / 3 + (uVar21 & 0xffff);",
+        "      uVar21 = FUN_0045c1e0(&DAT_00822d9c,16 * g_map_w / (50 * GEN_CREEKS));\n      local_28 = 0x31;\n      local_14 = 0;\n      iVar11 = g_map_w * ((int)param_1 * 3 + 1) / (3 * GEN_CREEKS) + (uVar21 & 0xffff);"
+      ],
+      [
+        "    iVar23 = (uVar21 & 0xffff) + 4 +\n             ((int)(uVar12 * 0x32 + ((int)(uVar12 * 0x32) >> 0x1f & 3U)) >> 2);",
+        "    iVar23 = (uVar21 & 0xffff) + 4 + (int)param_1 % GEN_PATCH_ROWS * g_map_w / GEN_PATCH_ROWS;"
+      ],
+      [
+        "    iVar18 = ((int)(param_1 + ((int)param_1 >> 0x1f & 3U)) >> 2) * 0x32;\n    iVar18 = (uVar21 & 0xffff) + 4 + ((int)(iVar18 + (iVar18 >> 0x1f & 3U)) >> 2);",
+        "    iVar18 = (uVar21 & 0xffff) + 4 + (int)param_1 / GEN_PATCH_ROWS * g_map_w / GEN_PATCH_ROWS;"
+      ],
+      [
+        "        (short)uVar14 == 0)) || (param_1 == 0)) {\n      iVar11 = 0x12;",
+        "        (short)uVar14 == 0)) || ((int)param_1 % 24 == 0)) {\n      iVar11 = 0x12;"
+      ],
+      [
+        "    param_1 = param_1 + 1;\n  } while ((int)param_1 < 0x18);",
+        "    param_1 = param_1 + 1;\n  } while ((int)param_1 < GEN_PATCH_ROWS * GEN_PATCH_COLS);"
+      ],
+      [
+        "    uVar21 = FUN_0045c1e0(&DAT_00822d9c,0x2e);\n    iVar18 = (uVar21 & 0xffff) + 2;\n    uVar21 = FUN_0045c1e0(&DAT_00822d9c,0x2e);\n    uVar21 = (uVar21 & 0xffff) + 2;",
+        "    uVar21 = FUN_0045c1e0(&DAT_00822d9c,g_map_w - 4);\n    iVar18 = (uVar21 & 0xffff) + 2;\n    uVar21 = FUN_0045c1e0(&DAT_00822d9c,g_map_w - 4);\n    uVar21 = (uVar21 & 0xffff) + 2;"
+      ],
+      [
+        "  } while (iVar11 < (4 - DAT_00822c88) * 9);",
+        "  } while (iVar11 < GEN_AREA((4 - DAT_00822c88) * 9));"
+      ],
+      [
+        "      uVar21 = FUN_0045c1e0(&DAT_00822d9c,0x11);\n      uVar21 = uVar21 & 0xffff;",
+        "      uVar21 = FUN_0045c1e0(&DAT_00822d9c,GEN_LIN(17));\n      uVar21 = (uVar21 & 0xffff) + GEN_LIN(15) - 15;"
+      ],
+      [
+        "      uVar12 = FUN_0045c1e0(&DAT_00822d9c,0x11);\n      uVar12 = uVar12 & 0xffff;",
+        "      uVar12 = FUN_0045c1e0(&DAT_00822d9c,GEN_LIN(17));\n      uVar12 = (uVar12 & 0xffff) + GEN_LIN(15) - 15;"
+      ],
+      [
+        "      uVar21 = FUN_0045c1e0(&DAT_00822d9c,0x2e);\n      iVar24 = (uVar21 & 0xffff) + 2;\n      uVar21 = FUN_0045c1e0(&DAT_00822d9c,0x2e);\n      iVar23 = (uVar21 & 0xffff) + 2;",
+        "      uVar21 = FUN_0045c1e0(&DAT_00822d9c,g_map_w - 4);\n      iVar24 = (uVar21 & 0xffff) + 2;\n      uVar21 = FUN_0045c1e0(&DAT_00822d9c,g_map_w - 4);\n      iVar23 = (uVar21 & 0xffff) + 2;"
+      ],
+      [
+        "    } while (iVar11 < 0x10);\n    goto switchD_0047167c_caseD_3;",
+        "    } while (iVar11 < GEN_AREA(16));\n    goto switchD_0047167c_caseD_3;"
+      ],
+      [
+        "          uVar21 = FUN_0045c1e0(&DAT_00822d9c,0x1e);\n          uVar12 = FUN_0045c1e0(&DAT_00822d9c,0x1e);\n          iVar23 = DAT_00822c88;\n          iVar11 = (uVar12 & 0xffff) + ((uVar21 & 0xffff) + 10) * 0x32;",
+        "          uVar21 = FUN_0045c1e0(&DAT_00822d9c,GEN_LIN(30));\n          uVar12 = FUN_0045c1e0(&DAT_00822d9c,0x1e);\n          iVar23 = DAT_00822c88;\n          iVar11 = (uVar12 & 0xffff) + ((uVar21 & 0xffff) + GEN_LIN(10)) * 0x32;"
+      ],
+      [
+        "      } while (iVar19 < 8 - iVar23);",
+        "      } while (iVar19 < GEN_AREA(8 - iVar23));"
+      ],
+      [
+        "      uVar21 = FUN_0045c1e0(&DAT_00822d9c,0x28);\n      uVar12 = FUN_0045c1e0(&DAT_00822d9c,0x28);\n      iVar11 = FUN_0040db90(",
+        "      uVar21 = FUN_0045c1e0(&DAT_00822d9c,g_map_w - 10);\n      uVar12 = FUN_0045c1e0(&DAT_00822d9c,g_map_w - 10);\n      iVar11 = FUN_0040db90("
+      ],
+      [
+        "        uVar21 = FUN_0045c1e0(&DAT_00822d9c,0x28);\n        iVar18 = (uVar21 & 0xffff) + 5;\n        uVar12 = FUN_0045c1e0(&DAT_00822d9c,0x28);",
+        "        uVar21 = FUN_0045c1e0(&DAT_00822d9c,g_map_w - 10);\n        iVar18 = (uVar21 & 0xffff) + 5;\n        uVar12 = FUN_0045c1e0(&DAT_00822d9c,g_map_w - 10);"
+      ],
+      [
+        "      } while ((int)param_1 < 8 - DAT_00822c88);",
+        "      } while ((int)param_1 < GEN_AREA(8 - DAT_00822c88));"
+      ],
+      [
+        "      if (iVar19 == 0) {\n        uVar21 = FUN_0045c1e0(&DAT_00822d9c,10);\n        uVar21 = -(uVar21 & 0xffff);",
+        "      if ((iVar19 & 1) == 0) {\n        uVar21 = FUN_0045c1e0(&DAT_00822d9c,10);\n        uVar21 = -(uVar21 & 0xffff);"
+      ],
+      [
+        "      iVar11 = uVar21 + 0x19;",
+        "      iVar11 = uVar21 + g_map_w * (2 * (iVar19 / 2) + 1) / (2 * GEN_TIMES);"
+      ],
+      [
+        "      *pcVar4 = *pcVar4 + '\\x02';\n    } while (iVar19 < 2);",
+        "      *pcVar4 = *pcVar4 + '\\x02';\n    } while (iVar19 < 2 * GEN_TIMES);"
+      ],
+      [
+        "      uVar21 = FUN_0045c1e0(&DAT_00822d9c,0x28);\n      iVar11 = (uVar21 & 0xffff) + 5;\n      uVar21 = FUN_0045c1e0(&DAT_00822d9c,0x28);\n      iVar23 = (uVar21 & 0xffff) + 5;",
+        "      uVar21 = FUN_0045c1e0(&DAT_00822d9c,g_map_w - 10);\n      iVar11 = (uVar21 & 0xffff) + 5;\n      uVar21 = FUN_0045c1e0(&DAT_00822d9c,g_map_w - 10);\n      iVar23 = (uVar21 & 0xffff) + 5;"
+      ],
+      [
+        "        uVar21 = FUN_0045c1e0(&DAT_00822d9c,0x27);\n        iVar11 = (uVar21 & 0xffff) + 5;\n        uVar21 = FUN_0045c1e0(&DAT_00822d9c,0x27);",
+        "        uVar21 = FUN_0045c1e0(&DAT_00822d9c,g_map_w - 11);\n        iVar11 = (uVar21 & 0xffff) + 5;\n        uVar21 = FUN_0045c1e0(&DAT_00822d9c,g_map_w - 11);"
+      ],
+      [
+        "    } while ((int)param_1 < DAT_00822c88);\n  }\n  iVar19 = FUN_00402970(0xfa);",
+        "    } while ((int)param_1 < GEN_AREA(DAT_00822c88));\n  }\n  iVar19 = FUN_00402970(0xfa);"
+      ],
+      [
+        "  iVar11 = 0x19;\n  iVar19 = 0;",
+        "  iVar11 = g_map_w / 2;\n  iVar19 = 0;"
+      ],
+      [
+        "  } while ((int)((uint)(byte)(&DAT_00571ff5)[iVar10] * 10) < iVar11 * iVar11 * 4);",
+        "  } while (GEN_AREA((uint)(byte)(&DAT_00571ff5)[iVar10] * 10) < iVar11 * iVar11 * 4);"
+      ],
+      [
+        "    uVar12 = (int)(iVar10 - 0x19U) >> 0x1f;\n    iVar19 = FUN_00467130((iVar10 - 0x19U ^ uVar12) - uVar12,8,0x32);\n    iVar11 = iVar19 + iVar23 + -0xb + (uVar21 & 0xffff);",
+        "    uVar12 = (int)(iVar10 - (uint)(g_map_w / 2)) >> 0x1f;\n    iVar19 = FUN_00467130((iVar10 - (uint)(g_map_w / 2) ^ uVar12) - uVar12,GEN_LIN(8),g_map_w);\n    iVar11 = iVar19 + iVar23 + 1 - GEN_LIN(12) + (uVar21 & 0xffff);"
+      ]
+    ],
+    "FUN_004315e0": [
+      [
+        "puVar6 = &DAT_005a8c38;",
+        "grid_resize_default();  /* simgolf mod task-8: new games at the map_scale size */\n  puVar6 = &DAT_005a8c38;"
+      ]
+    ],
+    "FUN_00430360": [
+      [
+        "FUN_0045c1e0(&DAT_00822d9c,0x32)",
+        "FUN_0045c1e0(&DAT_00822d9c,g_map_w)"
+      ],
+      [
+        "0xcc00 <",
+        "(g_map_w + 1) * 1024 <"
+      ],
+      [
+        "= 0xc800;",
+        "= g_map_w * 1024;"
+      ]
+    ],
+    "FUN_00406f20": [
+      [
+        "  iVar6 = param_2 + param_1 * 0x22;\n  bVar1 = *(byte *)((int)&DAT_005a4998 + iVar6 + param_1 * 0x11);\n  iVar3 = (int)&DAT_005a4998 + iVar6 + param_1 * 0x11;\n  psVar5 = (short *)0x4c2f68;\n  iVar6 = iVar3 + -0x68;",
+        "  iVar6 = param_2 + param_1 * 0x33;\n  bVar1 = *(byte *)((int)&DAT_005a4998 + iVar6);\n  iVar3 = (int)&DAT_005a4998 + iVar6;\n  psVar5 = (short *)0x4c2f68;\n  iVar6 = iVar3 - 2 * 0x33 - 2;"
+      ]
+    ],
+    "FUN_00406f90": [
+      [
+        "  iVar6 = param_2 + param_1 * 0x22;\n  bVar1 = *(byte *)((int)&DAT_005a4998 + iVar6 + param_1 * 0x11);\n  iVar3 = (int)&DAT_005a4998 + iVar6 + param_1 * 0x11;\n  psVar5 = (short *)0x4c2f68;\n  iVar6 = iVar3 + -0x68;",
+        "  iVar6 = param_2 + param_1 * 0x33;\n  bVar1 = *(byte *)((int)&DAT_005a4998 + iVar6);\n  iVar3 = (int)&DAT_005a4998 + iVar6;\n  psVar5 = (short *)0x4c2f68;\n  iVar6 = iVar3 - 2 * 0x33 - 2;"
+      ]
+    ],
+    "FUN_0040db90": [
+      [
+        "(short)(&DAT_0058bcb8)[iVar3 * 8] != param_4)) {",
+        "(short)(&DAT_0058bcb8)[iVar3 * 8] != param_4 || fix_overlap_blocks(param_4))) {  /* simgolf mod task-48 */"
+      ]
+    ],
+    "FUN_00449540": [
+      [
+        "  iVar10 = 0x992;",
+        "  iVar10 = (g_map_w - 1) * 0x32;"
+      ],
+      [
+        "      if (iVar10 != 0x11) {\n        uVar5 = 1;",
+        "      if (iVar10 != 0x11 || fix_water_push()) {  /* simgolf mod task-40 */\n        uVar5 = 1;"
+      ]
+    ],
+    "FUN_00424120": [
+      [
+        "(int)acStack_9c4[",
+        "(int)GEN_ZERO_TILES["
+      ],
+      [
+        "(int)acStack_9c4\n",
+        "(int)GEN_ZERO_TILES\n"
+      ]
+    ],
+    "FUN_00456be0": [
+      [
+        "          iStack_e0 = iStack_108 + -6;",
+        "          iStack_e0 = iStack_108 - GEN_MAP_HW;"
+      ],
+      [
+        "          iStack_d4 = iStack_104 + -3;",
+        "          iStack_d4 = iStack_104 - GEN_MAP_HH;"
+      ],
+      [
+        "          iStack_c4 = iStack_104 + 3;",
+        "          iStack_c4 = iStack_104 + GEN_MAP_HH;"
+      ],
+      [
+        "          iStack_d0 = iStack_108 + 6;",
+        "          iStack_d0 = iStack_108 + GEN_MAP_HW;"
+      ],
+      [
+        "          iStack_c0 = iStack_108 + -6;",
+        "          iStack_c0 = iStack_108 - GEN_MAP_HW;"
+      ],
+      [
+        "          iStack_b4 = iStack_104 + -3;",
+        "          iStack_b4 = iStack_104 - GEN_MAP_HH;"
+      ],
+      [
+        "          iStack_b0 = iStack_108 + 6;",
+        "          iStack_b0 = iStack_108 + GEN_MAP_HW;"
+      ],
+      [
+        "          iStack_a4 = iStack_104 + 3;",
+        "          iStack_a4 = iStack_104 + GEN_MAP_HH;"
+      ]
+    ],
+    "FUN_004587a0": [
+      [
+        "          iVar3 = ((local_ec % 3) * 0x30) / 3 + 1;",
+        "          iVar3 = GEN_TRACT0(local_ec % 3);"
+      ],
+      [
+        "          local_bc = ((local_ec / 3) * 0x30) / 3 + 1;",
+        "          local_bc = GEN_TRACT0(local_ec / 3);"
+      ],
+      [
+        "                if ((iVar10 == 8) && (iVar8 == 8)) {",
+        "                if ((iVar10 == GEN_TRACTN(local_ec % 3) / 2) && (iVar8 == GEN_TRACTN(local_ec / 3) / 2)) {"
+      ],
+      [
+        "            } while (iVar10 < 0x10);\n            iVar8 = iVar8 + 1;\n          } while (iVar8 < 0x10);",
+        "            } while (iVar10 < GEN_TRACTN(local_ec % 3));\n            iVar8 = iVar8 + 1;\n          } while (iVar8 < GEN_TRACTN(local_ec / 3));"
+      ],
+      [
+        "        local_d0 = ((local_e4 / 3) * 0x30) / 3 + 1;",
+        "        local_d0 = GEN_TRACT0(local_e4 / 3);"
+      ],
+      [
+        "(((local_e4 % 3) * 0x30) / 3 + 1) * 0x32",
+        "GEN_TRACT0(local_e4 % 3) * 0x32"
+      ],
+      [
+        "            iVar10 = local_b4;\n",
+        "            iVar10 = GEN_TRACTN(local_e4 % 3);\n"
+      ],
+      [
+        "          } while (iVar3 < local_b4);",
+        "          } while (iVar3 < GEN_TRACTN(local_e4 / 3));"
+      ]
+    ]
+  },
+  "class_libs": [
+    "Terrain"
+  ]
+}

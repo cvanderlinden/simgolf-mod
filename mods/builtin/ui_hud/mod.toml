@@ -1,0 +1,25 @@
+# Built-in mod: Frosted Mint course HUD (cards task-26 and task-30).
+# Sets ui.hud=frosted_mint: the course view's banner, readouts, wheel and
+# trays are replaced by the Frosted Mint HUD (top stats capsule, bottom dock
+# and trays, camera buttons, news toasts), drawn at the screen's resolution.
+# Every button runs the original game's own control. Switch it off with
+# `ui_hud=0` in data/mods.ini, `[ui] hud=original` there, the vanilla profile,
+# or --no-mods. Needs the native presenter (hd_presentation).
+id = "ui_hud"
+name = "Frosted Mint HUD"
+version = "0.1.0"
+authors = ["SimGolf mod team"]
+description = "The course HUD in the Frosted Mint style: stats capsule on top, build dock and trays at the bottom."
+platform = "^1.0"
+game = ">=1.2.0"
+load_after = ["hd_presentation", "ui_font"]
+
+[settings]
+"ui.hud" = "frosted_mint"
+# jwe (default, the maintainer's pick R5, Jurassic World Evolution 2 style): the stats
+# cluster in the top right corner, the build toolbar in the bottom left corner
+# with its tray opening above it, the middle of the screen clear; the tray
+# tucks away when you click the course or press Esc. regular: the D5 layout
+# (top capsule, bottom dock, camera buttons); compact, minimal and the other
+# looks stay switchable. Set your own in data/mods.ini [ui] hud_density.
+"ui.hud_density" = "jwe"

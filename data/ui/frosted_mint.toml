@@ -1,0 +1,150 @@
+# Frosted Mint design tokens (the maintainer's pick D5, 2026-10-09; docs/ui/DESIGN_SYSTEM.md).
+# The UI kit (port/src/port/ui, docs/ui/KIT.md) draws every panel, button, text
+# and shadow from these values. Sizes are UI pixels at 1080p; the kit scales
+# them (UI scale = screen height / 1080, snapped to 0.25, never below 0.75).
+#
+# A mod restyles the UI by shipping ui/frosted_mint.toml in its folder with
+# only the keys it changes; mods apply in load order on top of this file.
+# Colours: "#RRGGBB", "#RRGGBBAA", "rgb(r,g,b)" or "rgba(r,g,b,a)" (a 0..1).
+# Gradients: { from, to, angle } (CSS degrees). Shadows: { x, y, blur, color }.
+# Type: { size, line, weight, tracking } (tracking in em).
+
+money = "#D9961A"
+danger = "#D9583B"
+divider = "rgba(16,35,26,0.12)"
+scrim = "rgba(0,20,10,0.10)"
+space = [4, 8, 12, 16, 20, 24, 32, 40]
+
+[glass]
+fill = "rgba(214,255,232,0.66)"
+fill_strong = "rgba(236,255,245,0.72)"
+border = "rgba(230,255,240,0.75)"
+highlight = "rgba(255,255,255,0.90)"
+solid = "rgba(226,247,236,0.94)"      # when blur is 0 (low-end setting)
+shadow = { x = 0, y = 18, blur = 50, color = "rgba(0,60,30,0.25)" }
+blur = 30
+saturation = 2.0                      # recorded; the SDL presenter has no saturate step
+
+[surface]
+inset = "rgba(236,255,245,0.50)"
+inset_border = "rgba(255,255,255,0.80)"
+
+[text]
+primary = "#0B2A1C"
+secondary = "#283E34"
+tertiary = "rgba(74,95,84,0.80)"
+on_accent = "#FFFFFF"
+
+[accent]
+color = "#0E9F6E"
+soft = "rgba(14,159,110,0.15)"
+soft_text = "#0B7A55"
+grad = { from = "#22C38E", to = "#0B7A55", angle = 160 }
+
+[warn]
+grad = { from = "#F08A5D", to = "#F5B841", angle = 90 }
+
+[meter]
+grad = { from = "#4FD1A5", to = "#0E9F6E", angle = 90 }
+track = "rgba(255,255,255,0.60)"
+
+[seg]
+track = "rgba(255,255,255,0.45)"
+on = "#FFFFFF"
+on_shadow = { x = 0, y = 1, blur = 4, color = "rgba(0,0,0,0.12)" }
+
+[tile]
+fill = "rgba(255,255,255,0.55)"
+fill_on = "rgba(236,255,245,0.85)"
+
+[dock]
+square = "rgba(236,255,245,0.60)"
+square_shadow = { x = 0, y = 4, blur = 12, color = "rgba(0,0,0,0.10)" }
+active_shadow = { x = 0, y = 10, blur = 24, color = "rgba(14,143,100,0.45)" }
+
+[icon]
+muted = "#2D4A3C"
+
+[slider]
+thumb_shadow = { x = 0, y = 2, blur = 6, color = "rgba(0,40,20,0.25)" }
+
+[world]
+bg_top = "#BFEFD9"
+bg_mid = "#E2F7EC"
+bg_bottom = "#BFE3CC"
+
+[radius]
+panel = 30
+card = 26
+tile = 18
+menu_tile = 22
+control = 12
+seg_inner = 9
+tray = 28
+
+[pad]
+panel = 20
+tray = 16
+card = 20
+dialog = 24
+
+[gap]
+tiles = 8
+
+[edge]
+margin = 22
+
+[size]
+capsule_h = 62
+capsule_pad = 8
+emblem = 46
+dock_item_w = 84
+dock_square = 62
+dock_square_on = 74
+dock_icon = 28
+dock_pad_x = 14
+dock_pad_top = 10
+dock_pad_bottom = 8
+dock_bottom = 20
+tray_bottom = 128
+tile_w = 108
+tile_art_w = 88
+tile_art_h = 62
+icon_button = 40
+icon_button_sm = 32
+button_h = 44
+pill_h = 40
+seg_h = 32
+tooltip_h = 30
+tooltip_delay_ms = 300
+icon_stroke = 1.8
+meter_h = 8
+slider_track_h = 6
+slider_thumb = 20
+toggle_w = 44
+toggle_h = 26
+dialog_min_w = 520
+dialog_max_w = 720
+popover_w = 400
+popover_arrow = 24
+bubble_max_w = 360
+cam_button = 44
+
+[type]
+display = { size = 34, line = 40, weight = 800 }
+title = { size = 24, line = 30, weight = 800 }
+heading = { size = 20, line = 26, weight = 800 }
+number = { size = 17, line = 22, weight = 800 }
+body = { size = 15, line = 21, weight = 600 }
+label = { size = 13, line = 18, weight = 700 }
+caption = { size = 12, line = 16, weight = 600 }
+micro = { size = 11, line = 14, weight = 700, tracking = 0.02 }
+quote = { size = 17, line = 24, weight = 700 }
+floor = 11         # smallest text in screen pixels
+gamma = 1.0        # glyph coverage curve
+
+[motion]           # milliseconds
+hover = 120
+press = 80
+open = 220
+close = 160

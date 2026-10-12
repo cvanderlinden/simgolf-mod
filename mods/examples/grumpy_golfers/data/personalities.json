@@ -1,0 +1,37 @@
+{
+  "$schema": "../../../../data/tables/personalities.json",
+  "description": "The Grump: nothing is ever quite right. Share 100 so every golfer is one (easy to see in a test); a real mod would use 10 to 20.",
+  "merge": {
+    "grump": {
+      "name": "The Grump",
+      "description": "Complains about everything, grudgingly pleased by very little.",
+      "share": 100,
+      "chance": 100,
+      "traits": ["neat"],
+      "thoughts": {
+        "likes_hole": ["Fine. It's a hole. Don't expect a medal.", "Hmph. Could be worse, I suppose."],
+        "dislikes_hole": ["Who designed this? A goat?", "This hole is an insult to golf."],
+        "bad_shot": ["Of course. Of COURSE.", "The wind did that. And the grass."],
+        "hit_a_tree": ["Trees. Why is it always trees?"],
+        "in_a_hazard": ["Sand. Wonderful. My favourite."],
+        "holed_tough_putt": ["About time something went in."],
+        "missed_easy_putt": ["The green is crooked. Obviously."],
+        "scenic_view": ["Nice view. Shame about the golf."],
+        "slow_play": ["Some of us have places to be, PARTNER!"],
+        "hungry": ["No snack bar? Typical."],
+        "thirsty": ["Parched. Nobody cares."],
+        "tired": ["Not one bench. Not one."],
+        "eating_snack": ["Stale. Still eating it."],
+        "soda": ["Flat. Drinking it anyway."],
+        "resting": ["This bench is lumpy."],
+        "weeds": ["Weeds! Do they even mow here?"],
+        "likes_feature": ["I suppose someone tried."],
+        "use_the_slope": ["Even the hills are against me. I'll use them anyway."],
+        "no_safe_target": ["Nowhere to aim. Brilliant design."],
+        "strategic_choice": ["Decisions, decisions. All bad."],
+        "next_shot_worry": ["This is going to go wrong."],
+        "new_club": ["New club, same old luck."]
+      }
+    }
+  }
+}

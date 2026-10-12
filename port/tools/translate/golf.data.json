@@ -1,0 +1,95 @@
+{
+ "comment": "task-19 (docs/modding/DATA.md): moddable data. Each patch wraps an original constant in MDATA(table,row,field,literal) or MDATA_AT(table,row index,field,literal) (ghidra_prelude.h); the literal stays the value unless a mod changes the field. Merged into golf.json's patches by translate.py.",
+ "patches": {
+  "FUN_004289e0": [
+   [
+    "DAT_00571fd4 = DAT_00571fd4 + 5;\n                  FUN_0040c890(5,",
+    "DAT_00571fd4 = DAT_00571fd4 + MDATA(\"buildings\",\"snack_bar\",\"income\",5);\n                  FUN_0040c890(MDATA(\"buildings\",\"snack_bar\",\"income\",5),"
+   ],
+   [
+    "((int)DAT_005a6d3c % 100) * 5) + 5;",
+    "((int)DAT_005a6d3c % 100) * 5) + MDATA(\"buildings\",\"snack_bar\",\"income\",5);"
+   ],
+   [
+    "uVar14 = ((((iVar18 < 2) - 1 & 4) + 4) * 100) / 100;",
+    "uVar14 = iVar18 < 2 ? MDATA(\"buildings\",\"putting_green\",\"income\",4) : MDATA(\"buildings\",\"putting_green\",\"income_upgraded\",8);"
+   ],
+   [
+    "uVar14 = ((((DAT_005a8c58 < 2) - 1 & 4) + 6) * 100) / 100;",
+    "uVar14 = DAT_005a8c58 < 2 ? MDATA(\"buildings\",\"pro_shop\",\"income\",6) : MDATA(\"buildings\",\"pro_shop\",\"income_upgraded\",10);"
+   ],
+   [
+    "uVar14 = ((((DAT_005a8c60 < 2) - 1 & 4) + 8) * 100) / 100;",
+    "uVar14 = DAT_005a8c60 < 2 ? MDATA(\"buildings\",\"driving_range\",\"income\",8) : MDATA(\"buildings\",\"driving_range\",\"income_upgraded\",12);"
+   ]
+  ],
+  "FUN_0040f5c0": [
+   [
+    "DAT_00571fd4 = (-(uint)((DAT_0059e7b8 & 0x1000000) != 0) & 9000) + 1000;",
+    "DAT_00571fd4 = (DAT_0059e7b8 & 0x1000000) != 0 ? MDATA(\"economy\",\"game\",\"sandbox_cash\",10000) : MDATA_AT(\"difficulty\",DAT_00822c88,\"start_cash\",1000);"
+   ],
+   [
+    "DAT_00571fd4 = 10000;",
+    "DAT_00571fd4 = MDATA(\"economy\",\"game\",\"sandbox_cash\",10000);"
+   ],
+   [
+    "iVar23 = (int)(0x400 / (longlong)(int)puVar17);",
+    "iVar23 = MDATA_AT(\"difficulty\",DAT_00822c88,\"wage_period\",(int)(0x400 / (longlong)(int)puVar17));"
+   ],
+   [
+    "DAT_00571fd4 = DAT_00571fd4 + -1;\n            *piVar35 = *piVar35 + 1;\n            *(short *)(&DAT_0058421c + ((int)sVar11 % 100) * 0x14) =\n                 *(short *)(&DAT_0058421c + ((int)sVar11 % 100) * 0x14) + -1;",
+    "DAT_00571fd4 = DAT_00571fd4 - MDATA(\"economy\",\"game\",\"hole_upkeep\",1);\n            *piVar35 = *piVar35 + 1;\n            *(short *)(&DAT_0058421c + ((int)sVar11 % 100) * 0x14) =\n                 *(short *)(&DAT_0058421c + ((int)sVar11 % 100) * 0x14) - MDATA(\"economy\",\"game\",\"hole_upkeep\",1);"
+   ],
+   [
+    "DAT_00543cfc = 0x3fff;",
+    "DAT_00543cfc = MDATA(\"trays\",\"amenities\",\"sandbox_landmark_mask\",0x3fff);"
+   ],
+   [
+    "= (char)((int)uVar13 % 5);",
+    "= (char)((int)uVar13 % MDATA(\"trays\",\"amenities\",\"bench_designs\",5));"
+   ],
+   [
+    "(short)(DAT_00571fd4 / 0x32);\n          DAT_00571fd4 = DAT_00571fd4 + DAT_00571fd4 / 0x32;",
+    "(short)(DAT_00571fd4 / MDATA(\"economy\",\"game\",\"debt_interest_divisor\",50));\n          DAT_00571fd4 = DAT_00571fd4 + DAT_00571fd4 / MDATA(\"economy\",\"game\",\"debt_interest_divisor\",50);"
+   ]
+  ],
+  "FUN_00434cf0": [
+   [
+    "FUN_00432200(0,0x168,0xe,1,100,-4,",
+    "FUN_00432200(0,0x168,MDATA(\"trays\",\"amenities\",\"landmark_designs\",0xe),1,100,-4,"
+   ],
+   [
+    "FUN_00432200(-0x54,0x208,5,1,0xaa,4,",
+    "FUN_00432200(-0x54,0x208,MDATA(\"trays\",\"amenities\",\"bench_designs\",5),1,0xaa,4,"
+   ]
+  ],
+  "FUN_00436c00": [
+   [
+    "+ -0x19;",
+    "- MDATA(\"economy\",\"game\",\"fire_fee\",25);"
+   ]
+  ],
+  "FUN_00421bc0": [
+   [
+    "uVar6 = FUN_0045c1e0(&DAT_00822d9c,3);\n        (&DAT_0057955c)[uVar11 * 0x80] = (short)uVar6 + 3;\n        if (DAT_00822c88 == 0) {\n          (&DAT_0057955c)[uVar11 * 0x80] = 4;\n        }",
+    "uVar6 = FUN_0045c1e0(&DAT_00822d9c,MDATA_AT(\"difficulty\",DAT_00822c88,\"start_mood_random\",DAT_00822c88 == 0 ? 0 : 2) + 1);\n        (&DAT_0057955c)[uVar11 * 0x80] = (short)uVar6 + MDATA_AT(\"difficulty\",DAT_00822c88,\"start_mood\",DAT_00822c88 == 0 ? 4 : 3);"
+   ]
+  ],
+  "FUN_00427380": [
+   [
+    "* (DAT_00822c88 + 1)) /",
+    "* MDATA_AT(\"difficulty\",DAT_00822c88,\"hole_fatigue\",DAT_00822c88 + 1)) /"
+   ]
+  ],
+  "FUN_00469b00": [
+   [
+    "iVar8 = 0;\n  DAT_005409a8 = 0;",
+    "iVar8 = 0;\n  DAT_005409a8 = 0;\n  mdata_thought_begin((char *)&DAT_0051a068);"
+   ],
+   [
+    "LAB_0046c478:\n  uVar11 = 0xffffffff;",
+    "LAB_0046c478:\n  mdata_thought_end((int)param_1,(int)param_2,(int)param_3,(int)param_4,(char *)&DAT_0051a068);\n  uVar11 = 0xffffffff;"
+   ]
+  ]
+ }
+}

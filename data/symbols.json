@@ -1,0 +1,186 @@
+{
+  "version": 1,
+  "about": "Names for golf.exe v1.02 game state at its original addresses (the port keeps every global there). Read and written live by the game bridge (docs/BRIDGE.md). value = raw * scale + offset; 'bit' picks one bit of the raw value; 'compute' entries are decoded by tools/mcp/simgolf/lib/symbols.js. confidence: high = read in the decompile and checked live through the bridge, medium = decompile or upstream docs only, low = a guess.",
+  "sources": "build/gen/golf (Ghidra decompile, file:line below), upstream/simgolf-native/docs, live checks through the bridge (task-13)",
+  "symbols": {
+    "money": {
+      "addr": "0x00571fd4", "type": "i32", "scale": 100, "unit": "dollars", "writable": true,
+      "confidence": "high",
+      "notes": "Cash in units of $100 (raw 10000 = $1,000,000). Standard games start at 1000, Sandbox at 10000 and hides the money panel. Top bar draws raw*100, red when negative.",
+      "source": "golf_02.c:14469 FUN_0042dc00(DAT_00571fd4*100); golf_01.c:22215 top bar; live: 10000 after a new Sandbox game"
+    },
+    "money_raw": {
+      "addr": "0x00571fd4", "type": "i32", "writable": true, "confidence": "high",
+      "notes": "The cash global as stored ($100 units)."
+    },
+    "tick": {
+      "addr": "0x00834170", "type": "u32", "writable": true, "confidence": "high",
+      "notes": "Game clock, one tick per course frame while unpaused (about 11 per second at normal pace). 1024 ticks per month (about 34 per day), 8 months a year (March to October).",
+      "source": "FUN_0040d7b0 golf_01.c:11121; saved at golf_01.c:8794; live: +1 per frame, frozen while the bridge pauses"
+    },
+    "date": {
+      "compute": "date", "from": "tick", "confidence": "high",
+      "notes": "Decoded from tick: year 2001 + (tick>>13), month March..October from (tick>>10)&7, day ((tick&1023)*30>>10)+1. Matches the 'March 2001' banner of a new game."
+    },
+    "game_flags": {
+      "addr": "0x0059e7b8", "type": "u32", "writable": true, "confidence": "high",
+      "notes": "Bit mask: 0x4 paused (in-game pause button), 0x8 fast mode, 0x1000000 sandbox, 0x2000000 reactions off, 0x4000000 tutorial/championship.",
+      "source": "golf_01.c:25166, 20250, 15237, 20258, 26375"
+    },
+    "paused_in_game": {
+      "addr": "0x0059e7b8", "type": "u32", "bit": 2, "writable": true, "confidence": "high",
+      "notes": "The game's own pause (the pause button). Not the bridge's pause, which freezes the whole game loop.",
+      "source": "golf_01.c:25166, 22396 'Paused' label"
+    },
+    "sandbox": {
+      "addr": "0x0059e7b8", "type": "u32", "bit": 24, "confidence": "high",
+      "notes": "1 in Sandbox mode (set with cash 100000, unlock 0x11, difficulty 1).",
+      "source": "golf_01.c:15237; live: set after Sandbox Mode"
+    },
+    "fast_mode_flag": {
+      "addr": "0x0059e7b8", "type": "u32", "bit": 3, "writable": true, "confidence": "medium",
+      "notes": "Fast mode bit (tick rounded to even).", "source": "golf_01.c:20258"
+    },
+    "fast_hud": {
+      "addr": "0x0059b04c", "type": "i32", "writable": true, "confidence": "medium",
+      "notes": "Non-zero shows 'Fast' in the HUD, skips frame pacing and doubles the golfer walk step. Writer not found in the decompile.",
+      "source": "golf_01.c:22431, 26367, 37894"
+    },
+    "difficulty": {
+      "addr": "0x00822c88", "type": "i32", "confidence": "medium",
+      "notes": "0 to 3.", "source": "golf_01.c:15240, 15366"
+    },
+    "holes_built": {
+      "addr": "0x005685f0", "type": "i32", "offset": -1, "confidence": "high",
+      "notes": "Next hole number minus one: holes opened so far (0 to 18).",
+      "source": "init golf_01.c:13429; DECODE_TOURNAMENTS.md:18; live: raw 1 on a new course"
+    },
+    "next_hole_number": {
+      "addr": "0x005685f0", "type": "i32", "confidence": "high", "notes": "Starts at 1, max 19."
+    },
+    "hole_par": {
+      "addr": "0x00575ab0", "type": "u8", "count": 20, "stride": 520, "confidence": "high",
+      "notes": "Par (3, 4 or 5) of each hole record (20 records of 0x208 bytes, first byte of each); 0 = closed. The index is the hole NUMBER: index 0 and 19 are unused (0), holes 1 to 18 sit at indexes 1 to 18. get_state hole_par index=5 is hole 5.",
+      "source": "DECODE_GOLFERCARD.md:41; golf_01.c FUN_004060a0 reads (char)DAT_00575ab0[hole * 0x208]; live: Showcase Resort gives [0,4,4,3,4,4,5,4,3,4,4,3,5,3,5,4,5,4,4,0], sum 72"
+    },
+    "golfers_on_course": {
+      "compute": "count_range", "addr": "0x005794d9", "type": "i8", "count": 152, "stride": 256, "min": 1, "max": 18,
+      "confidence": "high",
+      "notes": "Golfer slots 0..151 (0x100 bytes each) whose hole byte is 1..18. Not a game global: counted from the golfer array.",
+      "source": "golf_01.c:21649 loop; DECODE_EVENTS_NEEDS.md:30"
+    },
+    "golfers": {
+      "compute": "golfers", "addr": "0x005794b8", "count": 152, "stride": 256, "confidence": "medium",
+      "notes": "Active golfer slots with x, y (+0, +4 i32), hole (+0x21 i8), strokes (+0x22 u8), mood (+0xa4 i16), profile (+0xb6 i16). Field layout from upstream docs.",
+      "source": "DECODE_EVENTS_NEEDS.md:30, golf_01.c:21639"
+    },
+    "fun_rating": {
+      "addr": "0x0059ae78", "type": "i32", "confidence": "high",
+      "notes": "Fun rating shown in the HUD.", "source": "golf_01.c:22260"
+    },
+    "skill_rating": {
+      "addr": "0x00541cd8", "type": "i32", "confidence": "high",
+      "notes": "Skill rating shown in the HUD.", "source": "golf_01.c:22277"
+    },
+    "stars": {
+      "compute": "sum", "parts": ["0x005a9cac", "0x005a9cb0", "0x005787cc", "0x00561258"], "type": "i32",
+      "confidence": "medium",
+      "notes": "Top-left star count = sum of four counters (two recomputed every frame, 0x5787cc fame).",
+      "source": "golf_01.c:21799"
+    },
+    "fame": {
+      "addr": "0x005787cc", "type": "i32", "confidence": "medium", "notes": "Fame counter, one of the star parts."
+    },
+    "dock_mode": {
+      "addr": "0x00567afc", "type": "i32", "confidence": "high",
+      "notes": "Bottom-left dock: 0 Build Course, 1 Add Buildings, 2 Golfers, 3 and 4 Player.",
+      "source": "DECODE_PANELS.md:33"
+    },
+    "tool_building": {
+      "addr": "0x004c2854", "type": "i32", "writable": true, "confidence": "high",
+      "notes": "Selected building/amenity tool, -1 none: 0 Pathway, 1 Bench, 2 Flower, 3 Ball Washer, 4 Landmark, 5 Home Site, 16 Willow, 19 Bridge.",
+      "source": "DECODE_PANELS.md:165"
+    },
+    "tool_terrain": {
+      "addr": "0x004c2848", "type": "i32", "writable": true, "confidence": "medium",
+      "notes": "Selected terrain brush id, -1 when an elevation tool is selected.", "source": "FUN_00433190 (golf_02.c)"
+    },
+    "tool_elevation": {
+      "addr": "0x00542f20", "type": "i32", "writable": true, "confidence": "medium",
+      "notes": "Selected elevation tool 0..3.", "source": "DECODE_PANELS.md:63"
+    },
+    "theme": {
+      "addr": "0x005a34e0", "type": "u8", "confidence": "medium",
+      "notes": "0 Parkland, 1 Desert, 2 Tropical, 3 Links.", "source": "DECODE_TOURNAMENTS.md:18"
+    },
+    "property_index": {
+      "addr": "0x0059bf90", "type": "i32", "confidence": "medium",
+      "notes": "Current property, index into the 17 property records at 0x571fd8 (stride 0x2e).", "source": "golf_01.c:11410"
+    },
+    "course_name_custom": {
+      "addr": "0x0059d81c", "type": "i16", "confidence": "medium",
+      "notes": "-1 = default name; else an offset into the string pool at 0x56fcb0.", "source": "FUN_0045b9f0, golf_03.c:19476"
+    },
+    "course_name": {
+      "compute": "course_name", "confidence": "medium",
+      "notes": "Custom name from the pool (0x56fcb0 + course_name_custom) or the site default (0x4c1ea8 + 0x82 * byte[0x571ff4 + 0x2e * property_index] + 1).",
+      "source": "FUN_0040daa0 golf_01.c:11410"
+    },
+    "map_tiles": {
+      "addr": "0x005722e8", "type": "u8", "grid": true, "confidence": "high",
+      "notes": "Tile ids, map_width x map_height, index x*map_width+y (50 x 50 originally; task-8 moves the arrays, the bridge `grid` command knows where, and a symbol with grid:true reads the whole current map).  The ids are the ids of the terrain tools: 0 tee, 1 green, 2 fairway, 3 firm fairway, 4 rough, 5 deep rough, 7 sand trap, 11 brush (others: water, stream, rocks, trees, off-property land; 20 is most of the outside). Flags: symbol tile_flags (i16 per tile, 0x53caf0). Elevation at 0x5a4998, shadow terrain at 0x542414.",
+      "source": "DECODE_WORLD2.md:264, golf_01.c:8776-8780"
+    },
+    "map_width": {
+      "compute": "map_width", "confidence": "high",
+      "notes": "Tiles per map row: tile index = x * map_width + y (map_tiles, tile_flags, tile_screen_x/y use it). 50 in the original; with bigger maps (task-8, map_scale) up to 158. g_map_w is a port global, not a golf.exe address, so the bridge reports it (ping, grid).",
+      "source": "port/src/port/grid.h g_map_w; bridge `grid` command"
+    },
+    "map_height": {
+      "compute": "map_height", "confidence": "high",
+      "notes": "Rows of the map (g_map_h); equals map_width so far.",
+      "source": "port/src/port/grid.h g_map_h"
+    },
+    "hover_tile_x": {
+      "addr": "0x00543d08", "type": "i32", "confidence": "high",
+      "notes": "Tile under the pointer, recomputed every frame from the cursor (FUN_00430020). Its y is hover_tile_y. What a tool click would act on.",
+      "source": "golf_01.c:22469 FUN_00430020(x,y,&DAT_00543d08,&DAT_00543d0c); live: equals the camera tile with the pointer on its centre, follows the pointer in the bridge drag test"
+    },
+    "hover_tile_y": {
+      "addr": "0x00543d0c", "type": "i32", "confidence": "high",
+      "notes": "See hover_tile_x.", "source": "golf_01.c:22469"
+    },
+    "tile_flags": {
+      "addr": "0x0053caf0", "type": "i16", "grid": true, "writable": true, "confidence": "high",
+      "notes": "Per-tile flag bits, index x*map_width+y (same as map_tiles). 0x20 path, 0x40 connected (the path chain reaches the clubhouse), 0x100 bridge, 0x200 bench. Other bits are not decoded yet.",
+      "source": "DECODE_WORLD2.md; golf_01.c:8776-8780; showcase course build (docs/SHOWCASE.md, task-18); live: Showcase Resort has 500 path, 567 connected, 49 bridge and 19 bench tiles"
+    },
+    "tile_screen_x": {
+      "addr": "0x0055eb40", "type": "i16", "grid": true, "confidence": "high",
+      "notes": "Screen x of the centre of each tile in view (index x*map_width+y), rebuilt every frame by the course renderer; 0 or -99 = not in view. tile_to_screen reads it.",
+      "source": "task-18 showcase builder (tools/showcase/sg.mjs); live"
+    },
+    "tile_screen_y": {
+      "addr": "0x0055fec8", "type": "i16", "grid": true, "confidence": "high",
+      "notes": "Screen y of the centre of each tile in view (index x*map_width+y); same cache as tile_screen_x.",
+      "source": "task-18 showcase builder (tools/showcase/sg.mjs); live"
+    },
+    "camera_tile_x": {
+      "addr": "0x004c2ba0", "type": "i32", "writable": true, "confidence": "high",
+      "notes": "Tile (0..49) the course view is centred on. Writing it moves the camera on the next frames (the main loop clamps it); tile_screen_x/y follow.",
+      "source": "task-15 camera controls (docs/PORT_CHANGES.md); task-18 showcase builder; live"
+    },
+    "camera_tile_y": {
+      "addr": "0x004c2ba4", "type": "i32", "writable": true, "confidence": "high",
+      "notes": "See camera_tile_x.", "source": "task-15, task-18; live"
+    },
+    "cash_history": {
+      "addr": "0x0051b388", "type": "i16", "count": 500, "confidence": "medium",
+      "notes": "One sample per month.", "source": "UI_SCREENS2.md:35"
+    },
+    "debt_strikes": {
+      "addr": "0x005a6374", "type": "i32", "writable": true, "confidence": "high",
+      "notes": "0 to 3; three negative year ends end the contract.", "source": "golf_03.c:3538"
+    }
+  }
+}

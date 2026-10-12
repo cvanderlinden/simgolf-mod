@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "simgolf:tables/skills",
+  "title": "Golfer skills",
+  "description": "The skills of golfers and the player's pro, in the order of a golfer's skill bytes (from the label table at 0x4c2c3c).",
+  "type": "object",
+  "properties": {
+    "label": {
+      "type": "string", "minLength": 1, "maxLength": 24,
+      "description": "Name on the golfer card and the pro's skill screen.",
+      "x-image": {"offset": 0, "type": "strptr"}
+    }
+  },
+  "additionalProperties": false,
+  "x-table": {
+    "image": {"base": "0x4c2c3c", "stride": 4},
+    "rows": [
+      {"id": "power_hitter"}, {"id": "long_driver"}, {"id": "accurate_driver"}, {"id": "accurate_irons"},
+      {"id": "accurate_putter"}, {"id": "draw_shot"}, {"id": "fade_shot"}, {"id": "high_backspin"},
+      {"id": "recovery"}, {"id": "luck"}, {"id": "positive_attitude"}
+    ]
+  }
+}

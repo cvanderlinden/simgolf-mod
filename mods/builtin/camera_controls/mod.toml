@@ -1,0 +1,11 @@
+# Built-in mod: modern camera controls (card task-15).
+# The feature checks mods_enabled("camera_controls"); the profile "vanilla"
+# keeps the original controls.
+id = "camera_controls"
+name = "Modern camera controls"
+version = "0.1.0"
+authors = ["SimGolf mod team"]
+description = "Drag to pan, WASD and the mouse wheel to move and zoom around the course."
+platform = "^1.0"
+game = ">=1.2.0"
+load_after = ["hd_presentation"]

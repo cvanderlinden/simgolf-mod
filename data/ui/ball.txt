@@ -1,0 +1,33 @@
+# Round HD golf ball: tuning numbers (card task-41). One "key value" per line, # starts a comment.
+# Read once when the first ball is drawn, from ui/ball.txt next to golf.exe. Switch the ball off
+# with [ui] ball=original in data/mods.ini (docs/ui/BALL.md).
+
+# Size. radius is canvas pixels at zoom 4 and grows and shrinks with the zoom. radius_min_px is the
+# smallest it is ever drawn on screen (so it reads at 1080p), radius_max_px the largest.
+radius          2.0
+radius_min_px   2.2
+radius_max_px   48
+
+# Height. golf's flight is flat (a 90 yard shot lifts the ball a few pixels), so the drawn height is
+# golf's lift times this. The ground point, landing spot and timing are not touched.
+lift_scale      1.0
+
+# How many game frames (about 87 ms each) the drawing runs behind golf. 1 is what smooth motion
+# needs: the path runs through golf's last positions and ends exactly on the newest one.
+lag             1.0
+
+# The resting ball's centre above the ground point, in radii.
+rest_lift       0.85
+
+# Ground shadow: width in ball diameters, strength, height/width, sideways shift per canvas px of lift.
+shadow_size     2.4
+shadow_alpha    0.55
+shadow_flat     0.50
+shadow_sun      0.16
+
+# Shading: direction of the light (x right, y down, z towards the viewer), ambient share, highlight.
+light           -0.42 -0.58 0.70
+ambient         0.74
+spec            0.55
+# Faint dimples when the ball is 11 px or more across (1 on, 0 off).
+dimples         1

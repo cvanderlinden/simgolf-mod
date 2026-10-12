@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "simgolf:tables/personalities",
+  "title": "Golfer personalities",
+  "description": "Personalities mods give to golfers, each with its own thoughts. The game has none of its own (its golfers think the original lines), so this table starts empty and mods add rows with \"merge\". A golfer gets a personality from its profile id (fixed per golfer and kept in saves): the rows in load order share out 100 percent of the golfers by their \"share\". When such a golfer has a thought for which the personality has lines, one of them replaces the original line (the same line every time for the same moment). The tokens MYNAME and PARTNER become the golfer's and the partner's names.",
+  "type": "object",
+  "properties": {
+    "name": {"type": "string", "minLength": 1, "maxLength": 40, "description": "Display name."},
+    "description": {"type": "string", "maxLength": 300},
+    "share": {
+      "type": "integer", "minimum": 0, "maximum": 100, "default": 10,
+      "description": "Percent of golfers with this personality."
+    },
+    "chance": {
+      "type": "integer", "minimum": 0, "maximum": 100, "default": 100,
+      "description": "Percent of their thoughts (with lines here) that use these lines instead of the original."
+    },
+    "traits": {
+      "type": "array", "maxItems": 5,
+      "items": {"enum": ["neat", "outgoing", "active", "playful", "nice"]},
+      "description": "Trait ids (traits table) that describe it. Shown to modders and tools; the game's stories still use each character's own trait buttons."
+    },
+    "thoughts": {
+      "type": "object",
+      "description": "Lines per thought event (ids from the thought_events table), each a list of alternatives.",
+      "x-keys-from": "thought_events",
+      "additionalProperties": {
+        "type": "array", "minItems": 1, "maxItems": 20,
+        "items": {"type": "string", "minLength": 1, "maxLength": 120}
+      }
+    }
+  },
+  "required": ["name"],
+  "additionalProperties": false,
+  "x-table": {
+    "extensible": true,
+    "rows": []
+  }
+}

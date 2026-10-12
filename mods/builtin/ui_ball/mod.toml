@@ -1,0 +1,17 @@
+# Built-in mod: round HD golf ball with smooth flight (cards task-41, task-43a).
+# Sets ui.ball=round: the ball is a shaded round ball with a soft shadow at
+# screen resolution, moving smoothly at the display rate along golf's own
+# positions (golf's results, timing and scores do not change). Switch it off
+# with `ui_ball=0` in data/mods.ini, `[ui] ball=original` there, the vanilla
+# profile, or --no-mods: the original 2 px ball, pixel for pixel.
+id = "ui_ball"
+name = "Round HD golf ball"
+version = "0.1.0"
+authors = ["SimGolf mod team"]
+description = "A round, shaded golf ball with a soft shadow, drawn at screen resolution and moved smoothly along the flight, bounce and roll golf computes."
+platform = "^1.0"
+game = ">=1.2.0"
+load_after = ["hd_presentation"]
+
+[settings]
+"ui.ball" = "round"

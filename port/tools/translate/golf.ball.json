@@ -1,0 +1,21 @@
+{
+ "comment": "task-41 (port/src/port/hdball.h): the round HD golf ball. The golfer pass of FUN_0040f5c0 draws each ball as a 2 px line (at rest on a hole) or queues a shadow and a ball sprite; FUN_00463100 draws the queued sprites. Both go through hooks (src/port/golf/ball_hooks.c) that, with ui.ball=round, measure and take out golf's own pixels and record the ball for the presenter; with ui.ball=original they make the original call. Merged into golf.json's patches by translate.py.",
+ "patches": {
+  "FUN_0040f5c0": [
+   [
+    "FUN_00478b80(&DAT_00519cd4,iStack_11c8,iStack_11e0,iStack_11c8 + 1,iStack_11e0,\n                         0x80007fff);",
+    "hdball_rest(uStack_123c,iStack_11c8,iStack_11e0);"
+   ],
+   [
+    "            (&DAT_005a47e8)[DAT_0058bcb0] = iStack_11c8;",
+    "            hdball_air(uStack_123c,iStack_11c8,iStack_11e0);\n            (&DAT_005a47e8)[DAT_0058bcb0] = iStack_11c8;"
+   ]
+  ],
+  "FUN_00463100": [
+   [
+    "    FUN_00462be0(iVar1);\n  }\n",
+    "    hdball_item(iVar1);\n  }\n  hdball_resolve();\n"
+   ]
+  ]
+ }
+}

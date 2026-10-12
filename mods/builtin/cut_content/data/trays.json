@@ -1,0 +1,9 @@
+{
+  "$schema": "../../../../data/tables/trays.json",
+  "description": "Landmark strip 16 designs (oriental house, dinosaur tarpit), bench strip 6 designs (lovers bench), Sandbox starts with every landmark.",
+  "set": {
+    "landmark_designs": 16,
+    "bench_designs": 6,
+    "sandbox_landmark_mask": 65535
+  }
+}

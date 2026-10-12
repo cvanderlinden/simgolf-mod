@@ -1,0 +1,37 @@
+; SimGolf Remastered settings. Paths here are relative to this folder (the one with golf.exe).
+; game= is the SimGolf data folder. mute=1 turns all sound off.
+game=game
+mute=0
+mods_dir=mods
+data_dir=data/tables
+; Display. hd=0 brings back the original 800x600 window.
+; display=borderless fills the screen; display=windowed with window=1600x1200.
+; filter: sharp (crisp, default), integer, nearest or smooth.
+; vsync=1 matches the monitor; fps caps the frame rate (60, 120, 144, 240; 0 = no cap).
+; ui_scale: auto picks by screen height; or a number such as 1, 1.5, 2 or 3.
+hd=1
+display=borderless
+filter=sharp
+vsync=1
+fps=0
+canvas=auto
+ui_scale=auto
+terrain=1
+smooth=1
+smooth_zoom=1
+zoom_ms=200
+; Art: upscaled (HD textures, needs the HD art pack in art/upscaled) or original (the 2002 pixels).
+; Without the pack the game shows the original art whatever this says.
+art=upscaled
+art_dir=art/upscaled
+
+[camera]
+; drag_button: mouse buttons that pan the course when dragged (middle, right, middle,right or none).
+drag_button=middle
+; wasd=1: W A S D pan the course view. wheel_zoom=1: the mouse wheel zooms.
+wasd=1
+wheel_zoom=1
+; zoom_anchor: pointer (the wheel zooms toward the mouse pointer) or centre
+zoom_anchor=pointer
+edge_scroll=0
+pan_speed=900

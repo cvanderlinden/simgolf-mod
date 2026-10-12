@@ -1,0 +1,16 @@
+# Built-in mod: content that is in the original game's files and code but never
+# shipped in a tray (card task-45, docs/CUT_CONTENT.md). Off by default: the
+# profile "default" does not list it, so the original game is unchanged.
+# Switch it on with mods.ini ([mods] cut_content=1) or `modctl enable cut_content`.
+id = "cut_content"
+name = "Cut content"
+version = "0.1.0"
+authors = ["SimGolf mod team"]
+description = "Shows what the original code and art already had: the oriental house and the dinosaur tarpit in the Landmark strip and the lovers' bench in the Bench strip."
+platform = "^1.0"
+game = ">=1.2.0"
+
+[touches.data]
+"trays.amenities.landmark_designs" = "set"
+"trays.amenities.bench_designs" = "set"
+"trays.amenities.sandbox_landmark_mask" = "set"

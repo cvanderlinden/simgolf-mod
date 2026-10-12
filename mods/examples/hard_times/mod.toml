@@ -1,0 +1,14 @@
+id = "hard_times"
+name = "Hard times"
+version = "1.0.0"
+authors = ["SimGolf mod team"]
+description = "A steeper difficulty curve: less money to start, bills come more often, grumpier arrivals and more fatigue on the harder levels, and debt costs twice as much. Sample of the data layer (docs/modding/DATA.md)."
+platform = "^1.0"
+game = ">=1.2.0"
+
+[touches.data]
+"difficulty.easy.start_cash" = "set"
+"difficulty.moderate" = "merge"
+"difficulty.difficult" = "merge"
+"difficulty.impossible" = "merge"
+"economy.game.debt_interest_divisor" = "set"

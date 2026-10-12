@@ -1,0 +1,16 @@
+# The data layer's sample mods (docs/modding/DATA.md). Use this folder as the
+# mods folder (--mods-dir mods/examples, SIMGOLF_MODS_DIR) or copy a mod
+# folder into mods/ and enable it there (python tools/modctl/modctl.py enable ID).
+active = "samples"
+
+[profiles.samples]
+mods = ["grumpy_golfers", "cheap_snack_bar", "hard_times"]
+
+[profiles.grumpy]
+mods = ["grumpy_golfers"]
+
+[profiles.cheap]
+mods = ["cheap_snack_bar"]
+
+[profiles.hard]
+mods = ["hard_times"]

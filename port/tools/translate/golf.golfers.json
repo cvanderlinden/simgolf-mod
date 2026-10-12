@@ -1,0 +1,101 @@
+{
+  "comment": "task-31 (UI-5 golfers in the world): translator patches for the Frosted Mint name tags, thought bubbles and golfer card. Merged into golf.json's patches (translate.py, <stem>.<topic>.json). Every hook is in port/src/port/golfers_game.c (native) and golf/golfers_hooks.c (browser build: no-ops that keep the original). With ui.golfers=original they do nothing.",
+  "patches": {
+    "FUN_00462be0": [
+      [
+        "FUN_004676e0(uVar8,0);",
+        "gw_seen(uVar8,(&DAT_0082b160)[param_1],(&DAT_0082c164)[param_1]);\n        FUN_004676e0(uVar8,0);"
+      ],
+      [
+        "FUN_00404b70((char *)&DAT_0051a068,(&DAT_0082b160)[param_1],(&DAT_0082c164)[param_1],",
+        "if (!gw_name(uVar8,(char *)&DAT_0051a068,(&DAT_0082b160)[param_1],(&DAT_0082c164)[param_1],(short)(&DAT_0057955c)[uVar8 * 0x80])) FUN_00404b70((char *)&DAT_0051a068,(&DAT_0082b160)[param_1],(&DAT_0082c164)[param_1],"
+      ],
+      [
+        "FUN_00478b80(&DAT_00519cd4,",
+        "if (!gw_active()) FUN_00478b80(&DAT_00519cd4,"
+      ]
+    ],
+    "FUN_0040f5c0": [
+      [
+        "if ((*(byte *)((int)piVar35 + 0x7d) & 0x7f) == 0x32) {",
+        "gw_thought_begin((int)(*(byte *)((int)piVar35 + 0x7d) & 0x7f),(int)bVar22);\n          if ((*(byte *)((int)piVar35 + 0x7d) & 0x7f) == 0x32) {"
+      ],
+      [
+        "FUN_00473cb0(&DAT_005a58c4,(int)PTR_DAT_004c1570,",
+        "if (!gw_hide) FUN_00473cb0(&DAT_005a58c4,(int)PTR_DAT_004c1570,"
+      ],
+      [
+        "FUN_00473cb0(&DAT_005628e8 + iVar39 * 0x2c,",
+        "gw_face(iVar39);\n            if (!gw_hide) FUN_00473cb0(&DAT_005628e8 + iVar39 * 0x2c,"
+      ],
+      [
+        "FUN_00480b00(&DAT_00519a60,iStack_11d8 - iVar28 / 2,iStack_11dc - iVar23,iVar28,0xb,",
+        "if (!gw_hide) FUN_00480b00(&DAT_00519a60,iStack_11d8 - iVar28 / 2,iStack_11dc - iVar23,iVar28,0xb,"
+      ],
+      [
+        "FUN_004493d0(iStack_11d8 - iVar28 / 2,iVar39,",
+        "if (!gw_hide) FUN_004493d0(iStack_11d8 - iVar28 / 2,iVar39,"
+      ],
+      [
+        "FUN_00474030(&DAT_005a4100,(int)PTR_DAT_004c1570,iStack_11d8 + 4,",
+        "if (!gw_hide) FUN_00474030(&DAT_005a4100,(int)PTR_DAT_004c1570,iStack_11d8 + 4,"
+      ],
+      [
+        "FUN_00404b70((char *)&DAT_0051a068,iStack_11d8,iStack_11dc - iVar23,psStack_1244);",
+        "gw_thought_end(uStack_123c,iStack_11d8,iStack_11dc - iVar23,(char *)&DAT_0051a068,(unsigned)(uintptr_t)psStack_1244);\n          if (!gw_hide) FUN_00404b70((char *)&DAT_0051a068,iStack_11d8,iStack_11dc - iVar23,psStack_1244);\n          gw_hide = 0;"
+      ],
+      [
+        "FUN_0045c560(uVar13,1);",
+        "gc_begin((int)uVar13);\n          FUN_0045c560(uVar13,1);\n          gc_end((int)uVar13);"
+      ],
+      [
+        "FUN_0045c560(uVar13,0);",
+        "gc_begin((int)uVar13);\n          FUN_0045c560(uVar13,0);\n          gc_end((int)uVar13);"
+      ],
+      [
+        "override_jmp_00416ec4_case_7:\n      puVar43 = &DAT_0051b360;",
+        "override_jmp_00416ec4_case_7:\n      gw_staff_begin();\n      puVar43 = &DAT_0051b360;"
+      ],
+      [
+        "FUN_00474030(&DAT_005787d0,",
+        "if (!gw_hide) FUN_00474030(&DAT_005787d0,"
+      ],
+      [
+        "FUN_00404b70((char *)&DAT_0051a068,iStack_11b0,iStack_11d0 + (int)DAT_004c2844 * -10,iVar28);",
+        "gw_staff_end((int)(((int)pcVar15 - 0x585865) / 0x4c),iStack_11b0,iStack_11d0 + (int)DAT_004c2844 * -10,(char *)&DAT_0051a068);\n      if (!gw_hide) FUN_00404b70((char *)&DAT_0051a068,iStack_11b0,iStack_11d0 + (int)DAT_004c2844 * -10,iVar28);\n      gw_hide = 0;"
+      ]
+    ],
+    "FUN_0045c560": [
+      [
+        "FUN_00404b70(",
+        "gc_text(0,"
+      ],
+      [
+        "FUN_00404bc0(",
+        "gc_text(1,"
+      ],
+      [
+        "FUN_004049d0(",
+        "gc_text(2,"
+      ],
+      [
+        "FUN_00404ad0(",
+        "gc_text(3,"
+      ],
+      [
+        "FUN_00480b00(&DAT_00519a60,",
+        "gc_rect("
+      ],
+      [
+        "FUN_0047ab50(&DAT_00519a60,&local_18,&local_1c);",
+        "FUN_0047ab50(&DAT_00519a60,&local_18,&local_1c);\n  gc_mouse(&local_18,&local_1c);"
+      ]
+    ],
+    "FUN_004038f0": [
+      [
+        "FUN_00404b70((char *)&DAT_0051a068,local_18,local_1c,",
+        "if (!gw_staff_name((int)local_20,(char *)&DAT_0051a068,local_18,local_1c)) FUN_00404b70((char *)&DAT_0051a068,local_18,local_1c,"
+      ]
+    ]
+  }
+}

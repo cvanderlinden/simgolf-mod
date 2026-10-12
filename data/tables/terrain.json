@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "simgolf:tables/terrain",
+  "title": "Terrain",
+  "description": "Every ground type the course is painted with, by tile id. From golf.exe's terrain table at 0x4c1a40 (0x30 bytes per row), which the game copies to 0x578350 whenever a course is set up. Money is in units of $100.",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string", "minLength": 1, "maxLength": 31,
+      "description": "Name shown by the build tools and in golfers' thoughts.",
+      "x-image": {"offset": 0, "type": "str", "len": 32}
+    },
+    "cost": {
+      "type": "integer", "minimum": 0, "maximum": 127,
+      "description": "Price per tile painted, in $100 (the build menu's Cost).",
+      "x-image": {"offset": 35, "type": "u8"}
+    },
+    "hazard": {
+      "type": "integer", "readOnly": true,
+      "description": "How hard a shot from this ground is (0 to 8), used by the lie and the shot planner. Read only for now: shots have not been tested with other values.",
+      "x-image": {"offset": 34, "type": "i8"}
+    }
+  },
+  "additionalProperties": false,
+  "x-table": {
+    "image": {"base": "0x4c1a40", "stride": 48},
+    "rows": [
+      {"id": "tees"}, {"id": "green"}, {"id": "fairway"}, {"id": "firm_fairway"}, {"id": "rough"},
+      {"id": "deep_rough"}, {"id": "mound"}, {"id": "sand_trap"}, {"id": "waste_bunker"}, {"id": "pot_bunker"},
+      {"id": "ravine"}, {"id": "brush"}, {"id": "rocks"}, {"id": "tree"}, {"id": "pine_tree"},
+      {"id": "palm_tree"}, {"id": "elm_tree"}, {"id": "water"}, {"id": "wetlands"}, {"id": "marsh"},
+      {"id": "out_of_bounds"}, {"id": "building"}, {"id": "building_2"}
+    ]
+  }
+}
