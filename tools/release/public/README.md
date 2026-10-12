@@ -18,16 +18,44 @@ it on your PC and nothing from it ever leaves your computer.
 
 ## What you get
 
-- Sharp, crisp picture at any screen size, borderless full screen, any frame rate
-- Optional **HD art pack**: the game's own pictures upscaled 4x (a separate
-  download of about 2.6 GB, offered by the installer)
-- Smooth course scrolling, mouse-wheel zoom toward the pointer, W A S D and
-  middle-mouse panning
-- Frosted Mint menus, dialogs and course HUD, a round HD golf ball
-- An Options page (graphics, gameplay speed, controls with key remapping, audio)
-- Golfer names and speech bubbles you can switch on or off
-- Mods: change prices, personalities and difficulty with small text files (see `docs/modding`)
-- Every change can be switched off, so the original game is always one setting away
+### Bigger courses
+- **Up to 10x the land.** Pick the size of a new course in Options: Original (50 x 50 tiles), Bigger (70 x 70), Large (100 x 100) or Huge (158 x 158). Trees, water, rocks and wildlife are spread to match. Saved games keep their own size.
+- Huge courses still scroll at over 100 frames per second on a modern PC.
+
+### Looks
+- **Native 1080p, 1440p, 4K, and ultrawide (21:9)**, sharp and filling the screen, borderless full screen or windowed.
+- **Optional HD art pack:** all 132,000 of the game's own pictures upscaled 4x (golfers, buildings, trees, ground, animals, menus, effects). Setup downloads it for you (about 2.6 GB). Switch any time between **HD**, **Pixel HD** (crisp pixel look) and **Original**.
+- **Frame rate options:** 60, 120, 144, 240 or uncapped, with v-sync.
+- A round, shaded HD golf ball with smooth flight.
+- A clean new **Frosted Mint** look: start menu, loading screens, course HUD, dialogs, report panel, golfer cards and notifications, with the modern Plus Jakarta Sans font and steady numbers.
+
+### Smoother play
+- **Smooth camera** that glides and stops anywhere instead of jumping tile by tile; no stutter or scenery popping at the screen edges.
+- **Mouse-wheel zoom** that glides toward the pointer; **W A S D** and **middle-mouse drag** to pan.
+- **Game speed** setting so a full course gets built in fewer seasons.
+- **Key remapping** for every action (two keys each, Original or Modern presets), plus mouse settings.
+- **Hide the HUD** with U for a clean view of your course; Shift+T now hides scenic trees and palms too.
+
+### Golfers and information
+- Golfer **names on hover** (N shows all), smaller and lighter **thought bubbles**, new **mood faces**.
+- A **golfer card** with mood bars, scores, recent comments and their profile.
+- **Notifications** you can click for the full text and to jump to the golfer or hole, plus a **message history**.
+- **All reports in one tabbed panel**: course, comments, histograph, SGA, finances, roster, best scores, hole stats.
+
+### Fixes
+- No more black triangles at waterfalls and water on slopes.
+- Clicking a standing building no longer places a second one on top of it and charges you twice.
+- No stuck name-tag text, no black box under the blimp in HD.
+
+### Restored cut content
+- Things the game's files contained but never offered, like the oriental house, the dinosaur tar pit and the lovers' bench. Turn on **Cut content** in Options.
+
+### Mods
+- **Change the game with small text files:** building prices and income, terrain costs, staff wages, difficulty, starting cash, golfer moods and new golfer personalities.
+- A real **mod system**: mod folders, load order, dependencies, conflict handling and mod profiles; saves remember which mods they were made with. See [docs/modding](docs/modding).
+
+### Always optional
+- Every change has a switch in **Options** or `mods.ini`, so the original 2002 game is always one setting away.
 
 ## Install in four steps
 
