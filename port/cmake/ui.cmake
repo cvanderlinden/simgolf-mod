@@ -37,4 +37,5 @@ set_target_properties(ui_gallery PROPERTIES WIN32_EXECUTABLE FALSE)
 add_custom_target(ui_token_files ALL
   COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/ui"
   COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/../data/ui/frosted_mint.toml" "${CMAKE_BINARY_DIR}/ui"
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/../data/ui/logo_remastered.png" "${CMAKE_BINARY_DIR}/ui"
   VERBATIM)

@@ -167,7 +167,8 @@ static int draw_title(Scene *s, const FeSnap *snap, SDL_Texture *const *art, FeA
   const UiTokens *t = s->t;
   int n = 0;
   const float PW = 820, PAD = 44;
-  float logo_w = 420, logo_h = 157;
+  const int full = snap->logo_full;   // task-80: the HD logo art already carries "Remastered"
+  float logo_w = full ? 600 : 420, logo_h = 157;
   SDL_Texture *logo = art[FE_ART_LOGO];
   if (logo) {
     int tw = 1, th = 1;
@@ -175,7 +176,7 @@ static int draw_title(Scene *s, const FeSnap *snap, SDL_Texture *const *art, FeA
     logo_h = logo_w * th / (float)tw;
   }
   float tile_h = 126, gap = 12;
-  const float rem_h = 34;   // task-80: room for "Remastered", which overlaps the logo's bottom edge
+  const float rem_h = full ? 0 : 34;   // task-80: room for "Remastered", which overlaps the logo's bottom edge
   float ph = 40 + logo_h + rem_h + 20 + tile_h * 2 + gap + 22 + 40 + 30;
   UiRect p = R(s, (1920 - PW) / 2, (1080 - ph) / 2, PW, ph);
   ui_panel(c, p, U(s, t->radius_panel), UI_PANEL_READABLE);
@@ -188,7 +189,7 @@ static int draw_title(Scene *s, const FeSnap *snap, SDL_Texture *const *art, FeA
   }
   // task-80: "Remastered" styled like the logo's lettering (heavy green letters, white rim, dark green
   // edge and drop shadow), tucked up into the bottom right of the logo so it reads as part of it.
-  {
+  if (!full) {
     UiText *tx = ui_texter(c);
     const char *word = "Remastered";
     float px = 50 * s->u, rim = 3.2f * s->u, edge = 5.4f * s->u;

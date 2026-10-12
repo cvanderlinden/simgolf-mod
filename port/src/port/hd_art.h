@@ -50,5 +50,7 @@ void hd_art_draw(int which, SDL_Renderer *r, double ox, double oy, double k);
 // a malloc'd 4x replacement (*ow x *oh), or NULL to keep the original.
 uint8_t *hd_art_terrain(const char *src, const uint8_t *rgba, int w, int h, int *ow, int *oh);
 void hdt_resend(void);   // hd_terrain_native.c: the terrain look changed
+// Any thread: a PNG file as malloc'd straight-alpha ARGB8888 pixels (task-80 start menu logo), or NULL.
+uint32_t *hd_art_load_png(const char *path, int *w, int *h);
 
 #endif  // SIMGOLF_PORT_HD_ART_H

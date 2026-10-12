@@ -127,6 +127,7 @@ typedef struct FeSnap {
   FePro pro;
   FeTheme theme;
   FeLoading loading;
+  int32_t logo_full;     // title: the logo art already says "Remastered" (data/ui/logo_remastered.png, task-80)
 } FeSnap;
 
 // ------------------------------------------------------------------ what the player asked for

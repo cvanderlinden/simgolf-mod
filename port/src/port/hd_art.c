@@ -1467,6 +1467,27 @@ static void live_settings(void) {
 
 static struct { int n; double ms; } g_terr;
 
+uint32_t *hd_art_load_png(const char *path, int *w, int *h) {
+  if (!path || !*path) return NULL;
+  if (!g_wic) {   // this thread's own imaging factory
+    CoInitializeEx(NULL, COINIT_MULTITHREADED);
+    HRESULT hr = CoCreateInstance(&CLSID_WICImagingFactory, NULL, CLSCTX_INPROC_SERVER, &IID_IWICImagingFactory, (void **)&g_wic);
+    if (FAILED(hr)) {
+      fprintf(stderr, "hd_art: no imaging factory (0x%08lx) for %s\n", (unsigned long)hr, path);
+      return NULL;
+    }
+  }
+  uint8_t *px = decode(path, 0, w, h, NULL);   // RGBA bytes
+  if (!px) fprintf(stderr, "hd_art: cannot read %s\n", path);
+  if (!px) return NULL;
+  uint32_t *o = (uint32_t *)px;
+  for (size_t i = 0, n = (size_t)*w * *h; i < n; i++) {
+    const uint8_t *p = px + i * 4;
+    o[i] = (uint32_t)p[3] << 24 | (uint32_t)p[0] << 16 | (uint32_t)p[1] << 8 | p[2];
+  }
+  return o;
+}
+
 uint8_t *hd_art_terrain(const char *src, const uint8_t *rgba, int w, int h, int *ow, int *oh) {
   if (!g_on || !src || !*src || g_look[C_TERRAIN] == L_ORIGINAL) return NULL;
   int f = find_file(src, NULL);

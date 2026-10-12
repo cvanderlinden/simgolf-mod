@@ -28,10 +28,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 #include "mods/mdata.h"
+#include "mods/mods.h"
 #include "port/dialogs_frosted.h"
 #include "port/frontend_frosted.h"
+#include "port/hd_art.h"
+#include "port/runtime.h"
 
 #define G32(a) (*(volatile int32_t *)(uintptr_t)(a))
 #define G16(a) (*(volatile int16_t *)(uintptr_t)(a))
@@ -833,7 +837,12 @@ static void read_title(void) {
   copy_str(g_snap.theme_name, sizeof g_snap.theme_name, (const char *)(uintptr_t)THEME_NAME);
   if (!g_art_done[FE_ART_LOGO]) {
     int w = 0, h = 0;
-    uint32_t *px = capture(520, 220, draw_logo, NULL, &w, &h);
+    // task-80: the HD "SimGolf Remastered" logo next to the exe; [ui] logo=original keeps the game's own oval
+    const char *v = mods_get("ui.logo");
+    uint32_t *px = v && !strcasecmp(v, "original") ? NULL : hd_art_load_png(port_host_path("/ui/logo_remastered.png"), &w, &h);
+    g_snap.logo_full = px != NULL;
+    fprintf(stderr, "frontend: logo %s (%dx%d)\n", px ? "remastered" : "original", w, h);
+    if (!px) px = capture(520, 220, draw_logo, NULL, &w, &h);
     if (px) {
       fef_publish_art(FE_ART_LOGO, px, w, h);
       g_art_done[FE_ART_LOGO] = 1;
