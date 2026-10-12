@@ -1,5 +1,7 @@
 # SimGolf Remastered
 
+[![Support me on Ko-fi](https://img.shields.io/badge/Ko--fi-support%20this%20mod-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/finalpantasy)
+
 A fan-made upgrade of **Sid Meier's SimGolf** (Firaxis / EA, 2002) for Windows PCs.
 It runs your own copy of the game as a modern program: sharp at 1080p, 1440p
 and 4K, widescreen, smooth scrolling and zoom, a cleaner look for the menus and
@@ -109,3 +111,7 @@ The program code in this repository is MIT licensed ([LICENSE](LICENSE)).
 It is built on [RichardAtCT/simgolf-web](https://github.com/RichardAtCT/simgolf-web)
 (MIT), which translated the decompiled game into C. Third-party pieces keep
 their own licences (see [CREDITS.md](CREDITS.md)).
+
+## Support
+
+This is a free hobby project. If you enjoy it and want to help keep it going, you can [buy me a coffee on Ko-fi](https://ko-fi.com/finalpantasy). Thank you!
