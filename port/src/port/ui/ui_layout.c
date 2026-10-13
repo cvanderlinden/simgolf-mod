@@ -96,3 +96,11 @@ float ui_stack_left(const UiStack *s) {
 }
 
 float ui_row_length(int n, float size, float gap) { return n <= 0 ? 0 : n * size + (n - 1) * gap; }
+
+int ui_utf8_cut(const char *s, int max) {
+  int n = 0;
+  while (n < max && s[n]) n++;
+  if (!s[n]) return n;   // all of it fits
+  while (n > 0 && ((unsigned char)s[n] & 0xC0) == 0x80) n--;   // s[n] would start in the middle of a character: step back
+  return n;
+}

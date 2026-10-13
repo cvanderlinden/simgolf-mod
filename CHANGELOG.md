@@ -16,6 +16,8 @@
 - Fixed: a crash when quitting (the same translation fault sat at 29 places in the game)
 - Fixed: sound went silent for good after unplugging headphones or changing speakers ([fixes] audio_recover)
 - Fixed: memory overruns when every staff slot is full, with a very long save-file list, or with a broken sprite or head number ([fixes] bounds)
+- Fixed: the No Dandelion landmark checked the wrong spot when weeds grew, so it did not protect the tiles around it ([fixes] no_dandelion)
+- Fixed: robustness: clicks are never dropped under heavy input, text is never cut mid-character, art that fails to load retries, stricter mod setting numbers, and the installer refuses damaged discs instead of crashing
 - Fixed: the old 2002 menu and loading screen flashed at startup and after choosing a property (Build here). A clean loading card now covers every frame until the new screens are ready
 
 ## 0.1.3 - 2026-10-13

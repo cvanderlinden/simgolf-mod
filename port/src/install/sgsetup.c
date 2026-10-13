@@ -122,8 +122,10 @@ static uint32_t le32(const uint8_t *p) { return p[0] | p[1] << 8 | p[2] << 16 | 
 // The root folder's entries; *n is set to the count.
 static Entry *disc_root(Disc *d, int *n) {
   uint32_t lba = le32(d->root + 2), size = le32(d->root + 10);
+  if (size > (16u << 20)) return NULL;   // task-114p: a root folder is a few sectors; a damaged disc can claim 4 GB
   uint32_t ns = (size + 2047) / 2048;
-  uint8_t *data = malloc((size_t)ns * 2048);
+  uint8_t *data = malloc((size_t)ns * 2048 + 1);
+  if (!data) return NULL;
   for (uint32_t i = 0; i < ns; i++)
     if (!disc_sector(d, lba + i, data + (size_t)i * 2048)) {
       free(data);
@@ -139,9 +141,15 @@ static Entry *disc_root(Disc *d, int *n) {
       continue;
     }
     const uint8_t *e = data + p;
+    // a record must fit its sector run, hold the 33 byte header and carry a name that fits inside it
+    if (len < 34 || p + len > ns * 2048u || 33u + e[32] > len) break;
     int nl = e[32];
     if (!(nl == 1 && e[33] <= 1)) {
-      if (*n == cap) out = realloc(out, (cap = cap ? cap * 2 : 64) * sizeof *out);
+      if (*n == cap) {
+        Entry *grown = realloc(out, (size_t)(cap = cap ? cap * 2 : 64) * sizeof *out);
+        if (!grown) { free(out); free(data); *n = 0; return NULL; }
+        out = grown;
+      }
       Entry *x = &out[(*n)++];
       memset(x, 0, sizeof *x);
       int k = 0;
@@ -187,11 +195,13 @@ static int disc_copy(Disc *d, const Entry *e, const char *out) {
 static uint8_t *map_pe(const uint8_t *b, size_t n, size_t *out_n) {
   if (n < 0x40 || b[0] != 'M' || b[1] != 'Z') return NULL;
   uint32_t pe = le32(b + 0x3c);
-  if (pe + 24 + 64 > n || memcmp(b + pe, "PE\0\0", 4)) return NULL;
+  if ((size_t)pe + 24 + 64 > n || memcmp(b + pe, "PE\0\0", 4)) return NULL;   // size_t: pe near 4 GB must not wrap
   unsigned nsec = b[pe + 6] | b[pe + 7] << 8, opt_size = b[pe + 20] | b[pe + 21] << 8;
   uint32_t opt = pe + 24, size = le32(b + opt + 56), hdr = le32(b + opt + 60);
   if (!size || size > (64u << 20)) return NULL;
+  if ((size_t)opt + opt_size > n || hdr > size) return NULL;
   uint8_t *img = calloc(1, size);
+  if (!img) return NULL;
   memcpy(img, b, hdr < size && hdr < n ? hdr : (size < n ? size : n));
   for (unsigned i = 0; i < nsec; i++) {
     const uint8_t *s = b + opt + opt_size + i * 40;

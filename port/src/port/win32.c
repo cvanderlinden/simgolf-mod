@@ -789,10 +789,13 @@ void OutputDebugStringA(nu s) { API_TRACE(); fprintf(stderr, "debug: %s", S(s));
 nu GetCurrentThreadId(void) { API_TRACE(); return 1; }
 nu GetCurrentProcess(void) { API_TRACE(); return 0xffffffffu; }
 nu CreateEventA(nu a, nu b, nu c, nu d) { API_TRACE(); (void)a; (void)b; (void)c; (void)d; return obj_new(OBJ_EVENT, NULL); }
-nu SetEvent(nu e) { API_TRACE(); (void)e; return 1; }
+static void ev_note(const char *what) {   // task-114h: which event calls the game really makes (they are stubs: waits report signaled at once)
+  static int n; if (n++ < 12) fprintf(stderr, "event stub: %s\n", what);
+}
+nu SetEvent(nu e) { API_TRACE(); (void)e; ev_note("SetEvent"); return 1; }
 nu ResetEvent(nu e) { API_TRACE(); (void)e; return 1; }
-nu WaitForMultipleObjects(nu n, nu h, nu all, nu ms) { API_TRACE(); (void)n; (void)h; (void)all; (void)ms; return 0; }
-nu WaitForSingleObject(nu h, nu ms) { API_TRACE(); (void)h; (void)ms; return 0; }
+nu WaitForMultipleObjects(nu n, nu h, nu all, nu ms) { API_TRACE(); (void)n; (void)h; (void)all; (void)ms; ev_note("WaitForMultipleObjects"); return 0; }
+nu WaitForSingleObject(nu h, nu ms) { API_TRACE(); (void)h; (void)ms; ev_note(ms == 0 ? "WaitForSingleObject poll" : "WaitForSingleObject wait"); return 0; }
 
 nu FormatMessageA(nu flags, nu src, nu id, nu lang, nu buf, nu size, nu args) {
   API_TRACE();

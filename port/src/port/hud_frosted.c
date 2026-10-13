@@ -136,6 +136,8 @@ static void update_art(SDL_Renderer *r) {
       SDL_UpdateTexture(g_tex[i], NULL, g_art[i].px, g_art[i].w * 4);
       SDL_SetTextureBlendMode(g_tex[i], SDL_BLENDMODE_BLEND);
       SDL_SetTextureScaleMode(g_tex[i], SDL_ScaleModeLinear);
+    } else {
+      g_tex_serial[i] = g_art[i].serial - 1;   // task-114k: the upload failed; ask again on the next frame instead of staying blank
     }
   }
   unlock();

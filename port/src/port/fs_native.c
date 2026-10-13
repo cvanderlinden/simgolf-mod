@@ -53,10 +53,23 @@ static void normalize(const char *dos, char *out, int outlen) {
   out[k] = 0;
 }
 
+// task-114j: a game path never climbs out of the game folder ("..\..\x" from a hostile save or mod).
+static int has_parent_part(const char *rel) {
+  for (const char *p = rel; *p;) {
+    const char *e = strchr(p, '/');
+    size_t n = e ? (size_t)(e - p) : strlen(p);
+    if (n == 2 && p[0] == '.' && p[1] == '.') return 1;
+    p += n;
+    if (*p == '/') p++;
+  }
+  return 0;
+}
+
 int fs_resolve(const char *dospath, char *out, int outlen, int for_write) {
   if (!dospath) return 0;
   char rel[512];
   normalize(dospath, rel, sizeof rel);
+  if (has_parent_part(rel)) { fprintf(stderr, "fs: refused a path with a parent part: %s\n", dospath); return 0; }
   snprintf(out, outlen, "%s/%s", base_for(rel), rel);
   harness_note_file(out);
   DWORD a = GetFileAttributesA(out);
@@ -86,6 +99,7 @@ int fs_safe_saves(void) { return mods_get_int("fixes.safe_saves", 1); }
 int fs_list(const char *dospattern, fs_list_fn fn, void *ctx) {
   char rel[512], pat[600];
   normalize(dospattern, rel, sizeof rel);
+  if (has_parent_part(rel)) return 0;
   snprintf(pat, sizeof pat, "%s/%s", base_for(rel), rel);
   WIN32_FIND_DATAA fd;
   HANDLE h = FindFirstFileA(pat, &fd);

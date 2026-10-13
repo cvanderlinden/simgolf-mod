@@ -292,7 +292,7 @@ nu SelectObject(nu hdc, nu h) {
   nu old = 0;
   if (obj_get(h, OBJ_BITMAP)) { old = dc->bitmap; dc->bitmap = h; }
   else if (obj_get(h, OBJ_FONT)) { old = dc->font; dc->font = h; }
-  else if (obj_get(h, OBJ_BRUSH) || h == 0) { old = dc->brush; dc->brush = h; }
+  else if (obj_kind(h) == OBJ_BRUSH || h == 0) { old = dc->brush; dc->brush = h; }   // task-114g: by kind (stock brushes carry no payload)
   else if (obj_get(h, OBJ_RGN)) {
     Rgn *r = obj_get(h, OBJ_RGN);
     dc->has_clip = 1;

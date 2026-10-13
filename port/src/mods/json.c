@@ -310,11 +310,28 @@ static JsonVal *parse_value(Parser *ps) {
     if (*q == '-') q++;
     if (!(*q >= '0' && *q <= '9')) { perr(ps, "bad number"); return NULL; }
     if (*q == '0' && q[1] >= '0' && q[1] <= '9') { perr(ps, "numbers cannot start with 0"); return NULL; }
-    char *end;
-    double n = strtod(p, &end);
-    if (end == p) { perr(ps, "bad number"); return NULL; }
+    // task-114o: only the JSON grammar -?int(.digits)?([eE][+-]?digits)?; strtod alone also takes 0x10, 1. and 1e
+    while (*q >= '0' && *q <= '9') q++;
+    if (*q == '.') {
+      q++;
+      if (!(*q >= '0' && *q <= '9')) { perr(ps, "a number needs a digit after the point"); return NULL; }
+      while (*q >= '0' && *q <= '9') q++;
+    }
+    if (*q == 'e' || *q == 'E') {
+      q++;
+      if (*q == '+' || *q == '-') q++;
+      if (!(*q >= '0' && *q <= '9')) { perr(ps, "an exponent needs digits"); return NULL; }
+      while (*q >= '0' && *q <= '9') q++;
+    }
+    size_t len = (size_t)(q - p);
+    char num[64];
+    if (len >= sizeof num) { perr(ps, "number too long"); return NULL; }
+    memcpy(num, p, len);
+    num[len] = 0;
+    double n = strtod(num, NULL);
+    if (n > 1.7e308 || n < -1.7e308) { perr(ps, "number out of range"); return NULL; }
     v = json_num(n);
-    ps->p = end;
+    ps->p = q;
   } else if (!*p) {
     perr(ps, "the file ends where a value was expected");
     return NULL;

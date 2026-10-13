@@ -39,9 +39,12 @@ int fix_hole_time(void) {
   return 1;
 }
 int fix_water_push(void) { return mods_get_int("fixes.water_push", 1); }
+// task-114t: the tile (x or y) picked for a new weed -> the world coordinate the landmark check should use
+int fix_weed_guard(int tile, int original) { return mods_get_int("fixes.no_dandelion", 1) ? tile * 0x400 + 0x200 : original; }
 #else
 int fix_water_push(void) { return 1; }
 int fix_hole_time(void) { return 0; }
+int fix_weed_guard(int tile, int original) { return tile * 0x400 + 0x200; }
 #endif
 
 // task-44: Shift+T ("trees off/on") flips bit 0x400 of the game flags at

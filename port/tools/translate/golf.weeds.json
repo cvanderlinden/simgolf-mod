@@ -1,0 +1,11 @@
+{
+ "comment": "task-114t (fork finding F29, v1.02 'No Dandelion' note): the main loop's random weed pick asks FUN_00407000 whether a No Dandelion landmark is near, but passes the ball position of whatever golfer slot a stack variable still holds, not the picked tile, so the landmark protects nothing reliably. fix_weed_guard_x/y (src/port/golf/overrides.c) pass the picked tile's centre instead; mods.ini [fixes] no_dandelion=0 gives the original arguments.",
+ "patches": {
+  "FUN_0040f5c0": [
+   [
+    "FUN_00407000((&DAT_0057958c)[uStack_123c * 0x40],\n                                    (&DAT_00579590)[uStack_123c * 0x40],2)",
+    "FUN_00407000(fix_weed_guard(uVar13,(&DAT_0057958c)[uStack_123c * 0x40]),\n                                    fix_weed_guard(uVar24,(&DAT_00579590)[uStack_123c * 0x40]),2)"
+   ]
+  ]
+ }
+}

@@ -48,7 +48,7 @@ static int wrap_lines(UiCtx *c, int style, const char *s, float w, char (*out)[1
   else if (line[0] && n == max) {
     // text left over: ellipsis on the last line
     char t[170];
-    snprintf(t, sizeof t, "%.150s...", out[max - 1]);
+    snprintf(t, sizeof t, "%.*s...", ui_utf8_cut(out[max - 1], 150), out[max - 1]);
     snprintf(out[max - 1], 160, "%s", t);
   }
   return n;

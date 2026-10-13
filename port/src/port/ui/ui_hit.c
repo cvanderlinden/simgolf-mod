@@ -186,3 +186,19 @@ uint32_t ui_idi(uint32_t base, int i) {
   uint32_t h = (base ^ (uint32_t)(i + 1) * 0x9E3779B9u) * 16777619u;
   return h ? h : 1;
 }
+
+int ui_evq_push(UiEvent *q, int *n, int cap, const UiEvent *e) {
+  if (*n < cap) { q[(*n)++] = *e; return 1; }
+  if (e->kind == UI_EV_MOVE) {   // the pointer only needs its latest position
+    for (int i = *n - 1; i >= 0; i--)
+      if (q[i].kind == UI_EV_MOVE) { q[i] = *e; return 1; }
+    return 0;
+  }
+  for (int i = 0; i < *n; i++)   // make room by dropping the oldest move or wheel
+    if (q[i].kind == UI_EV_MOVE || q[i].kind == UI_EV_WHEEL) {
+      memmove(&q[i], &q[i + 1], sizeof q[0] * (size_t)(*n - i - 1));
+      q[*n - 1] = *e;
+      return 1;
+    }
+  return 0;   // a queue full of presses, releases and keys: nothing can be dropped
+}

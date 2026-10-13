@@ -59,6 +59,11 @@ typedef struct {
   int mods;
 } UiEvent;
 
+// A bounded event queue that never loses a press or release (task-114l): when it is full, an incoming MOVE
+// replaces the newest queued MOVE (or is dropped), and any other event pushes out the oldest MOVE or WHEEL first.
+// Returns 1 when the event was queued.
+int ui_evq_push(UiEvent *q, int *n, int cap, const UiEvent *e);
+
 // ------------------------------------------------------------------ routing
 
 enum { UI_ROUTE_GAME = 1, UI_ROUTE_UI = 2, UI_ROUTE_BOTH = 3 };

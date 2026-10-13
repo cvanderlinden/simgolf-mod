@@ -269,7 +269,7 @@ static int wrap(UiCtx *c, int style, const char *text, float w, char (*lines)[20
   }
   if (*p && n == max) {   // cut: end the last line with an ellipsis
     size_t l = strlen(lines[n - 1]);
-    if (l > 190) l = 190;
+    if (l > 190) l = (size_t)ui_utf8_cut(lines[n - 1], 190);
     snprintf(lines[n - 1] + l, 10, "...");
   }
   return n;

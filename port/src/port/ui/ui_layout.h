@@ -51,3 +51,7 @@ float ui_stack_left(const UiStack *s);
 
 // Total length of n items of size each with gaps (row of tiles, dock).
 float ui_row_length(int n, float size, float gap);
+
+// Length in bytes of the longest prefix of s that is at most max bytes and does not end in the middle of a UTF-8
+// character (task-114m: labels cut by a byte count left half a character, drawn as a box).
+int ui_utf8_cut(const char *s, int max);

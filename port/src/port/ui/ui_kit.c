@@ -13,7 +13,7 @@
 
 typedef struct { uint32_t id; float v; double t; } Anim;
 typedef struct { uint32_t id; float v; } State;
-typedef struct { UiIcon icon; int px; SDL_Texture *tex; } IconTex;
+typedef struct { UiIcon icon; int px; SDL_Texture *tex; double retry; } IconTex;   // retry: when a failed texture may be built again (task-114k)
 
 struct UiCtx {
   SDL_Renderer *r;
@@ -46,6 +46,7 @@ struct UiCtx {
   UiRect scroll_view;
   float scales[8];
   int nscale;
+  int scale_over;   // pushes beyond the stack (task-114n): they change nothing and their pops undo nothing
 };
 
 // ------------------------------------------------------------------ setup
@@ -137,7 +138,7 @@ void ui_set_tokens(UiCtx *c, const UiTokens *t) { c->tok = *t; }
 int ui_route_event(UiCtx *c, const UiEvent *e) {
   SDL_LockMutex(c->lock);
   int to = ui_route(&c->router, e);
-  if ((to & UI_ROUTE_UI) && c->qn < EVQ) c->q[c->qn++] = *e;
+  if (to & UI_ROUTE_UI) ui_evq_push(c->q, &c->qn, EVQ, e);
   SDL_UnlockMutex(c->lock);
   return to;
 }
@@ -161,6 +162,7 @@ void ui_begin(UiCtx *c, SDL_Texture *target, int w, int h, float scale, SDL_Text
   c->h = h;
   c->scale = scale > 0 ? scale : 1;
   c->nscale = 0;
+  c->scale_over = 0;
   c->now = now;
   ui_interact_frame(&c->in, &c->prev, ev, n, now);
   ui_hits_clear(&c->cur);
@@ -199,12 +201,13 @@ void ui_skip_frame(UiCtx *c) {
 float ui_scale(const UiCtx *c) { return c->scale; }
 
 void ui_push_scale(UiCtx *c, float k) {
-  if (c->nscale < 8) c->scales[c->nscale++] = c->scale;
-  c->scale *= k;
+  if (c->nscale < 8) { c->scales[c->nscale++] = c->scale; c->scale *= k; }
+  else c->scale_over++;
 }
 
 void ui_pop_scale(UiCtx *c) {
-  if (c->nscale > 0) c->scale = c->scales[--c->nscale];
+  if (c->scale_over > 0) c->scale_over--;
+  else if (c->nscale > 0) c->scale = c->scales[--c->nscale];
 }
 
 int ui_pointer(const UiCtx *c, float *x, float *y) {
@@ -324,7 +327,12 @@ void ui_text_fit(UiCtx *c, UiRect r, int style, UiColor col, const char *s, floa
 
 static SDL_Texture *icon_tex(UiCtx *c, UiIcon icon, int px) {
   for (int i = 0; i < c->nicons; i++)
-    if (c->icons[i].icon == icon && c->icons[i].px == px) return c->icons[i].tex;
+    if (c->icons[i].icon == icon && c->icons[i].px == px) {
+      if (c->icons[i].tex || c->now < c->icons[i].retry) return c->icons[i].tex;
+      c->icons[i] = c->icons[--c->nicons];   // a failed build is tried again after a second
+      i = -1;
+      continue;
+    }
   if (px < 4 || px > 512) return NULL;
   uint8_t *a = malloc((size_t)px * px);
   uint32_t *argb = malloc((size_t)px * px * 4);
@@ -344,7 +352,7 @@ static SDL_Texture *icon_tex(UiCtx *c, UiIcon icon, int px) {
       if (c->icons[i].tex) SDL_DestroyTexture(c->icons[i].tex);
     c->nicons = 0;
   }
-  c->icons[c->nicons++] = (IconTex){icon, px, t};
+  c->icons[c->nicons++] = (IconTex){icon, px, t, t ? 0 : c->now + 1.0};
   return t;
 }
 
@@ -352,7 +360,12 @@ static SDL_Texture *icon_tex(UiCtx *c, UiIcon icon, int px) {
 static SDL_Texture *face_tex(UiCtx *c, int mood, int px) {
   UiIcon key = (UiIcon)(UI_ICON_COUNT + mood);
   for (int i = 0; i < c->nicons; i++)
-    if (c->icons[i].icon == key && c->icons[i].px == px) return c->icons[i].tex;
+    if (c->icons[i].icon == key && c->icons[i].px == px) {
+      if (c->icons[i].tex || c->now < c->icons[i].retry) return c->icons[i].tex;
+      c->icons[i] = c->icons[--c->nicons];
+      i = -1;
+      continue;
+    }
   if (px < 4 || px > 512) return NULL;
   uint32_t *argb = malloc((size_t)px * px * 4);
   SDL_Texture *t = NULL;
@@ -370,7 +383,7 @@ static SDL_Texture *face_tex(UiCtx *c, int mood, int px) {
       if (c->icons[i].tex) SDL_DestroyTexture(c->icons[i].tex);
     c->nicons = 0;
   }
-  c->icons[c->nicons++] = (IconTex){key, px, t};
+  c->icons[c->nicons++] = (IconTex){key, px, t, t ? 0 : c->now + 1.0};
   return t;
 }
 
@@ -760,7 +773,7 @@ void ui_tooltip(UiCtx *c, uint32_t id, UiRect anchor, const char *text) {
   if (c->now - c->in.hot_since < c->tok.tooltip_delay_ms) return;
   c->tip_on = 1;
   c->tip_anchor = anchor;
-  snprintf(c->tip, sizeof c->tip, "%s", text);
+  snprintf(c->tip, sizeof c->tip, "%.*s", ui_utf8_cut(text, (int)sizeof c->tip - 1), text);
 }
 
 static void draw_tooltip(UiCtx *c) {
