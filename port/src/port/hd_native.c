@@ -81,6 +81,7 @@
 #include "port/golf/hd_ui.h"
 #include "port/hd_art.h"
 #include "port/hd_native.h"
+#include "port/frontend_frosted.h"
 #include "port/options_frosted.h"
 #include "port/hd_zoom.h"
 #include "port/hdball_render.h"
@@ -992,6 +993,48 @@ static void wait_until(Rt *t, double when) {
   while (host_now_ms() < when) YieldProcessor();
 }
 
+
+// Test aid only (card task-106): SIMGOLF_FRAMELOG=<file> writes one line per presented frame
+// (n, ms since start, course view, the front-end screen covering it or -1); with
+// SIMGOLF_FRAMELOG_SHOTS=<prefix> the first 60 frames that nothing covers are saved as <prefix><n>.bmp.
+static void frame_log(Rt *t, int cw, int ch, double now) {
+  static int on = -1, n, shots;
+  static FILE *f;
+  static double t0;
+  static const char *prefix;
+  if (on < 0) {
+    const char *p = getenv("SIMGOLF_FRAMELOG");
+    on = p && *p;
+    if (on) {
+      f = fopen(p, "w");
+      on = f != NULL;
+    }
+    prefix = getenv("SIMGOLF_FRAMELOG_SHOTS");
+    t0 = now;
+  }
+  if (!on) return;
+  int cover = fef_cover_screen();
+  fprintf(f, "%d,%.1f,%d,%d,%ld\n", ++n, now - t0, t->course_view, cover, (long)g_frame_serial);
+  fflush(f);
+  const char *at = getenv("SIMGOLF_FRAMELOG_AT");   // frame numbers to save whatever covers them, "3,40,300"
+  int want = 0;
+  for (const char *q = at; q && *q;) {
+    if (atoi(q) == n) want = 1;
+    q = strchr(q, ',');
+    if (q) q++;
+  }
+  if (prefix && *prefix && (want || (cover < 0 && !t->course_view && shots < 60))) {
+    uint32_t *px = malloc((size_t)cw * ch * 4);
+    char path[600];
+    snprintf(path, sizeof path, "%s%d.bmp", prefix, n);
+    if (px && !SDL_RenderReadPixels(t->r, NULL, SDL_PIXELFORMAT_ARGB8888, px, cw * 4)) {
+      write_bmp(path, px, cw, ch);
+      shots++;
+    }
+    free(px);
+  }
+}
+
 typedef struct {
   double t0, sum, min, max;
   int n;
@@ -1141,6 +1184,7 @@ static DWORD WINAPI render_main(void *arg) {
     static int flips;
     if (flipped && flips++ < 40) fprintf(stderr, "hd: %.1f s: mouse maps to %dx%d of the frame (%s)\n", now_s(), sw, sh, t->course_view ? "course" : "page");
 
+    frame_log(t, ow, oh, host_now_ms());
     SDL_RenderPresent(t->r);
     double now = host_now_ms();
     double ms = now - last;
@@ -1311,6 +1355,7 @@ int hd_native_start(SDL_Window *window) {
   if (!g_cfg.hd || !window) return 0;
   g_window = window;
   opt_register();   // the Options page's top layer (card task-24)
+  fef_early();      // task-106: the front end's layer is there before the first picture
   g_ready = CreateEventA(NULL, FALSE, FALSE, NULL);
   g_shot_done = CreateEventA(NULL, FALSE, FALSE, NULL);
   HANDLE th = CreateThread(NULL, 1 << 20, render_main, NULL, 0, NULL);

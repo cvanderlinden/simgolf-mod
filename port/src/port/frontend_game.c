@@ -280,6 +280,13 @@ void fe_world_end(void) {
   g_world_active = 0;
   g_on = 0;
   g_last_screen = FE_NONE;
+  // task-106: Build here published its loading card just before the map loop returned; the original builds the
+  // course for seconds without presenting, so that card stays up (golf's next loading call or the course view replaces it)
+  if (g_snap.screen == FE_LOADING) {
+    FeAction q;
+    while (fef_take_action(&q)) {}
+    return;
+  }
   g_snap.screen = FE_NONE;
   g_snap.magic = FE_MAGIC;
   g_snap.serial = ++g_serial;

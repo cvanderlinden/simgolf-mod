@@ -25,11 +25,13 @@ extern "C" {
 
 // game thread
 int fef_loading_enabled(void);                          // fef_enabled() and ui.loading is not original (task-69)
+void fef_early(void);                                   // task-106: register the layer when the presenter starts
 int fef_enabled(void);                                  // ui.frontend=frosted_mint and the native layer is up
 void fef_publish(const FeSnap *s);                      // the screen the original is showing now
 int fef_take_action(FeAction *a);                       // next click on the native screen, 1 if any
 void fef_publish_art(int key, const uint32_t *argb, int w, int h);   // FE_ART_* key; NULL clears
 void fef_set_injecting(int on);                         // the game thread is feeding the original a click
+int fef_cover_screen(void);                             // test aid: the FE_* screen the layer covered the last frame with, -1 when it drew nothing
 void fef_note_press(void);                              // ... and has just pressed the button (the original may leave its screen)
 
 #ifdef __cplusplus

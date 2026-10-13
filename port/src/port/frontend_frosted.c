@@ -22,6 +22,7 @@
 
 #define QMAX 16
 #define LOADING_STALE_MS 15000
+#define BOOT_MS 30000   // the cover for golf's startup, give up after this
 #define STALE_MS 400   // the original screen published nothing this long (a dialog runs its own loop): hide
 
 static SDL_mutex *g_lock;
@@ -42,9 +43,12 @@ static UiCtx *g_ui;
 static SDL_Texture *g_tex[FE_ART_MAX];
 static uint32_t g_tex_serial[FE_ART_MAX];
 static int g_registered, g_failed;
-static volatile int g_want;
+static volatile int g_want, g_game_asked;
 static volatile double g_action_t = -1e9;   // when the player last chose something on a native screen
 static volatile double g_press_t = -1e9;    // when the game thread pressed the original's button for it
+
+static volatile int g_cover_screen = -1;
+int fef_cover_screen(void) { return g_cover_screen; }
 
 void fef_note_press(void) { g_press_t = host_now_ms(); }
 static volatile double g_drawn_t = -1e9;
@@ -145,9 +149,13 @@ static float front_scale(int w, int h) {
   return base < 0.3f ? 0.3f : base;
 }
 
+static void refresh_want(void);
+
 static void draw(const HdUiFrame *f, void *user) {
   (void)user;
   g_drawn_t = f->now_ms;
+  if (!g_game_asked) refresh_want();   // before the game thread's first fef_enabled()
+  g_cover_screen = -1;
   if (g_failed || !g_want) {
     g_visible = 0;
     if (g_ui) ui_skip_frame(g_ui);
@@ -186,6 +194,27 @@ static void draw(const HdUiFrame *f, void *user) {
   // the original has not published a screen more than 120 ms after that press)
   double now = host_now_ms();
   int valid = s->magic == FE_MAGIC && s->screen != FE_NONE && w > 0;
+  // task-106: from the first presented frame until golf publishes its first screen, our own loading card
+  // stands in for whatever the original draws (black frames, its loading picture, its title)
+  static int seen_snap;
+  static double boot_t0 = -1;
+  int boot = 0;
+  if (valid) seen_snap = 1;
+  if (!valid && !seen_snap && w > 0 && !f->course) {
+    const char *lv = mods_get("ui.loading");
+    if (!(lv && !strcasecmp(lv, "original"))) {
+      if (boot_t0 < 0) boot_t0 = now;
+      if (now - boot_t0 < BOOT_MS) {
+        boot = 1;
+        memset(s, 0, sizeof *s);
+        s->magic = FE_MAGIC;
+        s->screen = FE_LOADING;
+        s->loading.pct = -1;
+        snprintf(s->loading.title, sizeof s->loading.title, "Starting SimGolf");
+        valid = 1;
+      }
+    }
+  }
   double press = g_press_t;
   int pending = valid && !dlgf_active() && g_action_t > 0 && press > g_action_t && t0 <= press + 120 && now - press < 60000;
   // task-69: golf's loading calls are seconds apart; task-27: a native dialog over the screen (delete a save, a pro's menu) keeps it up
@@ -196,10 +225,24 @@ static void draw(const HdUiFrame *f, void *user) {
   if (dlg_now && dlg_start < 0) dlg_start = now;
   if (!dlg_now) dlg_start = -1;
   int dlg_over_screen = dlg_now && dlg_start - t0 < 1500;
-  int stale = now - t0 >= (s->screen == FE_LOADING ? LOADING_STALE_MS : STALE_MS) && !dlg_over_screen;
+  int stale = !boot && now - t0 >= (s->screen == FE_LOADING ? LOADING_STALE_MS : STALE_MS) && !dlg_over_screen;
   // in a running course (task-27: the in-game Load game and world map) only a screen that is up now shows;
   // from the title the last screen stays up while the original builds the course (pending)
   int show = valid && (!stale || (pending && !f->course));
+  // task-106: a loading card that went up while no course was shown (title, new game, load, championship) ends when
+  // the course view comes (a card over a course already shown, an in-game load, is not touched)
+  {
+    static uint32_t ld_serial;
+    static int ld_nc;
+    if (s->screen == FE_LOADING && show) {
+      if (s->serial != ld_serial) {
+        ld_serial = s->serial;
+        ld_nc = 0;
+      }
+      if (!f->course) ld_nc = 1;
+      else if (ld_nc) show = 0;
+    }
+  }
   int loading = show && pending && now - press > 350;
   g_visible = show;
   if (!show) {
@@ -207,6 +250,7 @@ static void draw(const HdUiFrame *f, void *user) {
     free(s);
     return;
   }
+  g_cover_screen = s->screen;
   update_art(r);
   ui_frontend_background(r, ui_tokens(g_ui), w, h);
   ui_begin(g_ui, f->target, w, h, front_scale(w, h), f->target, now);
@@ -321,24 +365,35 @@ int fef_loading_enabled(void) {
   return !(v && !strcasecmp(v, "original"));
 }
 
+// ui.frontend / SIMGOLF_FRONTEND: whether the new front end is wanted at all
+static void refresh_want(void) {
+  const char *v = mods_get("ui.frontend");
+  g_want = v && (!strcasecmp(v, "frosted_mint") || !strcasecmp(v, "frosted-mint"));
+  // SIMGOLF_FRONTEND=original: scripted tests (tools/ghost_run.ps1 sets it) that drive the original
+  // title and menus by window clicks keep the original screens
+  const char *e = getenv("SIMGOLF_FRONTEND");
+  if (e && !strcasecmp(e, "original")) g_want = 0;
+}
+
+// task-106: the layer is registered when the presenter starts, before golf draws its first picture, so
+// not one frame (the black first frames, the original's loading screen, the original title) goes out
+// uncovered while the game thread has not yet asked fef_enabled().
+void fef_early(void) {
+  if (!g_lock) g_lock = SDL_CreateMutex();
+  if (g_registered) return;
+  g_registered = hd_ui_add_layer(draw, NULL) && hd_ui_add_input(input, NULL);
+  if (!g_registered) g_failed = 1;
+}
+
 int fef_enabled(void) {
   static unsigned seen = ~0u;
   unsigned ser = mods_serial();
   if (ser != seen) {
     seen = ser;
-    const char *v = mods_get("ui.frontend");
-    g_want = v && (!strcasecmp(v, "frosted_mint") || !strcasecmp(v, "frosted-mint"));
-    // SIMGOLF_FRONTEND=original: scripted tests (tools/ghost_run.ps1 sets it) that drive the original
-    // title and menus by window clicks keep the original screens
-    const char *e = getenv("SIMGOLF_FRONTEND");
-    if (e && !strcasecmp(e, "original")) g_want = 0;
+    refresh_want();
+    g_game_asked = 1;
   }
-  if (!g_lock) g_lock = SDL_CreateMutex();
-  if (g_want && !g_registered) {
-    // registered once; with ui.frontend switched off later the layer draws nothing
-    g_registered = hd_ui_add_layer(draw, NULL) && hd_ui_add_input(input, NULL);
-    if (!g_registered) g_failed = 1;
-  }
+  if (g_want) fef_early();   // registered once; with ui.frontend switched off later the layer draws nothing
   // Only once the presenter has run the layer: with hd=0 (the original 800x600
   // window) nothing would draw the new screens, so the original ones stay.
   return g_want && g_registered && !g_failed && host_now_ms() - g_drawn_t < 2000;
