@@ -234,6 +234,7 @@ static void read_ini(void) {
 }
 
 const char *host_exe_dir(void) { return g_exe_dir; }
+const char *host_log_path(void) { return g_log_path; }
 
 double host_map_scale(void) { return g_map_scale; }
 

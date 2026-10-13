@@ -71,6 +71,7 @@ void pv_course_done(void);
 void aim_frame_begin(void);   // task-115: shot aim arrows (golf/aim_hooks.c)
 void aim_course_done(void);
 void opt_game_frame(void);   // options_frosted.c: pauses the game while the Options page is up
+void dbg_overlay_frame(void);   // debug_overlay.c (task-113): reads the game state for the overlay; a no-op in the browser build
 
 // ------------------------------------------------------------------ back buffer view
 
@@ -185,6 +186,7 @@ static void overscan_begin(void) {
 void hd_ui_frame_camera(void) {
   sub_apply();
   opt_game_frame();
+  dbg_overlay_frame();
   overscan_begin();
   pv_frame_begin();   // before the golfers': its world layer goes under their name tags
   aim_frame_begin();

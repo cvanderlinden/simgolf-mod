@@ -176,6 +176,15 @@ void crt_nop(void) {}
 // ------------------------------------------------------------------ low-level io
 
 static char *g_fd_written[256];   // FS path of fds opened for writing
+static char *g_fd_final[256];     // task-114f: a save written to "<path>.tmp": the real path it replaces on close
+
+// task-114f: golf writes a save (FUN_0040afa0, "Saved Games\x.sve") by truncating the file and writing it in
+// place, so a crash or power cut in between leaves a broken save and no old one. With [fixes] safe_saves=1 it is
+// written to x.sve.tmp, flushed to the disk on close and only then moved over x.sve in one step.
+static int is_save(const char *real) {
+  size_t n = strlen(real);
+  return n > 4 && !strcasecmp(real + n - 4, ".sve");
+}
 
 int crt_open(nu path, nu flags, ...) {
   char real[512];
@@ -194,14 +203,30 @@ int crt_open(nu path, nu flags, ...) {
   if (flags & 0x100) f |= O_CREAT;
   if (flags & 0x200) f |= O_TRUNC;
   if (flags & 0x400) f |= O_EXCL;
-  int fd = open(real, f, 0666);
-  if (fd >= 0 && fd < 256 && write) g_fd_written[fd] = strdup(real);
+  char tmp[530];
+  int safe = write && (flags & 0x200) && is_save(real) && fs_safe_saves();
+  if (safe) snprintf(tmp, sizeof tmp, "%s.tmp", real);
+  int fd = open(safe ? tmp : real, f, 0666);
+  if (fd >= 0 && fd < 256 && write) {
+    g_fd_written[fd] = strdup(real);
+    g_fd_final[fd] = safe ? strdup(tmp) : NULL;
+  }
   return fd;
 }
 int crt_read(nu fd, nu buf, nu n) { return (int)read((int)fd, P(buf), n); }
 int crt_write(nu fd, nu buf, nu n) { return (int)write((int)fd, P(buf), n); }
 int crt_close(nu fd) {
+  int synced = fd < 256 && g_fd_final[fd] ? fs_commit((int)fd) : 1;
   int r = close((int)fd);
+  if (fd < 256 && g_fd_final[fd]) {   // the save is whole on the disk: put it in place of the old one
+    if (r == 0 && synced && fs_replace(g_fd_final[fd], g_fd_written[fd])) fprintf(stderr, "save: %s written safely\n", g_fd_written[fd]);
+    else {
+      fprintf(stderr, "save: could not finish %s (the previous save is kept, the new one is in %s)\n", g_fd_written[fd], g_fd_final[fd]);
+      r = -1;
+    }
+    free(g_fd_final[fd]);
+    g_fd_final[fd] = NULL;
+  }
   if (fd < 256 && g_fd_written[fd]) {
     fs_written(g_fd_written[fd]);
     free(g_fd_written[fd]);

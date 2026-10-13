@@ -14,6 +14,7 @@
 #ifdef __EMSCRIPTEN__
 
 void opt_game_frame(void) {}
+void dbg_overlay_frame(void) {}
 void opt_edit_prefs(void) { FUN_00432560(); }
 
 #else

@@ -1641,6 +1641,40 @@ static void publish_one(int which, int ok) {
   p->n = c->n;
 }
 
+int hd_art_pick(int x, int y, HdArtPick *o) {
+  memset(o, 0, sizeof *o);
+  o->entry = -1;
+  o->category = o->look = "";
+  if (!g_on) return -1;
+  int found = 0;
+  EnterCriticalSection(&g_pub_lock);
+  for (int w = LT; w >= LC; w--) {   // golf's UI is over the course
+    List *p = &g_pub[w];
+    if (!g_pub_ok[w] || !p->owner || x < 0 || y < 0 || x >= p->w || y >= p->h) continue;
+    for (int i = 0; i < p->n; i++) {
+      const Entry *e = &p->e[i];
+      if (!e->hidden && x >= e->x && x < e->x + e->w && y >= e->y && y < e->y + e->h) o->ncover++;
+    }
+    int idx = p->owner[(size_t)y * p->w + x];
+    if (!found && idx > 0 && idx <= p->n) {
+      const Entry *e = &p->e[idx - 1];
+      const ArtFile *a = &g_files[e->file];
+      found = 1;
+      o->layer = w;
+      o->entry = idx - 1;
+      o->entries = p->n;
+      snprintf(o->file, sizeof o->file, "%s", a->src);
+      if (e->shadow_file >= 0) snprintf(o->shadow, sizeof o->shadow, "%s", g_files[e->shadow_file].src);
+      o->category = a->cat >= 0 ? k_cat[a->cat] : "";
+      o->look = k_look[look_of(e->file)];
+      o->view = e->view, o->frame = e->frame, o->variant = e->variant, o->flip = e->flip, o->hidden = e->hidden;
+      o->x = e->x, o->y = e->y, o->w = e->w, o->h = e->h;
+    }
+  }
+  LeaveCriticalSection(&g_pub_lock);
+  return found;
+}
+
 void hd_art_publish(int layered, const uint16_t *screen) {
   live_settings();   // also with the pack off: Pixel HD is a grid over whatever the course shows
   if (!g_on) return;

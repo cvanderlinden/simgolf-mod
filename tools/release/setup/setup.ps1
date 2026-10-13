@@ -114,7 +114,7 @@ try {
 
   # ---- our program files
   Say "Copying the game program to $Dir ..."
-  Copy-Item -Path (Join-Path $app "*") -Destination $Dir -Recurse -Force
+  & (Join-Path $here "copy_app.ps1") -App $app -Dir $Dir   # keeps the player's mods.ini (task-114i)
 
   # ---- unpack the player's own game
   Say "Unpacking your SimGolf disc (about a minute)..."

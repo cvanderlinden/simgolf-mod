@@ -16,7 +16,7 @@ OUT=dist/release
 STAGE=$OUT/stage/SimGolf-Remastered-v$VER
 rm -rf "$OUT/stage"
 mkdir -p "$STAGE/app/data" "$STAGE/app/mods"
-cp tools/release/setup/Setup.cmd tools/release/setup/setup.ps1 "$STAGE/"
+cp tools/release/setup/Setup.cmd tools/release/setup/setup.ps1 tools/release/setup/copy_app.ps1 "$STAGE/"
 A=$STAGE/app
 cp $N/golf.exe $N/SDL2.dll $N/sgsetup.exe $N/sgupdate.exe $N/jgld-nops.json "$A/"
 cp -r $N/fonts $N/ui "$A/"
@@ -24,7 +24,7 @@ cp -r mods/. "$A/mods/"
 rm -rf "$A/mods/examples"
 mkdir -p "$A/mods-examples" && cp -r mods/examples/. "$A/mods-examples/"
 cp -r data/tables "$A/data/"
-cp data/mods.ini "$A/mods.ini"
+cp data/mods.ini "$A/mods.ini.default"   # never mods.ini: unzipping over an install would replace the player's (task-114i)
 cp tools/release/setup/golf.ini.template "$A/golf.ini.template"
 echo "SimGolf Remastered $VER (git $(git rev-parse --short HEAD))" > "$A/version.txt"
 P=tools/release/public

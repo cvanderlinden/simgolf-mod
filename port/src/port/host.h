@@ -26,6 +26,7 @@ void host_sleep_ms(int ms);
 // The game's install folder (absolute, '/' separated, no trailing slash).
 const char *host_game_dir(void);
 const char *host_exe_dir(void);   // the folder holding golf.exe (forward slashes)
+const char *host_log_path(void);  // golf.log (task-113: the debug overlay's bug report copies it)
 // Maps the browser build's absolute FS paths ("/image/golf.bin",
 // "/fonts/x.ttf") to files next to the exe; other paths come back unchanged.
 // The result lives in one of a few rotating static buffers.

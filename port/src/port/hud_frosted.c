@@ -246,7 +246,7 @@ static void draw(const HdUiFrame *f, void *user) {
     load_tokens(&t);
     char fonts[1024];
     snprintf(fonts, sizeof fonts, "%s", port_host_path("/fonts/plus-jakarta-sans"));
-    g_ui = ui_create(r, &t, fonts);
+    g_ui = ui_create(r, &t, fonts); ui_debug_name(g_ui, "hud");
     if (!g_ui) {
       g_failed = 1;
       return;

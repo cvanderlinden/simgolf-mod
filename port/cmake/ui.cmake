@@ -26,6 +26,8 @@ target_sources(golf PRIVATE src/port/dialogs_frosted.c src/port/dialogs_game.c)
 target_sources(golf PRIVATE src/port/options_frosted.c src/port/mods_frosted.c)
 # task-28: the reports (one tabbed glass panel)
 target_sources(golf PRIVATE src/port/reports_frosted.c src/port/reports_game.c)
+# task-113: the debug overlay (off by default; [debug] overlay=1 or Shift+F12)
+target_sources(golf PRIVATE src/port/debug_overlay.c)
 
 add_executable(ui_tests "${CMAKE_SOURCE_DIR}/../tests/ui/test_ui.c" ${SIMGOLF_UI_PLAIN} src/mods/json.c src/mods/semver.c third_party/tomlc99/toml.c)
 add_executable(ui_text_tests "${CMAKE_SOURCE_DIR}/../tests/ui/test_text.c" src/port/ui/ui_text.c)

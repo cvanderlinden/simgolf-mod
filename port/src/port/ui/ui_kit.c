@@ -70,9 +70,41 @@ void ui_tokens_load_all(UiTokens *t, const char *base_path, const char *const *o
   }
 }
 
+// ---- task-113: a registry of every context, so the debug overlay can ask each Frosted Mint layer
+// whether it covers a screen point (old-UI leaks, "what drew this").
+#define DBG_CTX_MAX 16
+static struct { UiCtx *c; char name[24]; } g_dbg[DBG_CTX_MAX];
+static int g_ndbg;
+
+void ui_debug_name(UiCtx *c, const char *name) {
+  for (int i = 0; i < g_ndbg; i++)
+    if (g_dbg[i].c == c) snprintf(g_dbg[i].name, sizeof g_dbg[i].name, "%s", name);
+}
+
+int ui_debug_count(void) { return g_ndbg; }
+
+// Whether the context's last finished frame has a blocking region at (x, y) in target pixels.
+int ui_debug_probe(int i, float x, float y, const UiCtx *skip, char *name, int cap, uint32_t *id, UiRect *rect) {
+  if (i < 0 || i >= g_ndbg || g_dbg[i].c == skip) return 0;
+  UiCtx *c = g_dbg[i].c;
+  if (name) snprintf(name, cap, "%s", g_dbg[i].name[0] ? g_dbg[i].name : "layer");
+  SDL_LockMutex(c->lock);
+  int k = ui_hits_test(&c->router.published, x, y, UI_HIT_BLOCK | UI_HIT_MODAL);
+  if (k >= 0) {
+    if (id) *id = c->router.published.v[k].id;
+    if (rect) *rect = c->router.published.v[k].r;
+  }
+  SDL_UnlockMutex(c->lock);
+  return k >= 0;
+}
+
 UiCtx *ui_create(SDL_Renderer *r, const UiTokens *tokens, const char *font_dir) {
   UiCtx *c = calloc(1, sizeof *c);
   if (!c) return NULL;
+  if (g_ndbg < DBG_CTX_MAX) {
+    g_dbg[g_ndbg].name[0] = 0;
+    g_dbg[g_ndbg++].c = c;
+  }
   c->r = r;
   if (tokens) c->tok = *tokens;
   else ui_tokens_default(&c->tok);
@@ -87,6 +119,8 @@ UiCtx *ui_create(SDL_Renderer *r, const UiTokens *tokens, const char *font_dir) 
 
 void ui_destroy(UiCtx *c) {
   if (!c) return;
+  for (int i = 0; i < g_ndbg; i++)
+    if (g_dbg[i].c == c) g_dbg[i] = g_dbg[--g_ndbg];
   for (int i = 0; i < c->nicons; i++)
     if (c->icons[i].tex) SDL_DestroyTexture(c->icons[i].tex);
   uid_free(&c->d);

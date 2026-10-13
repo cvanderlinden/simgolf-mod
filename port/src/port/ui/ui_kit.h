@@ -26,6 +26,10 @@ typedef struct UiCtx UiCtx;
 
 // font_dir: the Plus Jakarta Sans cuts (fonts/plus-jakarta-sans next to the exe).
 UiCtx *ui_create(SDL_Renderer *r, const UiTokens *tokens, const char *font_dir);
+// Debug overlay (task-113): name a context after creating it; ask each one whether its last frame covers a point.
+void ui_debug_name(UiCtx *c, const char *name);
+int ui_debug_count(void);
+int ui_debug_probe(int i, float x, float y, const UiCtx *skip, char *name, int cap, uint32_t *id, UiRect *rect);
 void ui_destroy(UiCtx *c);
 const UiTokens *ui_tokens(const UiCtx *c);
 void ui_set_tokens(UiCtx *c, const UiTokens *t);

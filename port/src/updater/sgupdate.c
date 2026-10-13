@@ -22,7 +22,7 @@
 #pragma comment(lib, "bcrypt.lib")
 
 // path relative to the app folder; a trailing slash is a folder
-static const char *const ITEMS[] = {"golf.exe", "SDL2.dll", "sgsetup.exe", "sgupdate.exe", "jgld-nops.json", "version.txt", "fonts/", "ui/",
+static const char *const ITEMS[] = {"golf.exe", "SDL2.dll", "sgsetup.exe", "sgupdate.exe", "jgld-nops.json", "version.txt", "mods.ini.default", "fonts/", "ui/",
                                     "data/tables/", "mods-examples/"};
 #define NITEMS ((int)(sizeof ITEMS / sizeof ITEMS[0]))
 

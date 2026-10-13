@@ -18,6 +18,61 @@ uint32_t port_trace_pos;
 uint32_t port_watch_addr[3];   // ghidra_prelude.h PORT_TRACE
 uint32_t port_watch_hits[3];
 
+// ---- task-113 call tracer (see ghidra_prelude.h): selected functions count their calls and keep a log.
+volatile uint32_t port_trace_any;
+uint8_t port_trace_sel[0xa4000 >> 3];
+PortCallLog port_calllog[PORT_CALLLOG_N];
+volatile uint32_t port_calllog_pos;
+static struct { uint32_t addr; uint32_t calls; } g_tracesel[PORT_TRACE_MAX];
+static int g_ntracesel;
+
+void port_trace_select(uint32_t addr, int on) {
+  if (addr - 0x401000u >= 0xa4000u) return;
+  int i;
+  for (i = 0; i < g_ntracesel; i++)
+    if (g_tracesel[i].addr == addr) break;
+  if (on && i == g_ntracesel && g_ntracesel < PORT_TRACE_MAX) {
+    g_tracesel[g_ntracesel].addr = addr;
+    g_tracesel[g_ntracesel++].calls = 0;
+  } else if (!on && i < g_ntracesel) {
+    g_tracesel[i] = g_tracesel[--g_ntracesel];
+  } else if (on) {
+    return;
+  }
+  uint32_t o = addr - 0x401000u;
+  if (on) port_trace_sel[o >> 3] |= (uint8_t)(1u << (addr & 7));
+  else port_trace_sel[o >> 3] &= (uint8_t)~(1u << (addr & 7));
+  port_trace_any = (uint32_t)g_ntracesel;
+}
+
+void port_trace_clear(void) {
+  while (g_ntracesel) port_trace_select(g_tracesel[g_ntracesel - 1].addr, 0);
+  port_calllog_pos = 0;
+  memset(port_calllog, 0, sizeof port_calllog);
+}
+
+int port_trace_selected(int i, uint32_t *addr, uint32_t *calls) {
+  if (i < 0 || i >= g_ntracesel) return 0;
+  *addr = g_tracesel[i].addr;
+  *calls = g_tracesel[i].calls;
+  return 1;
+}
+
+uint32_t port_trace_frame;   // set by the overlay each frame
+
+void port_trace_hit(uint32_t addr) {
+  for (int i = 0; i < g_ntracesel; i++)
+    if (g_tracesel[i].addr == addr) {
+      g_tracesel[i].calls++;
+      break;
+    }
+  uint32_t p = port_calllog_pos++;
+  PortCallLog *e = &port_calllog[p % PORT_CALLLOG_N];
+  e->addr = addr;
+  e->frame = port_trace_frame;
+  e->after = port_trace_buf[(port_trace_pos - 1) & 1023];   // the function entered just before: usually the caller
+}
+
 void port_debug4(const char *what, uint32_t a, uint32_t b, uint32_t c, uint32_t d) {
   fprintf(stderr, "debug %s: %08x %08x %08x %08x\n", what, a, b, c, d);
 }

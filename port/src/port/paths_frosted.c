@@ -63,7 +63,7 @@ static UiCtx *make_ui(SDL_Renderer *r, const char *what) {
   load_tokens(&t);
   char fonts[1024];
   snprintf(fonts, sizeof fonts, "%s", port_host_path("/fonts/plus-jakarta-sans"));
-  UiCtx *c = ui_create(r, &t, fonts);
+  UiCtx *c = ui_create(r, &t, fonts); ui_debug_name(c, "paths");
   if (c) fprintf(stderr, "ui: Frosted Mint cart path %s layer on (fonts %s)\n", what, fonts);
   return c;
 }

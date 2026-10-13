@@ -8,6 +8,7 @@
 
 #include <ctype.h>
 #include <direct.h>
+#include <io.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -77,6 +78,10 @@ int fs_resolve(const char *dospath, char *out, int outlen, int for_write) {
 // A .sve the game wrote gets a record of the loaded mods next to it (task-11).
 void fs_written(const char *realpath) { mods_save_written(realpath); }
 void fs_deleted(const char *realpath) { (void)realpath; }
+
+int fs_commit(int fd) { return _commit(fd) == 0; }
+int fs_replace(const char *tmp, const char *dst) { return MoveFileExA(tmp, dst, MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) != 0; }
+int fs_safe_saves(void) { return mods_get_int("fixes.safe_saves", 1); }
 
 int fs_list(const char *dospattern, fs_list_fn fn, void *ctx) {
   char rel[512], pat[600];

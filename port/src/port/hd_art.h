@@ -31,6 +31,19 @@ void hd_art_course_done(const uint16_t *bits, int pitch);
 // course list is not shown).
 void hd_art_publish(int layered, const uint16_t *screen);
 
+// Debug overlay (task-113). The sprite that owns canvas pixel (x, y) of the last published frame: the sheet
+// (index.tsv name), frame, look, which list drew it (HD_ART_TOP: golf's own UI over the course, or the whole
+// page; HD_ART_COURSE: the course world), plus how many entries' boxes cover the point. Game thread.
+// Returns 1 found, 0 no entry owns the pixel (terrain, an untagged sprite, a native layer), -1 art pack off.
+typedef struct {
+  int layer, entry, entries;
+  char file[200], shadow[200];
+  const char *category, *look;
+  int view, frame, variant, flip, hidden, ncover;
+  float x, y, w, h;
+} HdArtPick;
+int hd_art_pick(int x, int y, HdArtPick *out);
+
 void hd_art_read_store(void);   // the mods store's art.* keys (hd_native.c's reader)
 
 // Render thread. hd_art_take (under the presenter's frame lock, with the

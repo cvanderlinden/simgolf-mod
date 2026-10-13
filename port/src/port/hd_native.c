@@ -145,7 +145,7 @@ static HdUiCamera g_snap_cam;
 static int g_snap_fresh;
 
 // Native UI layers (hd_ui_add_layer) and input handlers (hd_ui_add_input).
-#define MAX_UI 8
+#define MAX_UI 12   // task-113: the debug overlay is one more layer
 static struct { HdUiDraw draw; void *user; } g_ui_layers[MAX_UI];
 static struct { HdUiInput input; void *user; } g_ui_inputs[MAX_UI];
 static volatile LONG g_n_ui_layers, g_n_ui_inputs, g_show_golf_ui = 1;

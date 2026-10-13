@@ -24,6 +24,14 @@ int fs_resolve(const char *dospath, char *out, int outlen, int for_write);
 void fs_written(const char *realpath);
 void fs_deleted(const char *realpath);
 
+// task-114f: saves that survive a crash or a power cut. fs_commit asks the OS to put a file's written data on the
+// disk (FlushFileBuffers / fsync); fs_replace moves a finished temporary file over the real one in one step
+// (the old file stays whole until then). fs_safe_saves: mods.ini [fixes] safe_saves (default 1; 0 writes saves in
+// place without flushing, as the original).
+int fs_commit(int fd);
+int fs_replace(const char *tmp, const char *dst);
+int fs_safe_saves(void);
+
 // Directory listing for FindFirstFile: calls fn for each entry of the
 // resolved directory whose name matches the DOS wildcard pattern.
 typedef void (*fs_list_fn)(void *ctx, const char *name, int is_dir, unsigned size);

@@ -341,12 +341,14 @@ static nu xy(int x, int y) { return ((nu)(uint16_t)y << 16) | (uint16_t)x; }
 #ifndef __EMSCRIPTEN__
 int hd_ui_event(SDL_Event *e);   // hd_native.c (hd_native.h needs SDL before win32.h)
 int keymap_event(SDL_Event *e);  // golf/keymap.c (task-24): the key bindings
+int dbg_overlay_event(SDL_Event *e);   // debug_overlay.c (task-113): its hotkey; polls its actions each pump
 #endif
 
 static void pump_sdl(void) {
   SDL_Event e;
   while (SDL_PollEvent(&e)) {
 #ifndef __EMSCRIPTEN__
+    if (dbg_overlay_event(&e)) continue;    // the debug overlay's hotkey (task-113)
     if (hd_ui_event(&e)) continue;          // native UI layers first (hd_native.c, task-3)
 #endif
 #ifndef __EMSCRIPTEN__
@@ -940,7 +942,12 @@ nu SetEndOfFile(nu h) {
   return ftruncate(o->fd, pos) == 0;
 }
 
-nu FlushFileBuffers(nu h) { API_TRACE(); (void)h; return 1; }
+nu FlushFileBuffers(nu h) {   // task-114f: really flush (was a no-op that reported success)
+  API_TRACE();
+  FileObj *o = obj_get(h, OBJ_FILE);
+  if (!o) return h == 0xfff4 || h == 0xfff5 ? (fflush(stderr), 1) : 0;
+  return o->write ? (nu)fs_commit(o->fd) : 1;
+}
 nu GetFileType(nu h) { API_TRACE(); (void)h; return 1; }
 
 nu DeleteFileA(nu name) {

@@ -242,6 +242,11 @@ void fs_written(const char *real) {
 
 void fs_deleted(const char *real) { js_persist_file(real, 1); }
 
+// task-114f: the browser's files live in memory and IndexedDB (fs_written); there is no disk cache to flush
+int fs_commit(int fd) { return fsync(fd) == 0; }
+int fs_replace(const char *tmp, const char *dst) { return rename(tmp, dst) == 0; }
+int fs_safe_saves(void) { return 0; }
+
 void fs_init(void) {
   mkdir(FS_GAME_ROOT, 0777);
   FILE *f = fopen("/game.manifest", "r");

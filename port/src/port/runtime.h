@@ -66,6 +66,19 @@ void port_halt(const char *fn, const char *why);
 void port_unimplemented(const char *name);
 void port_trace_dump(int n);
 
+// Call tracer for chosen functions (task-113, the debug overlay): see PORT_TRACE in ghidra_prelude.h.
+#define PORT_TRACE_MAX 48       // functions traced at once
+#define PORT_CALLLOG_N 512      // calls kept
+typedef struct { uint32_t addr, frame, after; } PortCallLog;   // after: the function entered just before it
+extern PortCallLog port_calllog[PORT_CALLLOG_N];
+extern volatile uint32_t port_calllog_pos;
+extern uint32_t port_trace_frame;
+extern uint32_t port_trace_buf[1024];
+extern uint32_t port_trace_pos;
+void port_trace_select(uint32_t addr, int on);
+void port_trace_clear(void);
+int port_trace_selected(int i, uint32_t *addr, uint32_t *calls);   // the i-th traced function and its calls
+
 // Frontend modal hooks called by translator patches (native and browser).
 void fe_world_end(void);
 int fe_theme_key_ready(void);

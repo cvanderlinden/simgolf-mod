@@ -212,8 +212,15 @@ extern uint32_t port_trace_pos;
 // be overwritten like the ring, which a busy frame fills many times over.
 extern uint32_t port_watch_addr[3];
 extern uint32_t port_watch_hits[3];
+// task-113, the debug overlay's call tracer: port_trace_sel holds one bit per code byte of
+// 0x401000..0x4a4f10 (port_trace_select sets them); port_trace_any is 0 unless something is
+// selected, so an untraced game pays one load per call.
+extern volatile uint32_t port_trace_any;
+extern uint8_t port_trace_sel[0xa4000 >> 3];
+void port_trace_hit(uint32_t addr);
 // Short loops (A B A B ...) are folded so the buffer keeps history.
 #define PORT_TRACE(addr) do { uint32_t a_ = (addr); \
+  if (port_trace_any && a_ - 0x401000u < 0xa4000u && ((port_trace_sel[(a_ - 0x401000u) >> 3] >> (a_ & 7)) & 1)) port_trace_hit(a_); \
   if (a_ == port_watch_addr[0]) port_watch_hits[0]++; \
   else if (a_ == port_watch_addr[1]) port_watch_hits[1]++; \
   else if (a_ == port_watch_addr[2]) port_watch_hits[2]++; \
