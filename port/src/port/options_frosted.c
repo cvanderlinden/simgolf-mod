@@ -168,6 +168,9 @@ static const Row k_gameplay[] = {
     {.type = OT_SEG, .label = "Cart path help", .key = "ui.paths", .def = "frosted_mint",
      .desc = "A \"No path\" marker over buildings no cart path joins to the clubhouse, and the Y key shows which paths are joined.",
      .n = 2, .vals = {"frosted_mint", "original"}, .names = {"On", "Original"}},
+    {.type = OT_HEAD, .label = "Updates"},
+    {.type = OT_TOGGLE, .label = "Check for updates", .key = "updates.check", .def = "1",
+     .desc = "Asks GitHub once at start whether a newer release exists. Nothing is sent but the request; off means no network at all."},
 };
 
 static const Row k_audio[] = {

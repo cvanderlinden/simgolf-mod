@@ -19,3 +19,8 @@ set_source_files_properties(${_us}/lib/component.c ${_us}/lib/converter.c ${_us}
 add_custom_command(TARGET sgsetup POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/web/pages/jgld-nops.json" "$<TARGET_FILE_DIR:sgsetup>"
   VERBATIM)
+
+# The updater (task-80): sgupdate.exe checks a release zip's SHA-256, unpacks it and swaps the program files.
+add_executable(sgupdate src/updater/sgupdate.c)
+target_compile_definitions(sgupdate PRIVATE _CRT_SECURE_NO_WARNINGS _CRT_NONSTDC_NO_WARNINGS)
+target_compile_options(sgupdate PRIVATE $<$<COMPILE_LANGUAGE:C>:/clang:-std=gnu11>)

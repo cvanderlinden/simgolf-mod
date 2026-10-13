@@ -427,15 +427,16 @@ static void read_pro(HudSnap *s, int flags) {
   copy_str(s->pro_name, sizeof s->pro_name, (const char *)(uintptr_t)0x4d6098);
 }
 
-// [ui] pro_setup: start (default) runs the pro's creation (profile, then the skill setup) as a new career's
-// course opens; original leaves it to the first Practice Round, as in 2002. SIMGOLF_PRO_SETUP overrides it
-// (the test bridge launches with original so scripted new games are not held up by the dialog).
+// [ui] pro_setup: original (default, task-102c) leaves the pro as golf has it, as in 2002: the pro exists when a
+// career starts, the skill points come before the first Practice Round (golf's FUN_0040f190 -> FUN_004065c0), the
+// profile is People > Your pro. start runs the pro's creation (profile, then the skill setup) as a new career's
+// course opens (task-92). SIMGOLF_PRO_SETUP overrides it.
 static int pro_setup_at_start(void) {
   static int v = -1;
   if (v < 0) {
     const char *e = getenv("SIMGOLF_PRO_SETUP");
     if (!e || !*e) e = mods_get("ui.pro_setup");
-    v = !(e && strcmp(e, "original") == 0);
+    v = e && strcmp(e, "start") == 0;
   }
   return v;
 }

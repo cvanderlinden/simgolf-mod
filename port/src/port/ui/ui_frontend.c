@@ -162,6 +162,8 @@ static void push_act(FeAction *acts, int max, int *n, int kind, int arg) {
 
 // ------------------------------------------------------------------ the start menu
 
+static void draw_updates_ui(Scene *s, UpdState *u, const UiRect *panel, FeAction *acts, int max, int *n);
+
 static int draw_title(Scene *s, const FeSnap *snap, SDL_Texture *const *art, FeAction *acts, int max) {
   UiCtx *c = s->c;
   const UiTokens *t = s->t;
@@ -232,12 +234,28 @@ static int draw_title(Scene *s, const FeSnap *snap, SDL_Texture *const *art, FeA
   UiRect q = R(s, gx + gw - 118, fy, 118, 40);
   g_layout.btn[5] = q;
   if (ui_button(c, ui_id("fe.quit"), q, "Quit", UI_ICON_DOOR, UI_BTN_PILL, 0)) push_act(acts, max, &n, FE_A_TITLE, 5);
+  UiRect ub = R(s, gx + gw - 118 - 12 - 150 - 12 - 110 - 12 - 140, fy, 140, 40);   // task-80: Updates (a dot after an update until it is opened)
+  g_layout.upd_btn = ub;
+  if (snap->upd) {
+    if (ui_button(c, ui_id("fe.updates"), ub, "Updates", UI_ICON_BELL, UI_BTN_PILL, 0)) {
+      snap->upd->open = 1;
+      snap->upd->expanded = -1;
+      push_act(acts, max, &n, FE_A_UPDATES, 0);
+    }
+    if (snap->upd->show_dot) {
+      float d = U(s, 12);
+      UiRect dr = ui_rect(ub.x + ub.w - d - U(s, 6), ub.y - d / 2 + U(s, 4), d, d);
+      uid_rrect(ui_drawer(c), ui_inset_all(dr, -U(s, 2)), d, (UiColor){255, 255, 255, 255});
+      uid_rrect(ui_drawer(c), dr, d / 2, (UiColor){232, 87, 62, 255});
+    }
+  }
   UiRect o = R(s, gx + gw - 118 - 12 - 150, fy, 150, 40);   // task-24: the native Options page (handled by the presenter, not the original)
   g_layout.btn[6] = o;
   if (ui_button(c, ui_id("fe.options"), o, "Options", UI_ICON_GEAR, UI_BTN_PILL, 0)) push_act(acts, max, &n, FE_A_OPTIONS, 0);
-  UiRect md = R(s, gx + gw - 118 - 12 - 150 - 12 - 130, fy, 130, 40);   // task-22: the native Mods screen
+  UiRect md = R(s, gx + gw - 118 - 12 - 150 - 12 - 110, fy, 110, 40);   // task-22: the native Mods screen
   g_layout.btn[7] = md;
   if (ui_button(c, ui_id("fe.mods"), md, "Mods", UI_ICON_SPARKLE, UI_BTN_PILL, 0)) push_act(acts, max, &n, FE_A_MODS, 0);
+  if (snap->upd) draw_updates_ui(s, snap->upd, &p, acts, max, &n);
   return n;
 }
 
@@ -336,6 +354,122 @@ static void wrap_text(UiCtx *c, int style, const char *s, float w, char (*out)[1
     p = *e ? e + 1 : e;
   }
   if (*n < max && line[0]) snprintf(out[(*n)++], 160, "%s", line);
+}
+
+// ------------------------------------------------------------------ updates (task-80)
+
+// "SimGolf Remastered x.y.z is out" with Update now and Later, over the start menu panel p.
+static void draw_update_notice(Scene *s, UpdState *u, const UiRect *p, FeAction *acts, int max, int *n) {
+  UiCtx *c = s->c;
+  const UiTokens *t = s->t;
+  char msg[160];
+  if (u->busy == 1) snprintf(msg, sizeof msg, "%s", u->status_text[0] ? u->status_text : "Updating");
+  else if (u->busy == 2) snprintf(msg, sizeof msg, "%s", u->status_text[0] ? u->status_text : "The update did not work");
+  else snprintf(msg, sizeof msg, "SimGolf Remastered %s is out", u->latest);
+  float tw = ui_text_width(c, UI_TYPE_HEADING, msg) / s->u;
+  int buttons = u->busy == 0 || u->busy == 2;
+  const float bw = 150, lw = 100, h = 64;
+  float w = 58 + tw + (buttons ? 24 + bw + 10 + lw : 0) + 18;
+  if (w > 1500) w = 1500;
+  UiRect r = R(s, (1920 - w) / 2, (p->y - s->S.y) / s->u - h - 22, w, h);
+  if (r.y < s->S.y + U(s, 16)) r.y = s->S.y + U(s, 16);
+  ui_panel(c, r, r.h / 2, UI_PANEL_READABLE);
+  uid_rrect(ui_drawer(c), ui_rect(r.x + U(s, 20), r.y + (r.h - U(s, 12)) / 2, U(s, 12), U(s, 12)), U(s, 6), u->busy == 2 ? t->danger : t->accent);
+  ui_text_fit(c, ui_rect(r.x + U(s, 44), r.y, U(s, tw + 8), r.h), UI_TYPE_HEADING, t->text_primary, msg, 0);
+  if (!buttons) return;
+  UiRect now = ui_rect(r.x + r.w - U(s, 18 + lw + 10 + bw), r.y + U(s, 10), U(s, bw), r.h - U(s, 20));
+  UiRect later = ui_rect(r.x + r.w - U(s, 18 + lw), r.y + U(s, 10), U(s, lw), r.h - U(s, 20));
+  g_layout.upd_now = now;
+  g_layout.upd_later = later;
+  if (ui_button(c, ui_id("fe.upd.now"), now, u->busy == 2 ? "Try again" : "Update now", UI_ICON_NONE, UI_BTN_PRIMARY, 0))
+    push_act(acts, max, n, FE_A_UPDATES, 2);
+  if (ui_button(c, ui_id("fe.upd.later"), later, "Later", UI_ICON_NONE, UI_BTN_PILL, 0)) push_act(acts, max, n, FE_A_UPDATES, 1);
+}
+
+// The panel: every release newest first; a row opens to its bullet points.
+static void draw_update_panel(Scene *s, UpdState *u) {
+  UiCtx *c = s->c;
+  const UiTokens *t = s->t;
+  UiRect scr = ui_screen(c);
+  uid_rrect(ui_drawer(c), scr, 0, t->scrim);
+  ui_hit(c, scr, 0, 0, UI_HIT_BLOCK | UI_HIT_MODAL);
+  UiRect p = R(s, (1920 - 940) / 2, 70, 940, 940);
+  uid_rrect(ui_drawer(c), p, U(s, t->radius_panel), (UiColor){236, 247, 241, 255});   // opaque: the menu must not show through the list
+  ui_panel(c, p, U(s, t->radius_panel), UI_PANEL_READABLE | UI_PANEL_SOLID);
+  UiRect in = ui_inset_all(p, U(s, 32));
+  float hh = U(s, 44);
+  ui_text_in(c, ui_rect(in.x, in.y, in.w - hh - U(s, 12), hh), UI_TYPE_TITLE, t->text_primary, "Updates", 0);
+  UiRect closer = ui_rect(in.x + in.w - hh, in.y, hh, hh);
+  g_layout.upd_close = closer;
+  if (ui_icon_button(c, ui_id("fe.upd.close"), closer, UI_ICON_X, UI_ROUND, "Close (Esc)") || u->close_req) {
+    u->open = 0;
+    u->close_req = 0;
+    return;
+  }
+  UiFont cf = ui_font(c, UI_TYPE_CAPTION), bf = ui_font(c, UI_TYPE_BODY), hf = ui_font(c, UI_TYPE_HEADING);
+  ui_text_in(c, ui_rect(in.x, in.y + hh, in.w, cf.line + U(s, 4)), UI_TYPE_CAPTION, t->text_secondary,
+             "You have SimGolf Remastered v" SIMGOLF_VERSION ". Click a release to see what is new.", 0);
+  UiRect view = ui_rect(in.x, in.y + hh + cf.line + U(s, 22), in.w, in.h - hh - cf.line - U(s, 22));
+  const float ROW = 74, GAP = 8;
+  float line_h = bf.line;
+  static char wrapped[40][8][160];
+  static int wn[40];
+  int open = u->expanded;
+  float body_h = 0;
+  if (open >= 0 && open < u->n_rel) {
+    const UpdRelease *R_ = &u->rel[open];
+    for (int k = 0; k < R_->n && k < 40; k++) {
+      wrap_text(c, UI_TYPE_BODY, R_->note[k], view.w - U(s, 6 + 32 + 40), wrapped[k], 8, &wn[k]);
+      body_h += wn[k] * line_h + U(s, 12);
+    }
+    body_h += U(s, 22);
+  }
+  float content = u->n_rel * U(s, ROW + GAP) + body_h;
+  float off = ui_vscroll_begin(c, ui_id("fe.upd.scroll"), view, content, U(s, 70));
+  float y = view.y + off;
+  for (int i = 0; i < u->n_rel; i++) {
+    const UpdRelease *R_ = &u->rel[i];
+    UiRect rr = ui_rect(view.x, y, view.w - U(s, 6), U(s, ROW));
+    uint32_t id = ui_idi(ui_id("fe.upd.row"), i);
+    float rad = U(s, 18);
+    ui_hit(c, rr, rad, id, UI_HIT_BLOCK | UI_HIT_INTERACT);
+    float hov = ui_anim(c, id, ui_is_hot(c, id) ? 1.0f : 0.0f, t->motion_hover);
+    uid_rrect(ui_drawer(c), rr, rad, uid_mix(t->surface_inset, t->glass_fill_strong, hov));
+    uid_rrect_stroke(ui_drawer(c), rr, rad, U(s, i == open ? 2 : 1), i == open ? t->accent : t->surface_inset_border);
+    ui_text_in(c, ui_rect(rr.x + U(s, 24), rr.y, U(s, 110), rr.h), UI_TYPE_HEADING, t->text_primary, R_->version, 0);
+    float tagx = rr.x + U(s, 24 + 110);
+    if (!upd_version_cmp(R_->version, SIMGOLF_VERSION)) {   // the build the player runs
+      float tgw = ui_text_width(c, UI_TYPE_MICRO, "Installed") + U(s, 20);
+      UiRect tg = ui_rect(tagx, rr.y + (rr.h - U(s, 22)) / 2, tgw, U(s, 22));
+      uid_rrect(ui_drawer(c), tg, tg.h / 2, t->accent_soft);
+      ui_text_in(c, tg, UI_TYPE_MICRO, t->accent_soft_text, "Installed", 0.5f);
+      tagx += tgw + U(s, 14);
+    }
+    float dw = ui_text_width(c, UI_TYPE_CAPTION, R_->date) + U(s, 4);
+    ui_icon(c, i == open ? UI_ICON_UP : UI_ICON_DOWN, ui_rect(rr.x + rr.w - U(s, 24 + 22), rr.y + (rr.h - U(s, 22)) / 2, U(s, 22), U(s, 22)), U(s, 22), t->text_secondary);
+    float dx = rr.x + rr.w - U(s, 24 + 22 + 16) - dw;
+    ui_text_in(c, ui_rect(dx, rr.y, dw, rr.h), UI_TYPE_CAPTION, t->text_secondary, R_->date, 0);
+    ui_text_fit(c, ui_rect(tagx, rr.y, dx - tagx - U(s, 14), rr.h), UI_TYPE_BODY, t->text_primary, R_->name, 0);
+    if (i < 8) g_layout.upd_row[i] = rr;
+    if (ui_clicked(c, id)) u->expanded = i == open ? -1 : i;
+    y += rr.h + U(s, GAP);
+    if (i == open) {
+      float yy = y + U(s, 4);
+      for (int k = 0; k < R_->n && k < 40; k++) {
+        uid_rrect(ui_drawer(c), ui_rect(rr.x + U(s, 30), yy + (line_h - U(s, 8)) / 2 + U(s, 2), U(s, 8), U(s, 8)), U(s, 4), t->accent);
+        for (int li = 0; li < wn[k]; li++)
+          ui_text_in(c, ui_rect(rr.x + U(s, 50), yy + li * line_h, rr.w, line_h), UI_TYPE_BODY, t->text_secondary, wrapped[k][li], 0);
+        yy += wn[k] * line_h + U(s, 12);
+      }
+      y += body_h;
+    }
+  }
+  ui_vscroll_end(c);
+}
+
+static void draw_updates_ui(Scene *s, UpdState *u, const UiRect *panel, FeAction *acts, int max, int *n) {
+  if (u->avail || u->busy) draw_update_notice(s, u, panel, acts, max, n);
+  if (u->open) draw_update_panel(s, u);   // last: its scrim blocks the menu under it
 }
 
 static void pin_dot(Scene *s, float cx, float cy, UiColor col, int selected, int hot) {
@@ -470,7 +604,12 @@ static int draw_world(Scene *s, const FeSnap *snap, SDL_Texture *const *art, FeA
     if (i == sel) uid_rrect_stroke(ui_drawer(c), rr, U(s, 9), U(s, 1), t->accent);
     // golf's own emblem for the property (the maintainer: the drawn medallions were no fun; [ui] map_icons=medallions brings them back)
     SDL_Texture *av = T->art >= 0 ? art[FE_ART_EMBLEM + T->art] : NULL;
-    if (av && !W->medallions) {
+    // the painted badge (task-109), greyed when you cannot buy it as golf's emblems are; [ui] map_badges=original
+    SDL_Texture *bv = W->badges && !W->medallions && T->badge >= 0 ? art[(T->state == 1 ? FE_ART_BADGE : FE_ART_BADGE_DIM) + T->badge] : NULL;
+    if (bv) {
+      float ah = U(s, 40);
+      uid_image(ui_drawer(c), bv, NULL, ui_rect(rr.x + U(s, 4), rr.y + (rr.h - ah) / 2, ah, ah), 0, (UiColor){255, 255, 255, 255});
+    } else if (av && !W->medallions) {
       int ew = 1, eh = 1;
       SDL_QueryTexture(av, NULL, NULL, &ew, &eh);
       SDL_Rect src = {0, 0, ew < eh ? ew : eh, eh};   // the round badge is on the left, a sliver of golf's card follows it

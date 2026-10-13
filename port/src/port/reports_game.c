@@ -34,6 +34,8 @@ int FUN_00404bc0(char *s, int x, int y, uint32_t col);
 int FUN_004049d0(char *s, int x, int y, uint32_t col);
 int FUN_00404ad0(char *s, int x, int y, uint32_t col);
 void FUN_00480c80(void *page);   // flush the page's changes to the screen
+void hd_art_dlg_begin(void);       // hd_art.c (task-88): golf's sprites drawn from here on are its old screen
+void hd_art_hide_dialog(void);     // and are not drawn as the art pack's hi-res copies
 int FUN_00455a30(void);          // best scores (modal)
 
 static int g_on;          // this report: the native panel replaces the original
@@ -226,10 +228,12 @@ void rp_begin(int kind) {
   g_ph_n = 0;
   memset(g_pic, 0, sizeof g_pic);
   if (kind == RP_PROFILE) pic_add(358, 31, 76, 184);   // the portrait in golf's page, clear of the buttons around it
+  if (kind == RP_PROFILE) pic_add(298, 205, 48, 48);    // task-102c: the little golfers on their disc (shirt, pants, skin)
   if (kind == RP_TRACTS) pic_add(8, 282, 784, 312);    // the map below the tract tiles, with its painted frame
   if (g_log) fprintf(stderr, "reports: open %d native %d\n", kind, g_on), fflush(stderr);
   if (g_on) {
     hd_ui_show_golf_ui(0);
+    hd_art_dlg_begin();   // task-102c: the art pack's hi-res copies of golf's own screen are hidden too (below)
     keep_save();
   }
 }
@@ -782,6 +786,11 @@ static void rp_frame_body(void) {
     for (int i = 0; i < 22; i++) pts += G32(0x4c15a0 + 0x30 * i) != 0 ? 3 : 0;
     g_snap.ext[2] = gi == 0 && !set_up && g_pro_next;
     g_snap.ext[3] = pts;
+    if (gi < 0x200) {   // task-102c: the colours golf has now (shirt, pants, skin, hair), for the page's chips
+      const volatile uint8_t *r = (const volatile uint8_t *)(uintptr_t)(0x4d6088 + (uint32_t)gi * 0x230);
+      g_snap.ext[5] = r[0x24], g_snap.ext[6] = r[0x25], g_snap.ext[7] = r[0x27] | r[0x28] << 8;
+    }
+    g_snap.ext[4] = gi < 0x200 ? *(volatile uint8_t *)(uintptr_t)(0x4d60a9 + (uint32_t)gi * 0x230) : 0x80;   // 0x80: a woman (task-102c)
     if (!g_in_edit) profile_page_keep();
   }
   if (g_kind == RP_SKILLS) skills_snap();
@@ -834,6 +843,12 @@ static void rp_frame_body(void) {
   // only on that draw, otherwise later frames overwrite it with the restored course. The profile still updates live.
   if (!g_in_edit && ((g_kind != RP_TRACTS && g_kind != RP_PHOTO) || g_dirty)) capture_pics();
   keep_restore();
+  // task-102c: golf drew its old screen this turn (the skill screen's arrows and ovals, the profile's buttons); the art
+  // pack keeps a hi-res copy of every sprite golf draws and puts them over the picture, so they showed beside the panel
+  // (SIMGOLF_REPORTS_ARTHIDE=0 shows them again, for the before and after pictures)
+  static int art_hide = -1;
+  if (art_hide < 0) art_hide = !getenv("SIMGOLF_REPORTS_ARTHIDE") || atoi(getenv("SIMGOLF_REPORTS_ARTHIDE")) != 0;
+  if (art_hide) hd_art_hide_dialog();
   // only when golf drew: a waiting report presents no frames. Not on the profile and skill pages: their loops flush right
   // after rp_frame, and every present waits for the 30 a second cap (gdi.c win_present), so two a turn halved their pace
   // (task-102, measured: 15 turns a second with two, the click took three turns)

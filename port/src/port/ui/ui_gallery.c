@@ -918,6 +918,103 @@ static void fe_frame_draw(Page *p, const FeSnap *snap, SDL_Texture *const *art, 
   ui_end(p->ui);
 }
 
+// task-80: the Updates button, panel and "is out" notice on the start menu
+static int upd_click(Page *p, const FeSnap *snap, SDL_Texture *const *art, UiRect r, double t, int *kind, int *arg) {
+  float x = r.x + r.w / 2, y = r.y + r.h / 2;
+  UiEvent mv = {UI_EV_MOVE, x, y}, dn = {UI_EV_DOWN, x, y, 1}, up = {UI_EV_UP, x, y, 1};
+  FeAction acts[8];
+  int got = 0, na = 0;
+  *kind = 0;
+  *arg = -1;
+  for (int f = 0; f < 5; f++) {
+    if (f == 1) ui_route_event(p->ui, &mv);
+    if (f == 2) ui_route_event(p->ui, &dn);
+    if (f == 3) ui_route_event(p->ui, &up);
+    fe_frame_draw(p, snap, art, acts, &na, t + f * 100);
+    for (int a = 0; a < na; a++) got++, *kind = acts[a].kind, *arg = acts[a].arg;
+  }
+  return got;
+}
+
+static int page_updates(Page *p, const char *out, FeSnap *snap, SDL_Texture *const *art) {
+  static UpdState u;
+  char err[160] = "";
+  int fails = 0, kind, arg;
+  if (!upd_load_news(&u, "data/updates.json", err, sizeof err)) {
+    printf("FAIL updates: %s\n", err);
+    return 1;
+  }
+  u.expanded = -1;
+  u.show_dot = 1;
+  snprintf(u.latest, sizeof u.latest, "0.9.9");
+  u.avail = 1;
+  snap->upd = &u;
+  snap->screen = FE_TITLE;
+  FeAction acts[8];
+  int na = 0;
+  for (int f = 0; f < 4; f++) fe_frame_draw(p, snap, art, acts, &na, 200000.0 + f * 400);
+  save_page(p, out, "frontend-update-notice");
+  const FeLayout *Ly = ui_frontend_layout();
+  UiRect later = Ly->upd_later, now = Ly->upd_now, btn = Ly->upd_btn;
+  // Update now and Later report themselves
+  int got = upd_click(p, snap, art, now, 201000.0, &kind, &arg);
+  int ok = got == 1 && kind == FE_A_UPDATES && arg == 2;
+  printf("%s updates click-through: Update now -> %d action(s), kind %d arg %d\n", ok ? "ok  " : "FAIL", got, kind, arg);
+  fails += !ok;
+  got = upd_click(p, snap, art, later, 202000.0, &kind, &arg);
+  ok = got == 1 && kind == FE_A_UPDATES && arg == 1;
+  printf("%s updates click-through: Later -> %d action(s), kind %d arg %d\n", ok ? "ok  " : "FAIL", got, kind, arg);
+  fails += !ok;
+  // the Updates button opens the panel (and reports it, so the presenter clears the dot)
+  got = upd_click(p, snap, art, btn, 203000.0, &kind, &arg);
+  ok = got == 1 && kind == FE_A_UPDATES && arg == 0 && u.open && u.expanded == -1;
+  printf("%s updates click-through: Updates button opens the panel -> %d action(s), open %d\n", ok ? "ok  " : "FAIL", got, u.open);
+  fails += !ok;
+  u.show_dot = 0;
+  for (int f = 0; f < 4; f++) fe_frame_draw(p, snap, art, acts, &na, 204000.0 + f * 400);
+  save_page(p, out, "frontend-updates");
+  // a row opens, then closes
+  Ly = ui_frontend_layout();
+  upd_click(p, snap, art, Ly->upd_row[0], 205000.0, &kind, &arg);
+  ok = u.expanded == 0;
+  printf("%s updates click-through: row opens (expanded %d)\n", ok ? "ok  " : "FAIL", u.expanded);
+  fails += !ok;
+  for (int f = 0; f < 4; f++) fe_frame_draw(p, snap, art, acts, &na, 206000.0 + f * 400);
+  save_page(p, out, "frontend-updates-open");
+  Ly = ui_frontend_layout();
+  upd_click(p, snap, art, Ly->upd_row[0], 207000.0, &kind, &arg);
+  ok = u.expanded == -1;
+  printf("%s updates click-through: the same row closes (expanded %d)\n", ok ? "ok  " : "FAIL", u.expanded);
+  fails += !ok;
+  for (int f = 0; f < 2; f++) fe_frame_draw(p, snap, art, acts, &na, 207500.0 + f * 100);
+  Ly = ui_frontend_layout();
+  upd_click(p, snap, art, Ly->upd_row[2], 208000.0, &kind, &arg);
+  ok = u.expanded == 2;
+  printf("%s updates click-through: another row opens (expanded %d)\n", ok ? "ok  " : "FAIL", u.expanded);
+  fails += !ok;
+  for (int f = 0; f < 2; f++) fe_frame_draw(p, snap, art, acts, &na, 208500.0 + f * 100);
+  Ly = ui_frontend_layout();
+  upd_click(p, snap, art, Ly->upd_row[3], 209000.0, &kind, &arg);
+  ok = u.expanded == 3;
+  printf("%s updates click-through: a third row switches (expanded %d)\n", ok ? "ok  " : "FAIL", u.expanded);
+  fails += !ok;
+  // Esc (close_req) and the X both close the panel
+  u.close_req = 1;
+  for (int f = 0; f < 2; f++) fe_frame_draw(p, snap, art, acts, &na, 209600.0 + f * 100);
+  ok = !u.open;
+  printf("%s updates: Esc closes the panel (open %d)\n", ok ? "ok  " : "FAIL", u.open);
+  fails += !ok;
+  u.open = 1;
+  for (int f = 0; f < 2; f++) fe_frame_draw(p, snap, art, acts, &na, 210000.0 + f * 100);
+  Ly = ui_frontend_layout();
+  upd_click(p, snap, art, Ly->upd_close, 211000.0, &kind, &arg);
+  ok = !u.open;
+  printf("%s updates click-through: X closes the panel (open %d)\n", ok ? "ok  " : "FAIL", u.open);
+  fails += !ok;
+  snap->upd = NULL;
+  return fails;
+}
+
 static int page_frontend(Page *p, const char *out) {
   static FeSnap snap;
   fe_demo(&snap);
@@ -961,6 +1058,7 @@ static int page_frontend(Page *p, const char *out) {
            ok ? "the right action" : "wrong", got, kind, arg);
     fails += !ok;
   }
+  fails += page_updates(p, out, &snap, art);
   return fails;
 }
 

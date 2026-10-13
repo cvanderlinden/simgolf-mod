@@ -20,6 +20,11 @@
 #include "port/mods_frosted.h"
 #include "port/options_frosted.h"
 #include "port/runtime.h"
+#include "port/update_check.h"
+
+#ifndef SIMGOLF_VERSION
+#define SIMGOLF_VERSION "dev"
+#endif
 
 #define QMAX 16
 #define LOADING_STALE_MS 15000
@@ -38,6 +43,25 @@ static struct {
   uint32_t serial;
 } g_art[FE_ART_MAX];
 static uint32_t g_art_pub;
+
+// task-80: the Updates panel and the "is out" notice (presenter side; the screen reads and changes it)
+static UpdState g_upd;
+static int g_upd_init;
+
+static void upd_init(void) {
+  g_upd_init = 1;
+  g_upd.expanded = -1;
+  char path[1024], err[160] = "";
+  snprintf(path, sizeof path, "%s", port_host_path("/ui/updates.json"));
+  if (!upd_load_news(&g_upd, path, err, sizeof err)) fprintf(stderr, "updates: no release list (%s)\n", err);
+  // the dot: this build is newer than the last one the player opened the panel on (a first start counts as seen)
+  const char *seen = mods_get("updates.seen");
+  if (!seen || !*seen) mods_option_set("updates.seen", SIMGOLF_VERSION);
+  else g_upd.show_dot = upd_version_cmp(seen, SIMGOLF_VERSION) > 0;
+  fprintf(stderr, "updates: %d releases, this build %s, last opened on %s, new dot %s\n", g_upd.n_rel, SIMGOLF_VERSION,
+          seen && *seen ? seen : "(first start)", g_upd.show_dot ? "on" : "off");
+  upd_check_start(&g_upd);
+}
 
 // render thread
 static UiCtx *g_ui;
@@ -181,6 +205,7 @@ static void draw(const HdUiFrame *f, void *user) {
   g_view_x = (float)f->view.x;
   g_view_y = (float)f->view.y;
   g_view_px = f->px > 0 ? f->px : 1;
+  if (!g_upd_init) upd_init();
   FeSnap *s = malloc(sizeof *s);
   if (!s) return;
   double t0;
@@ -188,6 +213,7 @@ static void draw(const HdUiFrame *f, void *user) {
   memcpy(s, &g_snap, sizeof *s);
   t0 = g_snap_t;
   unlock();
+  s->upd = &g_upd;
   // A click was sent to the original and it has not drawn a screen since: it left its loop to build or load
   // a course. The last screen stays (blocked, with a loading pill) instead of the original's loading picture,
   // until the course view shows or the original publishes a screen again (a dialog, the next screen).
@@ -284,6 +310,11 @@ static void draw(const HdUiFrame *f, void *user) {
   }
       for (int i = 0; i < 8; i++) PUT(L->btn[i], "btn%d", i);
       PUT(L->back, "back");
+      PUT(L->upd_btn, "upd");   // task-80
+      PUT(L->upd_now, "updnow");
+      PUT(L->upd_later, "updlater");
+      PUT(L->upd_close, "updclose");
+      for (int i = 0; i < 8; i++) PUT(L->upd_row[i], "updrow%d", i);
       PUT(L->ok, "ok");
       PUT(L->del, "del");
       for (int i = 0; i < FE_ROWS + FE_TAGS && o < 1300; i++) PUT(L->row[i], "row%d", i);
@@ -292,10 +323,22 @@ static void draw(const HdUiFrame *f, void *user) {
     }
   }
   free(s);
-  for (int i = 0; i < n; i++)   // the Options and Mods pills are the presenter's own: open the page, tell the original nothing
-    if (acts[i].kind == FE_A_OPTIONS || acts[i].kind == FE_A_MODS) {
+  for (int i = 0; i < n; i++)   // the Options, Mods and Updates pills are the presenter's own: tell the original nothing
+    if (acts[i].kind == FE_A_OPTIONS || acts[i].kind == FE_A_MODS || acts[i].kind == FE_A_UPDATES) {
       if (acts[i].kind == FE_A_MODS) modsp_open();
-      else opt_open();
+      else if (acts[i].kind == FE_A_OPTIONS) opt_open();
+      else if (acts[i].arg == 0) {   // the panel was opened: this build's news is seen
+        g_upd.show_dot = 0;
+        mods_option_set("updates.seen", SIMGOLF_VERSION);
+        fprintf(stderr, "updates: panel opened\n");
+      } else if (acts[i].arg == 1) {   // Later: hidden until the next version
+        mods_option_set("updates.later", g_upd.latest);
+        g_upd.avail = 0;
+        fprintf(stderr, "updates: Later pressed for %s\n", g_upd.latest);
+      } else if (acts[i].arg == 2) {
+        fprintf(stderr, "updates: Update now pressed for %s\n", g_upd.latest);
+        upd_install_start(&g_upd);
+      }
       memmove(&acts[i], &acts[i + 1], sizeof acts[0] * (size_t)(n - i - 1));
       n--;
       i--;
@@ -341,6 +384,12 @@ static int input(SDL_Event *e, int course, void *user) {
       break;
     case SDL_WINDOWEVENT:
       if (e->window.event == SDL_WINDOWEVENT_LEAVE || e->window.event == SDL_WINDOWEVENT_FOCUS_LOST) ui_input_reset(g_ui);
+      return 0;
+    case SDL_KEYDOWN:
+      if (e->key.keysym.sym == SDLK_ESCAPE && g_upd.open) {   // the Updates panel takes Esc first
+        g_upd.close_req = 1;
+        return 1;
+      }
       return 0;
     default:
       return 0;   // keys stay the game's (Esc goes back, as in the original)

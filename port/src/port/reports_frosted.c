@@ -199,7 +199,8 @@ static void draw(const HdUiFrame *f, void *user) {
     if (s->kind >= RP_PROFILE) ui_pages_layout(&l);
     else ui_reports_layout(&l);
     char buf[2048];
-    int k = snprintf(buf, sizeof buf, "reports: layout kind %d target %dx%d close %d,%d", s->kind, w, h, (int)l.close_x, (int)l.close_y);
+    int k = snprintf(buf, sizeof buf, "reports: layout kind %d target %dx%d panel %d,%d,%d,%d close %d,%d", s->kind, w, h, (int)l.panel.x,
+                     (int)l.panel.y, (int)l.panel.w, (int)l.panel.h, (int)l.close_x, (int)l.close_y);
     for (int i = 0; i < l.ntabs && k < (int)sizeof buf - 32; i++) k += snprintf(buf + k, sizeof buf - k, " tab%d %d,%d", i, (int)l.tab_x[i], (int)l.tab_y);
     for (int i = 0; i < l.nctl && k < (int)sizeof buf - 40; i++) k += snprintf(buf + k, sizeof buf - k, " %s %d,%d", l.ctl_name[i], (int)l.ctl_x[i], (int)l.ctl_y[i]);
     uint32_t hsh = 2166136261u;

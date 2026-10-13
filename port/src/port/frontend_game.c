@@ -530,6 +530,40 @@ static void world_begin(void) {
     }
     if (ok) g_art_done[FE_ART_EMBLEM] = 1;
   }
+  if (!g_art_done[FE_ART_BADGE]) {
+    // The painted property badges (task-109, owner approved 2026-10-13, ui/badges/badge-NN.png, San Diego .. Northeast),
+    // plus a greyed copy for rows you cannot buy. [ui] map_badges=original keeps golf's emblems.
+    const char *mb = mods_get("ui.map_badges");
+    int ok = 0;
+    for (int i = 0; i < 16 && !(mb && !strcmp(mb, "original")); i++) {
+      char path[64];
+      snprintf(path, sizeof path, "/ui/badges/badge-%02d.png", i);
+      int w = 0, h = 0;
+      uint32_t *px = hd_art_load_png(port_host_path(path), &w, &h);
+      if (!px) continue;
+      fef_publish_art(FE_ART_BADGE + i, px, w, h);
+      for (int k = 0; k < w * h; k++) {
+        uint32_t p = px[k];
+        int lum = (int)((p >> 16 & 255) * 0.30f + (p >> 8 & 255) * 0.59f + (p & 255) * 0.11f);
+        int r = (lum * 65 + 200 * 35) / 100, g = (lum * 65 + 210 * 35) / 100, b = (lum * 65 + 205 * 35) / 100;
+        px[k] = (p & 0xff000000u) | (uint32_t)r << 16 | (uint32_t)g << 8 | (uint32_t)b;
+      }
+      fef_publish_art(FE_ART_BADGE_DIM + i, px, w, h);
+      free(px);
+      ok++;
+    }
+    fprintf(stderr, "frontend: property badges %d loaded\n", ok);
+    g_art_done[FE_ART_BADGE] = 1;
+  }
+}
+
+// the painted badge for a property, by the name golf shows (FeTag.badge), -1 unknown
+static int badge_of(const char *name) {
+  static const char *names[16] = {"San Diego", "Jamaica", "Scotland", "Carolina", "Rocky Mtn", "Nova Scotia", "Monterey", "Ireland",
+                                  "Phoenix", "Las Vegas", "Oahu", "Hawaii", "Wales", "Florida", "Spain", "Northeast"};
+  for (int i = 0; i < 16; i++)
+    if (!strncasecmp(name, names[i], strlen(names[i]))) return i;
+  return -1;
 }
 
 static void log_world(void) {
@@ -583,6 +617,7 @@ static void read_world(void) {
   W->hover = g_w_hover;
   W->sandbox = (G32(0x59e7b8) & 0x1000000) != 0;
   { const char *mi = mods_get("ui.map_icons"); W->medallions = mi && !strcmp(mi, "medallions"); }
+  { const char *mb = mods_get("ui.map_badges"); W->badges = !(mb && !strcmp(mb, "original")); }
   int diff = G32(0x822c88);
   W->difficulty = diff >= 0 && diff < 4 ? diff : -1;
   W->can_refresh = 1;
@@ -603,6 +638,7 @@ static void read_world(void) {
     T->ex = (int16_t)emblem_x(i);
     T->ey = (int16_t)emblem_y(i);
     T->art = -1;
+    T->badge = -1;
     if (!w->seen) continue;
     T->theme = (int8_t)w->theme;
     T->state = w->owned ? 2 : (w->state == 1 || w->state == 2) ? 1 : 0;
@@ -626,6 +662,7 @@ static void read_world(void) {
         }
       }
     }
+    T->badge = (int8_t)badge_of(T->name);
     if (info[0]) {
       copy_str(T->info, sizeof T->info, info);
       T->acres = acres_in(info);

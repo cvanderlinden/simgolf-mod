@@ -140,6 +140,7 @@ typedef struct {
   } say[24];
   int pic;   // art slot + 1 of the portrait picture
   int pic_w, pic_h;
+  int prev, prev_w, prev_h;   // task-102c: golf's little golfers on their disc (the shirt, pants and skin colours show there)
 } Prof;
 
 static void pf_copy(char *dst, const RpItem *it) {
@@ -200,7 +201,8 @@ static void pf_read(const RpSnap *s, Prof *p) {
     p->n_say++;
   }
   for (int i = 0; i < s->n; i++)
-    if (s->it[i].type == RP_IT_PIC) p->pic = s->it[i].art, p->pic_w = s->it[i].w, p->pic_h = s->it[i].h;
+    if (s->it[i].type == RP_IT_PIC && s->it[i].x == 298) p->prev = s->it[i].art, p->prev_w = s->it[i].w, p->prev_h = s->it[i].h;
+    else if (s->it[i].type == RP_IT_PIC) p->pic = s->it[i].art, p->pic_w = s->it[i].w, p->pic_h = s->it[i].h;
 }
 
 // design height of the panel at scale 1 (used to fit it on small screens)
@@ -264,7 +266,7 @@ static int draw_profile(UiCtx *c, const RpSnap *s, SDL_Texture *const *art, RpAc
   UiRect close_r = ui_rect(in.x + in.w - cb, in.y, cb, cb);
   if (ui_icon_button(c, ui_id("pages.close"), close_r, UI_ICON_X, editing ? UI_DISABLED : 0, "Done (Esc)") && na < max) acts[na++] = (RpAction){RP_A_CLOSE, 0};
   g_pf_layout.close_x = close_r.x + close_r.w / 2, g_pf_layout.close_y = close_r.y + close_r.h / 2;
-  const char *title = create ? "Create your pro" : p.pro ? "Pro profile" : "Golfer profile";
+  const char *title = create ? "Edit your pro" : p.pro ? "Pro profile" : "Golfer profile";
   float title_w = fminf(ui_text_width(c, UI_TYPE_TITLE, title) + ui_s(c, 4), in.w - cb - ui_s(c, 12));
   ui_text_fit(c, ui_rect(in.x, in.y + (cb - tf.line) / 2, title_w, tf.line), UI_TYPE_TITLE, t->text_primary, title, 0);
   if (create || own_pro) {   // one line that says what to do here
@@ -348,9 +350,17 @@ static int draw_profile(UiCtx *c, const RpSnap *s, SDL_Texture *const *art, RpAc
   UiRect B = ui_rect(A.x + A.w + gap, top_y, colB, top_h);
   uid_rrect(d, B, ui_s(c, t->radius_card), uid_alpha(t->surface_inset, 0.35f));
   SDL_Texture *ptex = art && p.pic > 0 ? art[p.pic - 1] : NULL;
+  SDL_Texture *vtex = art && p.prev > 0 ? art[p.prev - 1] : NULL;
+  UiRect PB = B;   // the portrait's part of the column: the little golfers take the bottom when they show
+  if (vtex && p.prev_w > 0 && p.prev_h > 0) {
+    float vs = ui_s(c, 2.0f), vw = p.prev_w * vs, vh = p.prev_h * vs;
+    PB.h -= vh + ui_s(c, 10);
+    UiRect vr = ui_rect_round(ui_rect(B.x + (B.w - vw) / 2, B.y + B.h - vh - ui_s(c, 8), vw, vh));
+    uid_image(d, vtex, NULL, vr, 0, (UiColor){255, 255, 255, 255});
+  }
   if (ptex && p.pic_w > 0 && p.pic_h > 0) {
-    float kk = fminf((B.w - ui_s(c, 20)) / p.pic_w, (B.h - ui_s(c, 20)) / p.pic_h);
-    UiRect ir = ui_rect_round(ui_center(B, p.pic_w * kk, p.pic_h * kk));
+    float kk = fminf((PB.w - ui_s(c, 20)) / p.pic_w, (PB.h - ui_s(c, 20)) / p.pic_h);
+    UiRect ir = ui_rect_round(ui_center(PB, p.pic_w * kk, p.pic_h * kk));
     uid_image(d, ptex, NULL, ir, 0, (UiColor){255, 255, 255, 255});
     uid_rrect_stroke(d, ir, 0, ui_s(c, 1), uid_alpha(t->divider, 0.8f));
   } else {
@@ -448,7 +458,9 @@ static int draw_profile(UiCtx *c, const RpSnap *s, SDL_Texture *const *art, RpAc
   }
   // looks: the editing buttons around the portrait in golf's page
   {
-    section_label(c, C.x, cy, C.w, "Look");
+    // shirt and pants: golf keeps them for the pro out on the course and does not redraw the page's golfers with them
+    // (FUN_004385d0 copies them to the golfer's look only as the page closes, as in 2002): the chips say the colour
+    section_label(c, C.x, cy, C.w, p.pro ? "Look (shirt and pants show on the course)" : "Look");
     cy += ui_font(c, UI_TYPE_LABEL).line + ui_s(c, 4);
     static const struct {
       const char *label;
@@ -461,7 +473,17 @@ static int draw_profile(UiCtx *c, const RpSnap *s, SDL_Texture *const *art, RpAc
       char key[16];
       snprintf(key, sizeof key, "pf.look%d", i);
       pf_ctl(key + 3, cr);
-      if (chip(c, ui_id(key), cr, lk[i].label, 0, editing, UI_TYPE_LABEL) && na < max)
+      // golf takes a hair colour only for a woman (FUN_004385d0 drops the click when 0x80 of the look byte is clear), as in 2002
+      int off = editing || (lk[i].btn == PF_HAIR && !(s->ext[4] & 0x80));
+      char lab[40];
+      int val = -1, of = 0;   // task-102c: the colour golf has now, from the snapshot (reports_game.c, ext[5..7])
+      if (lk[i].btn == PF_SHIRT) val = s->ext[5], of = 10;
+      if (lk[i].btn == PF_PANTS) val = s->ext[6], of = 10;
+      if (lk[i].btn == PF_SKIN) val = s->ext[7] & 0xff, of = 4;
+      if (lk[i].btn == PF_HAIR && !off) val = (s->ext[7] >> 8) & 0xff, of = 5;
+      if (val >= 0 && val < of) snprintf(lab, sizeof lab, "%s %d/%d", lk[i].label, val + 1, of);
+      else snprintf(lab, sizeof lab, "%s", lk[i].label);
+      if (chip(c, ui_id(key), cr, lab, 0, off, UI_TYPE_LABEL) && na < max)
         acts[na++] = (RpAction){RP_A_CLICK, CLICK(PF_BTN[lk[i].btn - 8][0], PF_BTN[lk[i].btn - 8][1])};
     }
   }

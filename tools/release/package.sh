@@ -11,14 +11,14 @@ N=build/release
 . tools/env.sh
 [ -f build/gen/golf/golf_protos.h ] || { echo "build/gen missing: run tools/translate_gen.sh"; exit 3; }
 (cd port && cmake --preset release >/dev/null) && cmake --build build/release | tail -1
-for f in golf.exe SDL2.dll sgsetup.exe jgld-nops.json; do [ -f "$N/$f" ] || { echo "missing $N/$f: run tools/build_native.sh"; exit 3; }; done
+for f in golf.exe SDL2.dll sgsetup.exe sgupdate.exe jgld-nops.json; do [ -f "$N/$f" ] || { echo "missing $N/$f: run tools/build_native.sh"; exit 3; }; done
 OUT=dist/release
 STAGE=$OUT/stage/SimGolf-Remastered-v$VER
 rm -rf "$OUT/stage"
 mkdir -p "$STAGE/app/data" "$STAGE/app/mods"
 cp tools/release/setup/Setup.cmd tools/release/setup/setup.ps1 "$STAGE/"
 A=$STAGE/app
-cp $N/golf.exe $N/SDL2.dll $N/sgsetup.exe $N/jgld-nops.json "$A/"
+cp $N/golf.exe $N/SDL2.dll $N/sgsetup.exe $N/sgupdate.exe $N/jgld-nops.json "$A/"
 cp -r $N/fonts $N/ui "$A/"
 cp -r mods/. "$A/mods/"
 rm -rf "$A/mods/examples"

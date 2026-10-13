@@ -1,12 +1,15 @@
 # Changelog
 
-## 0.1.4 (next release, in the source now)
+## 0.1.4 - unreleased
 
 - New: a Mod Manager (Mods on the start menu, in Options, or Shift+F12): search, sort, filters, load order, profiles, conflict and missing-mod warnings, changes apply on restart
 - The property map legend says "Can't afford" instead of "Too dear"
+- New: an Updates panel on the start menu shows what is new and can check for a new version (Update now checks the download before installing; turn the check off in Options)
+- New: 16 painted badges for the properties on the map list ([ui] map_badges=original keeps golf's emblems)
+- Changed: the pro works like the original game again: no pro popup at a career start, Edit pro from People, Practice opens the skill page; Look buttons (skin, hair, shirt, pants) on Create your pro now work, and the old profile and skill screens no longer show behind the new pages
 - Fixed: the old 2002 menu and loading screen flashed at startup and after choosing a property (Build here). A clean loading card now covers every frame until the new screens are ready
 
-## 0.1.3 (next release, in the source now)
+## 0.1.3 - 2026-10-13
 
 Playability fixes: everything from the original game reachable in the new interface.
 
@@ -27,13 +30,13 @@ Playability fixes: everything from the original game reachable in the new interf
 - New: cart path help (path view on Y, no-path markers), a tiny ball splash in water
 - Pro skills can grow past 100 percent on 18-hole courses
 
-## 0.1.2
+## 0.1.2 - 2026-10-12
 
 Crash fix.
 
 - Fixed: the game could crash a minute or two after loading a course, while drawing golfer portraits (also in 0.1.0 and 0.1.1)
 
-## 0.1.1
+## 0.1.1 - 2026-10-12
 
 Fixes and small upgrades.
 
@@ -42,7 +45,7 @@ Fixes and small upgrades.
 - New golfer profile page (Profile button on the golfer card): edit the bio, see everything the golfer says; the year-end land purchase map in the new look
 - Smaller golf ball (about 25 percent), each golfer plays their own ball colour, smooth fading trail; Options, Gameplay has Ball size, Ball colours and Ball trail
 
-## 0.1.0
+## 0.1.0 - 2026-10-12
 
 First public build.
 

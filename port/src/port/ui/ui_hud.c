@@ -352,7 +352,8 @@ static void people_log(const char *what, UiRect r);
 static int mini_tile(UiCtx *c, uint32_t id, UiRect r, const Tile *t, int flags, const char *tip) {
   if (t->labelled && g_s && (g_s->employee_overlay || g_s->dock_mode == 2) && (!strcmp(t->name, "Fire") || !strcmp(t->name, "Move") || !strcmp(t->name, "Rename") || !strcmp(t->name, "Hire")))
     people_log(t->name, r);
-  else if (t->labelled && (!strcmp(t->name, "Skills") || !strcmp(t->name, "Create pro")))   // task-102b: the Your pro tiles, for the tests
+  else if (t->labelled && (!strcmp(t->name, "Skills") || !strcmp(t->name, "Edit pro") || !strcmp(t->name, "Profile") ||
+                            !strcmp(t->name, "Practice")))   // task-102b: the Your pro tiles, for the tests
     people_log(t->name, r);
   if (t->labelled) return ui_tile_mini_label(c, id, r, t->icon, t->name, flags, tip);
   return ui_tile_mini(c, id, r, t->art, t->icon, flags, tip);
@@ -1390,11 +1391,11 @@ static int pro_tiles(const HudSnap *s, Tile *t) {
   int n = 0, total = 0;
   for (int i = 0; i < 10; i++) total += s->pro_skill[i];
   if (!s->pro_ready) {
-    t[n].name = "Create pro";
-    t[n].price = "start here";
+    t[n].name = "Edit pro";   // task-102c: the pro exists from the start (as in 2002); this sets them up before the first round
+    t[n].price = "look, skills";
     t[n].icon = UI_ICON_SPARKLE;
     t[n].selected = 1;
-    t[n].tip = "Name and look, then 10 skill points (3 more for each accomplishment)";
+    t[n].tip = "Name and look, then 10 skill points (3 more for each accomplishment). Practice asks for the points too";
     t[n++].act = (HudAction){HUD_ACT_PRO, HUD_PRO_CREATE, 0, 0, 0};
   }
   t[n].name = "Profile";

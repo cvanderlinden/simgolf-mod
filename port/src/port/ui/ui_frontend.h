@@ -14,6 +14,7 @@
 #include <stdint.h>
 
 #include "port/ui/ui_kit.h"
+#include "port/ui/ui_updates.h"
 
 #define FE_MAGIC 0x31454653u   // "SFE1"
 
@@ -28,7 +29,9 @@ enum {
   FE_ART_COURSE = 22,   // the emblem of the highlighted save
   FE_ART_PORTRAIT,      // the highlighted pro
   FE_ART_LOADING,       // the loading picture (task-69), an oval with a soft edge
-  FE_ART_MAX = 32
+  FE_ART_BADGE = 32,    // 16 painted property badges (task-109), FeTag.badge order
+  FE_ART_BADGE_DIM = 48,// the same 16 greyed, for rows you cannot buy
+  FE_ART_MAX = 64
 };
 
 // ------------------------------------------------------------------ the screens' data
@@ -41,7 +44,8 @@ typedef struct FeTag {
   int8_t theme;          // 0 parkland, 1 desert, 2 tropical, 3 links
   int8_t pin;            // golf's pin sprite variant (4 available, 5 too dear, 6/7 purchased, near the edge)
   int8_t art;            // FE_ART_EMBLEM slot or -1
-  int32_t price;         // dollars, 0 unknown
+  int8_t badge;          // painted badge 0..15 (San Diego .. Northeast) by property name, -1 unknown
+  int32_t price;        // dollars, 0 unknown
   int32_t acres;
   char name[32];
   char feature[40];
@@ -56,6 +60,7 @@ typedef struct FeWorld {
   int32_t hover;         // the tag the original has highlighted (the pointer is parked on it), -1 none
   int32_t sandbox;       // unlimited money
   int32_t medallions;    // [ui] map_icons=medallions: drawn medallions instead of golf's emblems
+  int32_t badges;        // painted property badges (default); [ui] map_badges=original keeps golf's emblems
   int32_t difficulty;    // 0..3, -1 unknown
   int32_t can_refresh;   // golf's refresh disc is on this screen
   char budget[32];
@@ -129,6 +134,7 @@ typedef struct FeSnap {
   FeTheme theme;
   FeLoading loading;
   int32_t logo_full;     // title: the logo art already says "Remastered" (data/ui/logo_remastered.png, task-80)
+  UpdState *upd;         // title: the Updates panel and the "is out" notice (task-80); NULL draws neither. Owned by the presenter.
 } FeSnap;
 
 // ------------------------------------------------------------------ what the player asked for
@@ -146,6 +152,7 @@ enum {
   FE_A_DELETE,
   FE_A_SCROLL,      // list: arg rows down (negative up)
   FE_A_OPTIONS,     // title: open the native Options page (presenter only, never reaches the original)
+  FE_A_UPDATES,     // title: arg 0 panel opened, 1 Later, 2 Update now (presenter only, never reaches the original)
   FE_A_MODS         // title: open the native Mods screen (presenter only, task-22)
 };
 typedef struct FeAction {
@@ -163,6 +170,7 @@ typedef struct FeLayout {
   UiRect back, ok, del;
   UiRect row[FE_ROWS + FE_TAGS];
   int row_tag[FE_TAGS], world_selected, world_state;
+  UiRect upd_btn, upd_close, upd_row[8], upd_now, upd_later;   // task-80: the Updates button, panel and notice
 } FeLayout;
 const FeLayout *ui_frontend_layout(void);
 
