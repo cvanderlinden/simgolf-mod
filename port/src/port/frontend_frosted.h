@@ -26,6 +26,7 @@ extern "C" {
 // game thread
 int fef_loading_enabled(void);                          // fef_enabled() and ui.loading is not original (task-69)
 void fef_early(void);                                   // task-106: register the layer when the presenter starts
+void fef_release_cover(void);                           // task-106: the card goes once golf has presented a few new frames (the closing credits)
 int fef_enabled(void);                                  // ui.frontend=frosted_mint and the native layer is up
 void fef_publish(const FeSnap *s);                      // the screen the original is showing now
 int fef_take_action(FeAction *a);                       // next click on the native screen, 1 if any

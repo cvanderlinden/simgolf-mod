@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "port/frontend_frosted.h"
 #include "port/host.h"
 #include "port/runtime.h"
 #include "mods/mods.h"
@@ -353,5 +354,6 @@ int host_main(int argc, char **argv, int (*game_main)(void)) {
 // in a <video> element; the native build skips them for now.
 void port_play_game_video(const char *dospath, int background) {
   (void)background;
+  if (strstr(dospath, "losing")) fef_release_cover();   // task-106: the exit: the credits follow, the front end steps aside
   fprintf(stderr, "video: %s skipped (no native video player yet)\n", dospath);
 }

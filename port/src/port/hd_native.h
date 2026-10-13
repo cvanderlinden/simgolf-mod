@@ -87,6 +87,7 @@ void hd_ui_note3_set(const void *data, int size);   // task-115: a third channel
 void hd_ui_note2_set(const void *data, int size);   // task-53: a second channel, so two features can each attach a note
 void hd_ui_show_golf_ui(int on);                  // 0 hides golf's UI layer (course view)
 double hd_ui_scale(void);                         // screen px per canvas px (1 when off)
+long hd_native_game_frames(void);                 // game frames presented so far (task-106)
 int hd_ui_event(SDL_Event *e);                    // win32.c
 // The window mouse position of the event being delivered, in canvas pixels but
 // not clamped to the picture (on title and menu pages the 800x600 picture sits

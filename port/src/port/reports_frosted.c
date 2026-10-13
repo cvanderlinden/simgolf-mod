@@ -28,7 +28,7 @@ static int g_qn;
 static volatile int g_visible;
 static UiCtx *g_ui;
 static int g_registered, g_failed;
-static volatile int g_want;
+static volatile int g_want, g_game_asked;
 static volatile double g_drawn_t = -1e9;
 static volatile float g_view_x, g_view_y, g_view_px = 1;
 static struct {
@@ -114,6 +114,8 @@ static int active(void) {
   return g_want && g_registered && !g_ended && host_now_ms() - g_snap_t < lim;
 }
 
+int rpf_gap(void) { return active() && !g_visible; }   // test aid (SIMGOLF_FRAMELOG): a report is up in the game, the layer drew none
+
 static void load_tokens(UiTokens *t) {
   char base[1024];
   snprintf(base, sizeof base, "%s", port_host_path("/ui/frosted_mint.toml"));
@@ -141,9 +143,12 @@ static float rp_scale(int w, int h) {
   return base < 0.5f ? 0.5f : base;
 }
 
+static void refresh_want(void);
+
 static void draw(const HdUiFrame *f, void *user) {
   (void)user;
   g_drawn_t = f->now_ms;
+  if (!g_game_asked) refresh_want();   // before the game thread's first rpf_enabled()
   if (g_failed || !g_want) {
     g_visible = 0;
     if (g_ui) ui_skip_frame(g_ui);
@@ -276,15 +281,30 @@ int rpf_enabled_kind(int kind) {
   return v && (!strcasecmp(v, "frosted_mint") || !strcasecmp(v, "frosted-mint"));
 }
 
+// task-106: ui.reports / SIMGOLF_REPORTS: whether the native screens are wanted at all
+static void refresh_want(void) {
+  const char *v = mods_get("ui.reports");
+  g_want = v && (!strcasecmp(v, "frosted_mint") || !strcasecmp(v, "frosted-mint"));
+  const char *e = getenv("SIMGOLF_REPORTS");
+  if (e && !strcasecmp(e, "original")) g_want = 0;
+}
+
+// The layer is registered when the presenter starts, before golf's first screen: the first one of a session is
+// covered like every later one, not shown as the original's for the frames before the layer is up.
+void rpf_early(void) {
+  if (!g_lock) g_lock = SDL_CreateMutex();
+  if (g_registered) return;
+  g_registered = hd_ui_add_layer(draw, NULL) && hd_ui_add_input(input, NULL);
+  if (!g_registered) g_failed = 1;
+}
+
 int rpf_enabled(void) {
   static unsigned seen = ~0u;
   unsigned ser = mods_serial();
   if (ser != seen) {
     seen = ser;
-    const char *v = mods_get("ui.reports");
-    g_want = v && (!strcasecmp(v, "frosted_mint") || !strcasecmp(v, "frosted-mint"));
-    const char *e = getenv("SIMGOLF_REPORTS");
-    if (e && !strcasecmp(e, "original")) g_want = 0;
+    refresh_want();
+    g_game_asked = 1;
   }
   if (!g_lock) g_lock = SDL_CreateMutex();
   if (g_want && !g_registered) {

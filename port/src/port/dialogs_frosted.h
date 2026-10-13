@@ -29,6 +29,8 @@ void dlgf_end(void);                     // the original dialog has returned
 int dlgf_take_action(DlgAction *a);      // next choice on the native dialog, 1 if any
 void dlgf_publish_art(int key, const uint32_t *argb, int w, int h);   // DLG_ART_* key; NULL clears
 // any thread: a native dialog is up (the front end keeps its screen under it)
+int dlgf_gap(void);      // test aid: a dialog is up in the game but the layer drew none this frame
+void dlgf_early(void);   // task-106: register the layer when the presenter starts
 int dlgf_active(void);
 
 #ifdef __cplusplus

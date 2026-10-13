@@ -93,6 +93,8 @@ void ui_pages_layout(RpLayout *out);   // the task-73 pages' controls (ui_pages.
 void ui_reports_bounds(const RpSnap *s, float *x0, float *y0, float *x1, float *y1);
 
 // reports_frosted.c (render thread side, thread safe)
+int rpf_gap(void);                            // test aid: a report is up in the game but the layer drew none this frame
+void rpf_early(void);                         // task-106: register the layer when the presenter starts
 int rpf_enabled(void);                        // ui.reports=frosted_mint, the layer is up and drawing
 int rpf_enabled_kind(int kind);               // rpf_enabled, and for the task-73 pages (kind >= RP_PROFILE) ui.dialogs too
 void rpf_publish(const RpSnap *s);            // game thread, once per frame of the report

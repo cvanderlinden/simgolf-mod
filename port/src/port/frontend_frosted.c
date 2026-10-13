@@ -88,7 +88,11 @@ static void unlock(void) {
 
 // ------------------------------------------------------------------ game thread API
 
+static volatile long g_release_at;
+void fef_release_cover(void) { g_release_at = hd_native_game_frames() + 3; }
+
 void fef_publish(const FeSnap *s) {
+  g_release_at = 0;
   lock();
   g_snap = *s;
   g_snap_t = host_now_ms();
@@ -258,6 +262,8 @@ static void draw(const HdUiFrame *f, void *user) {
   // in a running course (task-27: the in-game Load game and world map) only a screen that is up now shows;
   // from the title the last screen stays up while the original builds the course (pending)
   int show = valid && (!stale || (pending && !f->course));
+  // task-106: Quit: the loading card golf raised for the exit gives way to the closing credits once they are on screen
+  if (show && g_release_at && hd_native_game_frames() >= g_release_at) show = 0;
   // task-106: a loading card that went up while no course was shown (title, new game, load, championship) ends when
   // the course view comes (a card over a course already shown, an in-game load, is not touched)
   {

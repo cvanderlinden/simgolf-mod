@@ -81,7 +81,9 @@
 #include "port/golf/hd_ui.h"
 #include "port/hd_art.h"
 #include "port/hd_native.h"
+#include "port/dialogs_frosted.h"
 #include "port/frontend_frosted.h"
+#include "port/reports_frosted.h"
 #include "port/options_frosted.h"
 #include "port/hd_zoom.h"
 #include "port/hdball_render.h"
@@ -1005,8 +1007,9 @@ static void wait_until(Rt *t, double when) {
 
 
 // Test aid only (card task-106): SIMGOLF_FRAMELOG=<file> writes one line per presented frame
-// (n, ms since start, course view, the front-end screen covering it or -1); with
-// SIMGOLF_FRAMELOG_SHOTS=<prefix> the first 60 frames that nothing covers are saved as <prefix><n>.bmp.
+// (n, ms since start, course view, the front-end screen covering it or -1, game frame serial, dialog gap,
+// report gap: 1 when the game has a dialog / report up and our layer drew none); with
+// SIMGOLF_FRAMELOG_SHOTS=<prefix> the first 60 frames that nothing covers (or with a gap) are saved as <prefix><n>.bmp.
 static void frame_log(Rt *t, int cw, int ch, double now) {
   static int on = -1, n, shots;
   static FILE *f;
@@ -1024,7 +1027,8 @@ static void frame_log(Rt *t, int cw, int ch, double now) {
   }
   if (!on) return;
   int cover = fef_cover_screen();
-  fprintf(f, "%d,%.1f,%d,%d,%ld\n", ++n, now - t0, t->course_view, cover, (long)g_frame_serial);
+  int dgap = dlgf_gap(), rgap = rpf_gap();   // a dialog / report is up in the game and the layer drew none: the original shows
+  fprintf(f, "%d,%.1f,%d,%d,%ld,%d,%d\n", ++n, now - t0, t->course_view, cover, (long)g_frame_serial, dgap, rgap);
   fflush(f);
   const char *at = getenv("SIMGOLF_FRAMELOG_AT");   // frame numbers to save whatever covers them, "3,40,300"
   int want = 0;
@@ -1033,7 +1037,7 @@ static void frame_log(Rt *t, int cw, int ch, double now) {
     q = strchr(q, ',');
     if (q) q++;
   }
-  if (prefix && *prefix && (want || (cover < 0 && !t->course_view && shots < 60))) {
+  if (prefix && *prefix && (want || ((dgap || rgap || (cover < 0 && !t->course_view)) && shots < 60))) {
     uint32_t *px = malloc((size_t)cw * ch * 4);
     char path[600];
     snprintf(path, sizeof path, "%s%d.bmp", prefix, n);
@@ -1366,6 +1370,8 @@ int hd_native_start(SDL_Window *window) {
   g_window = window;
   opt_register();   // the Options page's top layer (card task-24)
   fef_early();      // task-106: the front end's layer is there before the first picture
+  dlgf_early();     // ... and the dialogs' and reports' (draw order: front end, dialogs, reports)
+  rpf_early();
   g_ready = CreateEventA(NULL, FALSE, FALSE, NULL);
   g_shot_done = CreateEventA(NULL, FALSE, FALSE, NULL);
   HANDLE th = CreateThread(NULL, 1 << 20, render_main, NULL, 0, NULL);
@@ -1450,6 +1456,8 @@ int hd_present(const uint16_t *screen) {
   InterlockedIncrement(&g_game_frames);
   return 1;
 }
+
+long hd_native_game_frames(void) { return (long)g_game_frames; }
 
 // hdball.c: the round ball needs the layered presenter (the course layer it is drawn over).
 int hd_native_balls_ok(void) { return g_active && g_cfg.hd && g_cfg.layers; }

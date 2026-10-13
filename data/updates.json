@@ -7,6 +7,7 @@
       "name": "Coming in the next release",
       "summary": "",
       "notes": [
+        "Fixed: the first dialogs and reports now use the new interface from their first visible frame",
         "New: a Mod Manager (Mods on the start menu, in Options, or Shift+F12): search, sort, filters, load order, profiles, conflict and missing-mod warnings, changes apply on restart",
         "The property map legend says \"Can't afford\" instead of \"Too dear\"",
         "New: an Updates panel on the start menu shows what is new and can check for a new version (Update now checks the download before installing; turn the check off in Options)",
