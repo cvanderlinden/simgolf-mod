@@ -17,8 +17,17 @@ it on your PC and nothing from it ever leaves your computer.
 |---|---|
 | ![Start menu](screenshots/start-menu.jpg) | ![Golfer card](screenshots/golfer-card.jpg) |
 | ![Course report](screenshots/reports.jpg) | ![Options page](screenshots/options.jpg) |
+| ![Create your pro](screenshots/create-pro.jpg) | ![Skill points](screenshots/skill-points.jpg) |
+| ![Golfer list in the People tab](screenshots/golfer-list.jpg) | ![Accomplishment page](screenshots/trophy.jpg) |
 
 ## What you get
+
+### New in 0.1.3: the whole game, playable in the new interface
+Everything from the original game is being made reachable from the new screens. This release fills the biggest gaps:
+- **Your pro is back.** A new career starts with **Create your pro** (clear steps, quick clicks), then a new **skill points** page with big + and - buttons and a points counter. Each accomplishment gets its own page and opens the same skill page with your 3 new points. **People > Your pro** has Profile, Skills, Practice, Match and Tournament.
+- **People tab lists:** every golfer with their mood and hole (click one to jump to them), and every staff member with **Hire, Fire, Move and Rename**.
+- **Building:** a design chooser with a picture of every bench, flower bed, landmark, scenic tree and bridge. **Landmarks place again.** Greens and the clubhouse get Rotate (Tab).
+- Smaller fixes: building upgrades unlock at the right level, N cancels a match again (name tags are Shift+N), backing out of theme packs keeps your theme, and menus lay out text much faster.
 
 ### Bigger courses
 - **Up to 10x the land.** Pick the size of a new course in Options: Original (50 x 50 tiles), Bigger (70 x 70), Large (100 x 100) or Huge (158 x 158). Trees, water, rocks and wildlife are spread to match. Saved games keep their own size.
@@ -50,7 +59,9 @@ it on your PC and nothing from it ever leaves your computer.
 - No more black triangles at waterfalls and water on slopes.
 - Clicking a standing building no longer places a second one on top of it and charges you twice.
 - No stuck name-tag text, no black box under the blimp in HD, no old 2002 HUD showing under the new one.
-- A crash a minute or two after loading a course is fixed (0.1.2).
+- A crash a minute or two after loading a course is fixed (0.1.2), and the female head crash from the official 1.03 patch is ported.
+- Trees, palms and forests stay on screen at the farthest zoom.
+- No dark see-through blobs at cliff corners with the HD art, no dark wedge behind waterfalls (their spray is back), no dark dot following the ball, no old frame beside the Options menu.
 
 ### Restored cut content
 - Things the game's files contained but never offered, like the oriental house, the dinosaur tar pit and the lovers' bench. Turn on **Cut content** in Options.
@@ -77,17 +88,16 @@ Full step-by-step help and fixes for common problems are in [INSTALL.md](INSTALL
 ## Coming next
 
 Being worked on now:
-- **Realistic water** in a painted look that fits the game: moving waves, ripples off the shore, small splashes where balls go in, flowing streams, waterfall spray, sun glints
-- **Pro golfer skills past 100%** once your course has 18 holes (up to 150%), as the original game intended, with regulars who slowly get better and rival pros who keep pace
-- **Path view (Y):** see at a glance which buildings are joined to the clubhouse, with a marker on any that are not
-- **The last old screens** redone: snapshot photos, Top 10 and leaderboards
+- **Realistic water**: calm, clear in the shallows, deeper further out, waves that wash up the beach and slide back, ripples that catch the sky and the sun
+- **Consistent icons** everywhere in the new interface, and the membership roster key with its icons
+- **More staff**: a setting to hire more than the original limit
+- The last original screens checked and redone: shot readout, tournament pairing, saving your pro
 
 Planned:
-- **Weather:** sun, drifting cloud shadows, rain, storms that send golfers to shelter, morning fog, wind (look-only or with gentle effects on play)
-- **Pause and speed buttons** on the HUD, and faster speeds that really hold up on big courses
-- Faster loading, flat land that starts higher so you can dig down, placeable wetlands
-- Animals you can buy and place, and a setting for how many wild animals appear
-- Celebrities who buy homes and play your tournaments, AI-made golfers and stories, more languages
+- **Hardcore mode**: a tougher economy where upkeep and rival clubs keep money tight for years, a pro who ages and retires, and an optional ironman save
+- **Weather and light**: time of day, drifting cloud shadows, rain, storms, fog
+- **Pause and speed buttons** on the HUD, and faster speeds that hold up on big courses
+- Animals you can buy and place, celebrities who buy homes and play your tournaments, more languages
 
 Ideas and help are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md).
 

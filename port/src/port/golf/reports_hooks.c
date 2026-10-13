@@ -43,5 +43,13 @@ int rp_end(int v) { return v; }
 void rp_skills(char *name, int points, int who, int x0) { (void)name, (void)points, (void)who, (void)x0; }
 int rp_skills_frosted(void) { return 0; }
 void rp_pace(void) { FUN_0045bf80(5, 0); }
+// task-105: the accomplishment board
+void rp_photo(int id, int x, int y) { (void)id, (void)x, (void)y; }
+void rp_photo_blit(void *source, int target, int x, int y, int id) {
+  (void)id;
+  FUN_00475c60(source, target, 0, 0, x, y, 200, 160);
+}
+int rp_photo_limit(int vertical) { return vertical ? 440 : 600; }
+void rp_board_wait(int n) { FUN_0045bf80(n, 0); }
 
 #endif

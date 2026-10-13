@@ -226,6 +226,11 @@ static void draw(const HdUiFrame *f, void *user) {
       const FeLayout *L = ui_frontend_layout();
       char line[1500];
       int o = snprintf(line, sizeof line, "frontend: layout screen %d target %dx%d", s->screen, w, h);
+      if (s->screen == FE_WORLD) {
+        o += snprintf(line + o, sizeof line - (size_t)o, " selected=%d state=%d tags=", L->world_selected, L->world_state);
+        for (int i = 0; i < FE_TAGS; i++)
+          o += snprintf(line + o, sizeof line - (size_t)o, "%s%d", i ? "," : "", L->row_tag[i]);
+      }
 #define PUT(r, ...) \
   if ((r).w > 0) { \
     o += snprintf(line + o, sizeof line - (size_t)o, " "); \

@@ -55,6 +55,7 @@ typedef struct FeWorld {
   FeTag tag[FE_TAGS];
   int32_t hover;         // the tag the original has highlighted (the pointer is parked on it), -1 none
   int32_t sandbox;       // unlimited money
+  int32_t medallions;    // [ui] map_icons=medallions: drawn medallions instead of golf's emblems
   int32_t difficulty;    // 0..3, -1 unknown
   int32_t can_refresh;   // golf's refresh disc is on this screen
   char budget[32];
@@ -160,6 +161,7 @@ typedef struct FeLayout {
   UiRect btn[8];         // title tiles (6) or the screen's main buttons
   UiRect back, ok, del;
   UiRect row[FE_ROWS + FE_TAGS];
+  int row_tag[FE_TAGS], world_selected, world_state;
 } FeLayout;
 const FeLayout *ui_frontend_layout(void);
 

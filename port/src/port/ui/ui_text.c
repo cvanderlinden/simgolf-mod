@@ -31,7 +31,14 @@ static unsigned char *read_file(const char *path) {
   return d;
 }
 
+static void flush_text(UiText *t);
+
 static void atlas_reset(UiText *t) {
+  // Vertices already queued in this string still reference the old atlas.
+  if (t->ni) {
+    flush_text(t);
+    SDL_RenderFlush(t->r);
+  }
   memset(t->alpha, 0, (size_t)t->aw * t->ah);
   memset(t->cache, 0, sizeof t->cache);
   t->nglyphs = 0;
@@ -167,6 +174,7 @@ static UitGlyph *glyph(UiText *t, int file, int px, int g) {
     stbtt_GetGlyphHMetrics(info, g, &adv, &lsb);
     stbtt_GetGlyphBitmapBox(info, g, scale, scale, &x0, &y0, &x1, &y1);
     int w = x1 - x0, hh = y1 - y0;
+    if (w > t->aw - 2 || hh > t->ah - 2) return NULL;
     if (w > 0 && hh > 0) {
       if (t->shelf_x + w + 1 > t->aw) {
         t->shelf_x = 1;
@@ -224,6 +232,14 @@ static void upload(UiText *t) {
     }
   }
   t->dirty = 0;
+}
+
+static void flush_text(UiText *t) {
+  if (t->ni) {
+    upload(t);
+    SDL_RenderGeometry(t->r, t->atlas, t->v, t->nv, t->idx, t->ni);
+  }
+  t->nv = t->ni = 0;
 }
 
 float uit_measure(UiText *t, int weight, float px, const char *s, float tracking) {
@@ -298,21 +314,44 @@ float uit_draw(UiText *t, float x, float y, int weight, float px, const char *s,
     pen += e->adv + tracking * ipx;
     prev = g;
   }
-  upload(t);
-  if (t->ni) SDL_RenderGeometry(t->r, t->atlas, t->v, t->nv, t->idx, t->ni);
+  flush_text(t);
   return pen;
 }
 
-int uit_fit(UiText *t, int weight, float px, const char *s, float tracking, float max_w) {
-  int n = (int)strlen(s), best = 0, last_space = -1;
-  char buf[1024];
-  for (int i = 1; i <= n && i < (int)sizeof buf; i++) {
-    memcpy(buf, s, (size_t)i);
-    buf[i] = 0;
-    if (uit_measure(t, weight, px, buf, tracking) > max_w) break;
-    best = i;
-    if (s[i] == ' ' || s[i] == 0) last_space = i;
+static int fit_prefix(UiText *t, int weight, float px, const char *s, float tracking,
+                      float max_w, int max_bytes, float suffix_w, int words) {
+  if (!s || max_bytes <= 0) return 0;
+  int f = pick(t, weight), ipx = (int)(px + 0.5f);
+  stbtt_fontinfo *info = f >= 0 ? INFO(t, f) : NULL;
+  float scale = info ? stbtt_ScaleForMappingEmToPixels(info, (float)ipx) : 0;
+  float width = 0;
+  int prev = 0, best = 0, last_space = -1;
+  const char *p = s;
+  while (*p && p - s < max_bytes) {
+    uint32_t cp = next_cp(&p);
+    if (p - s > max_bytes) break;
+    if (info) {
+      int g = glyph_index(t, f, cp), adv, lsb;
+      stbtt_GetGlyphHMetrics(info, g, &adv, &lsb);
+      if (prev) width += stbtt_GetGlyphKernAdvance(info, prev, g) * scale;
+      width += adv * scale + tracking * ipx;
+      prev = g;
+    }
+    if (width + suffix_w > max_w) {
+      if (words) break;
+      continue;
+    }
+    best = (int)(p - s);
+    if (*p == ' ' || !*p) last_space = best;
   }
-  if (best < n && last_space > 0) return last_space;
+  if (words && s[best] && last_space > 0) return last_space;
   return best;
+}
+
+int uit_fit(UiText *t, int weight, float px, const char *s, float tracking, float max_w) {
+  return fit_prefix(t, weight, px, s, tracking, max_w, 1023, 0, 1);
+}
+
+int uit_prefix(UiText *t, int weight, float px, const char *s, float tracking, float max_w, int max_bytes, float suffix_w) {
+  return fit_prefix(t, weight, px, s, tracking, max_w, max_bytes, suffix_w, 0);
 }

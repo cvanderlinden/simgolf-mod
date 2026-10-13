@@ -66,6 +66,10 @@ void port_halt(const char *fn, const char *why);
 void port_unimplemented(const char *name);
 void port_trace_dump(int n);
 
+// Frontend modal hooks called by translator patches (native and browser).
+void fe_world_end(void);
+int fe_theme_key_ready(void);
+
 #ifdef __cplusplus
 }
 #endif

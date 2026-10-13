@@ -1,5 +1,5 @@
 {
-  "comment": "task-73: translator patches for the last old modal screens in the Frosted Mint look: the golfer profile page (editor, FUN_004385d0) and its nested screens, drawn by ui/ui_pages.c through the reports machinery (reports_game.c: rp_begin / rp_frame / rp_done, rp_tc records golf's text). Merged into golf.json's patches (translate.py, <stem>.<topic>.json). Hooks: port/src/port/reports_game.c (native), golf/reports_hooks.c (browser: originals). With ui.reports=original or ui.dialogs=original the hooks record nothing and change nothing. task-102: the pro's skill points screen FUN_0045f0f0 (rp_skills, rp_frame, rp_end) and the pages' waits (rp_pace).",
+  "comment": "task-73: translator patches for the last old modal screens in the Frosted Mint look: the golfer profile page (editor, FUN_004385d0) and its nested screens, drawn by ui/ui_pages.c through the reports machinery (reports_game.c: rp_begin / rp_frame / rp_done, rp_tc records golf's text). Merged into golf.json's patches (translate.py, <stem>.<topic>.json). Hooks: port/src/port/reports_game.c (native), golf/reports_hooks.c (browser: originals). With ui.reports=original or ui.dialogs=original the hooks record nothing and change nothing. task-102: the pro's skill points screen FUN_0045f0f0 (rp_skills, rp_frame, rp_end) and the pages' waits (rp_pace). task-102b: an accomplishment's add-three-points strip (FUN_0046e810 -> FUN_0046de70) is left out when the native skill page shows its text. task-105: the accomplishment board FUN_0046e810 as a native page (rp_begin(31), rp_photo per photo, rp_tc captions, rp_frame and rp_board_wait in its wait, rp_done before the skill points).",
   "patches": {
     "FUN_00486110": [
       [
@@ -129,6 +129,44 @@
       [
         "FUN_0040d320(200,0x172,0x80007fff,-2);",
         "if (!rp_skills_frosted()) FUN_0040d320(200,0x172,0x80007fff,-2);   // task-102: the native page shows this text itself"
+      ]
+    ],
+    "FUN_0046e810": [
+      [
+        "FUN_00467130(local_62c + -100,0,600)",
+        "FUN_00467130(local_62c + -100,0,rp_photo_limit(0))"
+      ],
+      [
+        "FUN_00467130(local_630 + -100,0,0x1b8)",
+        "FUN_00467130(local_630 + -100,0,rp_photo_limit(1))"
+      ],
+      [
+        "FUN_00474440(&DAT_00821040,0x519cd4,0,0,0x3ecccccd,0,1);",
+        "if (!rp_skills_frosted()) FUN_00474440(&DAT_00821040,0x519cd4,0,0,0x3ecccccd,0,1);"
+      ],
+      [
+        "      FUN_00474ae0(local_2c4);\n      iVar4 = 0;\n      local_4 = 0;",
+        "      FUN_00474ae0(local_2c4);\n      rp_begin(31);\n      iVar4 = 0;\n      local_4 = 0;"
+      ],
+      [
+        "FUN_004049d0((char *)&DAT_0051a068,iVar13,iVar10,0x80002108);",
+        "rp_tc(2,(char *)&DAT_0051a068,iVar13,iVar10,0x80002108);"
+      ],
+      [
+        "FUN_00475c60(local_57c,0x519cd4,0,0,iVar13,iVar10 + -0xa6,200,0xa0);",
+        "rp_photo_blit(local_57c,0x519cd4,iVar13,iVar10 + -0xa6,*local_644);"
+      ],
+      [
+        "      FUN_00480c80(&DAT_00519a60);\n      FUN_0045bf80(0x3c,0);\n      FUN_00483d30();\n      do {\n        FUN_00480c80(&DAT_00519a60);\n        FUN_0045bf80(0x1e,0);",
+        "      rp_frame();\n      FUN_00480c80(&DAT_00519a60);\n      rp_board_wait(0x3c);\n      FUN_00483d30();\n      do {\n        rp_frame();\n        FUN_00480c80(&DAT_00519a60);\n        rp_board_wait(0x1e);"
+      ],
+      [
+        "      FUN_00483d30();\n      DAT_00822d68 = 0;\n      if ((DAT_004c2c9c != 0) && (DAT_004e3db8 != 99)) {",
+        "      FUN_00483d30();\n      rp_done();\n      DAT_00822d68 = 0;\n      if ((DAT_004c2c9c != 0) && (DAT_004e3db8 != 99)) {"
+      ],
+      [
+        "FUN_0046de70((char *)&DAT_0051a068,0x50,5);\n        _DAT_00583170 = (short)DAT_004d60a9;",
+        "if (!rp_skills_frosted()) FUN_0046de70((char *)&DAT_0051a068,0x50,5);   // task-102b: the native page shows this text itself\n        _DAT_00583170 = (short)DAT_004d60a9;"
       ]
     ]
   }

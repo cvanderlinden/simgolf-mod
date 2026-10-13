@@ -46,5 +46,7 @@ void fe_theme_vars(int n, const unsigned char *mask, int sel) { (void)n, (void)m
 void fe_loading_pic(void *sprite) { (void)sprite; }
 void fe_loading(int pct, const char *quote) { (void)pct, (void)quote; }
 void fe_suspend(void) {}
+void fe_world_end(void) {}
+int fe_theme_key_ready(void) { return FUN_0045ae70(); }
 
 #endif

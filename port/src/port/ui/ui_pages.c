@@ -534,7 +534,7 @@ static int draw_profile(UiCtx *c, const RpSnap *s, SDL_Texture *const *art, RpAc
 // ------------------------------------------------------------------ skill points (FUN_0045f0f0, task-102)
 
 // The snapshot (reports_game.c skills_snap): title = the pro's name, bio = what golf said before the screen, ext[1] the
-// points this screen gives, ext[2] the points left, ext[3] golf's x of the screen; it[i] (i < 10): s = the skill's name,
+// points this screen gives, ext[2] the points left, ext[3] golf's x of the screen, ext[4] whose (-1 the first setup); it[i] (i < 10): s = the skill's name,
 // y = its level (0..10), w = the level the screen opened with (golf never takes a level below it).
 static int g_sk_target[10] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
 static double g_sk_t;
@@ -589,7 +589,9 @@ static int draw_skills(UiCtx *c, const RpSnap *s, RpAction *acts, int max) {
   char title[RP_TEXT + 32];
   char name[64];
   fix_text(name, sizeof name, s->title);
-  if (points > 0) snprintf(title, sizeof title, "Skill points for %s", name[0] ? name : "your pro");
+  if (points > 0 && s->ext[4] != -1)   // task-102b: an accomplishment's points
+    snprintf(title, sizeof title, "%d new skill points for %s", points, name[0] ? name : "your pro");
+  else if (points > 0) snprintf(title, sizeof title, "Skill points for %s", name[0] ? name : "your pro");
   else snprintf(title, sizeof title, "%s's golf skills", name[0] ? name : "Your pro");
   ui_text_fit(c, ui_rect(in.x, in.y + (cb - tf.line) / 2, in.w - cb - ui_s(c, 12), tf.line), UI_TYPE_TITLE, t->text_primary, title, 0);
   float y = in.y + ui_s(c, 44 + 12);
@@ -661,6 +663,138 @@ static int draw_skills(UiCtx *c, const RpSnap *s, RpAction *acts, int max) {
   return na;
 }
 
+// ------------------------------------------------------------------ accomplishment board (FUN_0046e810, task-105)
+
+// The snapshot (reports_game.c rp_photo): one RP_IT_RECT per photo golf pinned up (x, y its place in golf's board, art the
+// accomplishment, s its name), golf's caption under each photo at (x, y + 0xa6) (course and date), each photo as
+// RP_IT_PIC. ext[1] the accomplishment just won (99: review), ext[2] skill points next, ext[5] this board's opening id.
+#define PH_W 820.0f
+
+static int draw_photo(UiCtx *c, const RpSnap *s, SDL_Texture *const *art, RpAction *acts, int max) {
+  const UiTokens *t = ui_tokens(c);
+  UiDraw *d = ui_drawer(c);
+  int na = 0, won = s->ext[1], points_next = s->ext[2] != 0;
+  const RpItem *ph[24];
+  int n = 0;
+  for (int i = 0; i < s->n; i++) {
+    if (s->it[i].type == RP_IT_RECT && n < 24) ph[n++] = &s->it[i];
+  }
+  const RpItem *top = NULL;   // the accomplishment just won, else the newest photo
+  for (int i = 0; i < n; i++)
+    if (won != 99 && ph[i]->art == won) top = ph[i];
+  if (!top && n) top = ph[n - 1];
+  uint32_t history_id = ui_id("ph.history");
+  float *opened = ui_state(c, ui_id("ph.opened")), *selected = ui_state(c, ui_id("ph.selected"));
+  if (*opened != s->ext[5]) {
+    *opened = (float)s->ext[5];
+    *selected = top ? top->art : -1;
+    *ui_state(c, history_id) = 0;
+  }
+  for (int i = 0; i < n; i++)
+    if (ph[i]->art == (int)*selected) top = ph[i];
+  const RpItem *pic = NULL;
+  for (int i = 0; top && i < s->n; i++)
+    if (s->it[i].type == RP_IT_PIC && s->it[i].x == top->x && s->it[i].y == top->y) pic = &s->it[i];
+  float history_h = n > 1 ? 192.0f : 0;
+
+  UiRect scr = ui_screen(c);
+  float margin = ui_s(c, t->edge_margin);
+  float photo_w = 480, photo_h = 384;
+  float design_h = 28 + 22 + 44 + 16 + photo_h + 12 + 30 + (history_h ? 16 + 38 + history_h : 0) + 20 + 48 + 28;
+  float k = fminf(1.0f, fminf((scr.w - 2 * margin) / ui_s(c, PH_W), (scr.h - 2 * margin) / ui_s(c, design_h)));
+  if (k < 1.0f) ui_push_scale(c, k);
+  UiRect pr = ui_rect_round(ui_center(ui_screen(c), ui_s(c, PH_W), ui_s(c, design_h)));
+  scrim_and_panel(c, pr);
+  UiRect in = ui_inset_all(pr, ui_s(c, 28));
+  g_pf_layout.panel = pr;
+  g_pf_layout.nctl = 0;
+  g_pf_layout.close_x = g_pf_layout.close_y = 0;
+
+  // header: what this is, then the accomplishment's name
+  float y = in.y;
+  UiFont lf = ui_font(c, UI_TYPE_LABEL), tf = ui_font(c, UI_TYPE_TITLE);
+  ui_text_in(c, ui_rect(in.x, y, in.w, lf.line), UI_TYPE_LABEL, t->accent_soft_text,
+             won == 99 ? "Professional accomplishments" : "New professional accomplishment", 0);
+  y += ui_s(c, 22);
+  char name[RP_TEXT];
+  fix_text(name, sizeof name, top && top->s[0] ? top->s : "Your pro's accomplishments");
+  ui_text_fit(c, ui_rect(in.x, y, in.w, tf.line), UI_TYPE_TITLE, t->text_primary, name, 0);
+  y += ui_s(c, 44 + 16);
+
+  // the photo golf took of the moment, with golf's caption (the course and the date)
+  UiRect fr = ui_rect_round(ui_rect(in.x + (in.w - ui_s(c, photo_w)) / 2, y, ui_s(c, photo_w), ui_s(c, photo_h)));
+  uid_rrect(d, ui_inset_all(fr, -ui_s(c, 8)), ui_s(c, t->radius_card), uid_alpha(t->surface_inset, 0.6f));
+  SDL_Texture *tex = art && pic && pic->art > 0 ? art[pic->art - 1] : NULL;
+  if (tex) {
+    uid_image(d, tex, NULL, fr, 0, (UiColor){255, 255, 255, 255});
+    uid_rrect_stroke(d, fr, 0, ui_s(c, 1), uid_alpha(t->divider, 0.8f));
+  } else {
+    ui_icon(c, UI_ICON_TROPHY, fr, ui_s(c, 96), uid_alpha(t->text_tertiary, 0.6f));
+  }
+  y += fr.h + ui_s(c, 12);
+  char cap[RP_TEXT];
+  const RpItem *ci = top ? txt(s, top->x, top->y + 0xa6) : NULL;
+  fix_text(cap, sizeof cap, ci ? ci->s : "");
+  ui_text_fit(c, ui_rect(in.x, y, in.w, ui_s(c, 30)), UI_TYPE_HEADING, t->text_secondary, cap, 0.5f);
+  y += ui_s(c, 30);
+
+  // Every earned award remains available, newest first. Selection changes only this native view, not golf's state.
+  if (history_h) {
+    y += ui_s(c, 16);
+    char heading[64];
+    snprintf(heading, sizeof heading, "Your board: %d accomplishments", n);
+    section_label(c, in.x, y, in.w - ui_s(c, 84), heading);
+    float row_h = ui_s(c, 64);
+    for (int down = 0; down < 2; down++) {
+      UiRect ar = ui_rect(in.x + in.w - ui_s(c, down ? 34 : 74), y, ui_s(c, 34), ui_s(c, 32));
+      pf_ctl(down ? "historydown" : "historyup", ar);
+      if (ui_icon_button(c, ui_idi(ui_id("ph.scroll"), down), ar, down ? UI_ICON_DOWN : UI_ICON_UP, UI_COMPACT,
+                         down ? "Older accomplishments" : "Newer accomplishments"))
+        *ui_state(c, history_id) += down ? row_h * 3 : -row_h * 3;
+    }
+    y += ui_s(c, 38);
+    UiRect view = ui_rect(in.x, y, in.w, ui_s(c, history_h));
+    float off = ui_vscroll_begin(c, history_id, view, n * row_h, row_h);
+    for (int i = n - 1; i >= 0; i--) {
+      UiRect rr = ui_rect(in.x + ui_s(c, 3), y + off + (n - 1 - i) * row_h + ui_s(c, 3), in.w - ui_s(c, 6), row_h - ui_s(c, 6));
+      if (rr.y + rr.h <= view.y || rr.y >= view.y + view.h) continue;
+      char nm[RP_TEXT], cp[RP_TEXT];
+      fix_text(nm, sizeof nm, ph[i]->s[0] ? ph[i]->s : "Accomplishment");
+      const RpItem *c2 = txt(s, ph[i]->x, ph[i]->y + 0xa6);
+      fix_text(cp, sizeof cp, c2 ? c2->s : "");
+      const RpItem *photo = NULL;
+      for (int j = 0; j < s->n; j++)
+        if (s->it[j].type == RP_IT_PIC && s->it[j].x == ph[i]->x && s->it[j].y == ph[i]->y) photo = &s->it[j];
+      SDL_Texture *thumb = art && photo && photo->art > 0 ? art[photo->art - 1] : NULL;
+      if (rr.y >= view.y && rr.y + rr.h <= view.y + view.h) {
+        char control[20];
+        snprintf(control, sizeof control, "award%d", ph[i]->art);
+        pf_ctl(control, rr);
+      }
+      if (ui_list_row(c, ui_idi(ui_id("ph.award"), ph[i]->art), rr, thumb, nm, cp, NULL, ph[i] == top ? UI_SELECTED : 0))
+        *selected = ph[i]->art;
+    }
+    ui_vscroll_end(c);
+  }
+  if (getenv("SIMGOLF_REPORTS_LOG")) {
+    static int last_id = -1, last_open = -1;
+    if (last_id != (top ? top->art : -1) || last_open != s->ext[5]) {
+      last_id = top ? top->art : -1, last_open = s->ext[5];
+      fprintf(stderr, "reports: board selected %d of %d photo %d '%s' caption '%s'\n", last_id, n, pic != NULL, name, cap);
+    }
+  }
+
+  // footer: Continue (golf waits for a click), on to the skill points when they come next
+  float bw = ui_s(c, points_next ? 280 : 180), bh = ui_s(c, 48);
+  UiRect br = ui_rect(in.x + in.w - bw, in.y + in.h - bh, bw, bh);
+  pf_ctl("continue", br);
+  if (ui_button(c, ui_id("ph.continue"), br, points_next ? "Continue: 3 skill points" : "Continue", points_next ? UI_ICON_CHEV : UI_ICON_NONE,
+                UI_BTN_PRIMARY, 0) && na < max)
+    acts[na++] = (RpAction){RP_A_CLOSE, 0};
+  if (k < 1.0f) ui_pop_scale(c);
+  return na;
+}
+
 // ------------------------------------------------------------------ dispatch
 
 #include "ui_tracts.inc"
@@ -670,6 +804,7 @@ int ui_pages_draw(UiCtx *c, const RpSnap *s, SDL_Texture *const *art, RpAction *
     case RP_PROFILE: return draw_profile(c, s, art, acts, max);
     case RP_TRACTS: return draw_tracts(c, s, art, acts, max);
     case RP_SKILLS: return draw_skills(c, s, acts, max);
+    case RP_PHOTO: return draw_photo(c, s, art, acts, max);
     default: return 0;
   }
 }

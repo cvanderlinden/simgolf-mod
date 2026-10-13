@@ -12,6 +12,8 @@
       ]
     ],
     "FUN_0046f550": [
+      ["return -1;", "fe_world_end();\n          return -1;"],
+      ["return iVar5;", "fe_world_end();\n  return iVar5;"],
       [
         "FUN_00475c90(local_2c4,0x519cd4,0,0,800,600);",
         "FUN_00475c90(local_2c4,0x519cd4,0,0,800,600);\n      fe_base(3);"
@@ -82,6 +84,7 @@
       ]
     ],
     "FUN_004725b0": [
+      ["iVar7 = FUN_0045ae70();", "iVar7 = fe_theme_key_ready();"],
       [
         "FUN_00475c60(local_404,0x519cd4,0,0,0,0,800,600);",
         "FUN_00475c60(local_404,0x519cd4,0,0,0,0,800,600);\n    fe_base(6);"

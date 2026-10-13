@@ -45,6 +45,7 @@ static uint32_t g_serial;
 static RpSnap g_snap;
 static uint16_t g_col;    // colour set by the last FUN_00476310 on the page widget
 static int g_dirty;       // the report drew since the last frame: its picture must be taken off the screen
+static int g_ph_n;       // task-105: the photos golf pinned up on the accomplishment board
 
 // ------------------------------------------------------------------ the picture from before the report
 
@@ -220,7 +221,9 @@ void rp_begin(int kind) {
   memset(&g_snap, 0, offsetof(RpSnap, it));
   g_snap.magic = RP_MAGIC;
   g_snap.kind = kind;
+  if (kind == RP_PHOTO) g_snap.ext[5] = g_serial + 1;   // a new board resets the renderer's history selection
   g_npic = 0;
+  g_ph_n = 0;
   memset(g_pic, 0, sizeof g_pic);
   if (kind == RP_PROFILE) pic_add(358, 31, 76, 184);   // the portrait in golf's page, clear of the buttons around it
   if (kind == RP_TRACTS) pic_add(8, 282, 784, 312);    // the map below the tract tiles, with its painted frame
@@ -298,8 +301,9 @@ void rp_rect(void *page, int x, int y, int w, int h, uint32_t col) {
 // The page the report draws on: the one whose pixel at (x, y) now differs from the kept picture.
 uint16_t *gdi_dib_at(uintptr_t p, int *w, int *h, int *pitch, int *is565);
 static int drawn_page(int x, int y) {
-  if (g_kind == RP_TRACTS) {   // the course animates on the other screen page: take golf's own back buffer
-    uint32_t wrap = G32(0x4c1570), p = wrap > 0x10000 ? G32(wrap + 4) : 0, bits = p > 0x10000 ? G32(p + 0x4c0) : 0;
+  if (g_kind == RP_TRACTS || g_kind == RP_PHOTO) {   // match the actual target surface, not an animated page's changed pixel
+    uint32_t wrap = g_kind == RP_PHOTO ? PAGE_WIDGET : (uint32_t)G32(0x4c1570);
+    uint32_t p = wrap > 0x10000 ? G32(wrap + 4) : 0, bits = p > 0x10000 ? G32(p + 0x4c0) : 0;
     int w, h, pitch, is565;
     uint16_t *want = bits ? gdi_dib_at(bits, &w, &h, &pitch, &is565) : NULL;
     for (int i = 0; want && i < PAGES; i++)
@@ -486,7 +490,8 @@ static void capture_pics(void) {
     if (g_pic[k].page < 0) g_pic[k].page = drawn_page(g_pic[k].x + g_pic[k].w / 2, g_pic[k].y + g_pic[k].h / 2);
     if (g_pic[k].page < 0) continue;
     uint16_t *bb = gdi_screen_dib(g_pic[k].page, &w, &h, &pitch, &is565);
-    if (!bb || g_pic[k].x + g_pic[k].w > w || g_pic[k].y + g_pic[k].h > h) continue;
+    if (!bb || g_pic[k].x < 0 || g_pic[k].y < 0 || g_pic[k].w <= 0 || g_pic[k].h <= 0 ||
+        g_pic[k].x > w - g_pic[k].w || g_pic[k].y > h - g_pic[k].h) continue;
     int pw = g_pic[k].w, ph = g_pic[k].h;
     if (g_kind == RP_PROFILE && g_keep[g_pic[k].page] && g_keep_w[g_pic[k].page] == w) {   // golf has not drawn it yet: the course shows
       int same = 1;
@@ -624,8 +629,15 @@ void rp_skills(char *name, int points, int who, int x0) {
   copy_str(g_sk.name, sizeof g_sk.name, name ? name : "", -1);
   // golf's text buffer holds what the caller said before the screen (the first setup, an accomplishment's three points)
   copy_str(g_sk.text, sizeof g_sk.text, points > 0 ? (const char *)(uintptr_t)0x51a068 : "", -1);
+  // golf's strip text ends "...\n" ("Add three skill points to your player...\n"): one line, a full stop
+  for (char *q = g_sk.text; *q; q++)
+    if ((unsigned char)*q < 32) *q = ' ';
+  size_t L = strlen(g_sk.text);
+  while (L && g_sk.text[L - 1] == ' ') g_sk.text[--L] = 0;
+  if (L >= 3 && !strcmp(g_sk.text + L - 3, "...")) g_sk.text[L - 2] = 0;
   for (int i = 0; i < 10; i++) g_sk.start[i] = *(volatile uint8_t *)(uintptr_t)(0x5a5a04 + i);
   rp_begin(RP_SKILLS);
+  if (g_log > 0) fprintf(stderr, "reports: skills page for %s, %d points, who %d, native %d\n", g_sk.name, points, who, g_on);
 }
 
 // The pages' waits (FUN_004385d0 and FUN_0045f0f0 wait 50 ms, twice a turn in the profile): golf's pages turned about seven
@@ -645,6 +657,7 @@ static void skills_snap(void) {
   g_snap.ext[1] = g_sk.points;
   g_snap.ext[2] = g_sk.points - spent;   // golf's own count (local_314): one per level added, back on a level taken away
   g_snap.ext[3] = g_sk.x0;
+  g_snap.ext[4] = g_sk.who;   // -1: the first setup; golf's slot 0x9c: an accomplishment's new points (FUN_0046e810)
   g_snap.n = 0;
   for (int i = 0; i < 10; i++) {
     RpItem *it = &g_snap.it[g_snap.n++];
@@ -655,6 +668,92 @@ static void skills_snap(void) {
     copy_str(it->s, sizeof it->s, nm, -1);
   }
 }
+
+// ------------------------------------------------------------------ task-105: the accomplishment board (FUN_0046e810)
+
+// Golf draws its board (a bulletin board and a mantle, 800x600) once, then waits for a click. On a wide screen it filled
+// only the left part, the course showed on the right. With the Frosted pages it is a native page: each photo golf pins
+// up is reported here (rp_photo: the accomplishment, the photo's place), the newest one is kept as a picture, the
+// captions (course and date) come from golf's text call. The page's Continue is a click, as golf waits for one.
+static void accomp_name(int id, char *out, int cap) {
+  // Golf bakes these labels into plaque sprites, then the new-game reset clears the 0x4c1578 table (0x420 bytes).
+  // Keep the verified original labels as UI text instead of reading the cleared table. Index is golf's award id.
+  static const char *const names[22] = {
+    "1st Challenge Hole", "1st Heroic Hole", "1st Skill Upgrade", "1st Tournament", "1st Strategic Hole",
+    "1st Match Victory", "1st 9+ Hole Course", "1st Top 100 Hole", "1st $500,000 Tournament", "1st Classic Hole",
+    "1st Top 18 Hole", "1st Tournament Victory (9+ Hole)", "1st Grand Slam Course",
+    "1st $1,000,000 Tournament", "1st 18 Hole Course", "1st Tournament Victory (18 Hole)",
+    "1st Grand Slam Course (18 Hole)", "1st Grand Slam Victory (Parkland)", "1st Grand Slam Victory (Desert)",
+    "1st Grand Slam Victory (Tropical)", "1st Grand Slam Victory (Links)", "1st 100 Star Rating"};
+  const char *src = id >= 0 && id < 22 ? names[id] : "Accomplishment";
+  if (G32(0x822c88) < 2) {
+    if (id == 0) src = "1st Dogleg Right Hole";
+    if (id == 1) src = "1st Dogleg Left Hole";
+    if (id == 4) src = "1st Par 5 Hole";
+  }
+  int n = 0;
+  for (; n < cap - 1 && n < 0x28 && src[n]; n++) out[n] = (unsigned char)src[n] >= 32 && (unsigned char)src[n] < 127 ? src[n] : ' ';
+  out[n] = 0;
+}
+
+// The projection is in the expanded game canvas, not the old 800x600 board. Read the surface being photographed
+// (graphsy wrapper at PAGE_WIDGET, dimensions at +0x38/+0x3c) before the board opens. Vanilla keeps its old clamp.
+int rp_photo_limit(int vertical) {
+  int original = vertical ? 440 : 600, size = vertical ? 160 : 200;
+  if (!rpf_enabled_kind(RP_PHOTO)) return original;
+  uint32_t surface = (uint32_t)G32(PAGE_WIDGET + 4);
+  if (surface < 0x10000) return original;
+  int extent = G32(surface + (vertical ? 0x3c : 0x38));
+  if (extent < size || extent > 16384) return original;
+  if (getenv("SIMGOLF_REPORTS_LOG")) fprintf(stderr, "reports: photo source %s %d crop limit %d\n", vertical ? "height" : "width", extent, extent - size);
+  return extent - size;
+}
+
+static void photo_capture(int id, int x, int y, int capture_x, int capture_y) {
+  if (!g_on || g_kind != RP_PHOTO) return;
+  RpItem *it = slot(RP_IT_RECT, x, y);   // one per photo: its place, the accomplishment, its name
+  if (it) {
+    it->w = 200, it->h = 0xa0, it->art = (uint8_t)id;
+    accomp_name(id, it->s, sizeof it->s);
+  }
+  g_ph_n++;
+  // Capture each photo immediately after its blit, before later photos or the thumbtack overlap it. The board has
+  // 22 awards and no recorded report sprites, so its photo textures use their award ids (0..21) in the art array.
+  g_npic = 1;
+  g_pic[0].on = 1, g_pic[0].x = capture_x, g_pic[0].y = capture_y, g_pic[0].w = 200, g_pic[0].h = 0xa0;
+  g_pic[0].art = id, g_pic[0].page = -1, g_pic[0].hash = 0;
+  if (id >= 0 && id < 22) capture_pics();
+  // Capture uses a safe scratch rectangle, while the snapshot retains golf's logical placement for caption matching.
+  for (int i = 0; i < g_snap.n; i++)
+    if (g_snap.it[i].type == RP_IT_PIC && g_snap.it[i].art == id + 1) {
+      g_snap.it[i].x = (int16_t)x, g_snap.it[i].y = (int16_t)y;
+    }
+  g_pic[0].on = 0;   // never sample this board position again after keep_restore
+  if (g_log > 0) fprintf(stderr, "reports: board photo %d '%s' at %d,%d\n", id, it ? it->s : "", x, y);
+}
+
+void rp_photo(int id, int x, int y) { photo_capture(id, x, y, x, y); }
+
+int FUN_00475c60(void *source, int target, int sx, int sy, int x, int y, int w, int h);
+void rp_photo_blit(void *source, int target, int x, int y, int id) {
+  int safe_x = x, safe_y = y;
+  if (g_on && g_kind == RP_PHOTO) {
+    // Golf's 22 stacked photos eventually have negative y. Its original blitter does not safely clip that case.
+    // Native pages only need the source photo, so draw into a valid scratch rectangle before capturing it.
+    uint32_t surface = (uint32_t)G32((uintptr_t)(uint32_t)target + 4);
+    if (surface < 0x10000) return;
+    int width = G32(surface + 0x38), height = G32(surface + 0x3c);
+    if (width < 200 || height < 160 || width > 16384 || height > 16384) return;
+    int max_x = width - 200, max_y = height - 160;
+    safe_x = safe_x < 0 ? 0 : safe_x > max_x ? max_x : safe_x;
+    safe_y = safe_y < 0 ? 0 : safe_y > max_y ? max_y : safe_y;
+  }
+  FUN_00475c60(source, target, 0, 0, safe_x, safe_y, 200, 160);
+  photo_capture(id, x, y, safe_x, safe_y);
+}
+
+// golf's waits on the board (600 ms before it takes a click, then 300 ms a turn): with the native page only the first
+void rp_board_wait(int n) { FUN_0045bf80(g_on && g_kind == RP_PHOTO && n < 0x3c ? 0 : n, 0); }
 
 static void rp_frame_body(void);
 void rp_frame(void) {
@@ -686,6 +785,12 @@ static void rp_frame_body(void) {
     if (!g_in_edit) profile_page_keep();
   }
   if (g_kind == RP_SKILLS) skills_snap();
+  if (g_kind == RP_PHOTO) {   // the accomplishment just won (99: the board opened to look at), and whether skill points follow
+    int id = G32(0x4e3db8);
+    g_snap.ext[1] = id;
+    g_snap.ext[2] = id != 99 && *(volatile int16_t *)(uintptr_t)0x4c2c9c != 0;
+    g_snap.ext[3] = g_ph_n;
+  }
   if (g_log > 0 && g_kind >= RP_PROFILE) {   // task-102: when golf took a click (the tests time a click from the native action)
     static uint32_t last;
     uint32_t hsh = 2166136261u;
@@ -701,6 +806,7 @@ static void rp_frame_body(void) {
   while (rpf_take_action(&a)) {
     // the land map has no Esc of its own: its leave control is the check button (golf's right click also leaves)
     if (a.kind == RP_A_CLOSE && g_kind == RP_TRACTS) a = (RpAction){RP_A_CLICK, 688 | (560 << 16)};
+    if (a.kind == RP_A_CLOSE && g_kind == RP_PHOTO) a = (RpAction){RP_A_CLICK, 400 | (300 << 16)};   // golf waits for a click
     if (a.kind == RP_A_CLOSE && g_kind == RP_SKILLS) a = (RpAction){RP_A_CLICK, (g_sk.x0 + 0x15e) | (0x14e << 16)};   // its OK
     if (a.kind == RP_A_CLOSE || a.kind == RP_A_TAB) {
       if (a.kind == RP_A_TAB && a.arg != g_kind) g_pending = a.arg;
@@ -724,13 +830,14 @@ static void rp_frame_body(void) {
   }
   inj_step();
   capture_art();
-  // not while golf's text widget draws over the portrait; the land map only when golf drew it (it draws once, then the page is put back)
-  if (!g_in_edit && (g_kind != RP_TRACTS || g_dirty)) capture_pics();
+  // The land map and accomplishment board draw once, then keep_restore puts the course back. Capture their photo
+  // only on that draw, otherwise later frames overwrite it with the restored course. The profile still updates live.
+  if (!g_in_edit && ((g_kind != RP_TRACTS && g_kind != RP_PHOTO) || g_dirty)) capture_pics();
   keep_restore();
   // only when golf drew: a waiting report presents no frames. Not on the profile and skill pages: their loops flush right
   // after rp_frame, and every present waits for the 30 a second cap (gdi.c win_present), so two a turn halved their pace
   // (task-102, measured: 15 turns a second with two, the click took three turns)
-  if (g_dirty && g_kind != RP_PROFILE && g_kind != RP_SKILLS) FUN_00480c80((void *)0x519a60);
+  if (g_dirty && g_kind != RP_PROFILE && g_kind != RP_SKILLS && g_kind != RP_PHOTO) FUN_00480c80((void *)0x519a60);
   g_dirty = 0;
 }
 

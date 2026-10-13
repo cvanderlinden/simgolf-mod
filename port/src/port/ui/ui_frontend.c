@@ -300,6 +300,7 @@ static int draw_difficulty(Scene *s, const FeSnap *snap, SDL_Texture *const *art
 }
 
 // ------------------------------------------------------------------ the property (world) screen
+#include "ui_map_medallions.inc"
 
 static int cmp_tags(const FeTag *a, const FeTag *b) {
   // affordable first (cheapest first), then too dear (cheapest first), owned last
@@ -449,64 +450,79 @@ static int draw_world(Scene *s, const FeSnap *snap, SDL_Texture *const *art, FeA
     UiRect rb = ui_rect(right - U(s, 40), head.y + U(s, 6), U(s, 40), U(s, 40));
     if (ui_icon_button(c, ui_id("fe.world.refresh"), rb, UI_ICON_ROTR, UI_ROUND, "Look at different properties")) push_act(acts, max, &n, FE_A_REFRESH, 0);
   }
-  float gap = U(s, 6), rowh = U(s, 64);
-  UiRect view = ui_rect(in.x, head.y + head.h + U(s, 10), in.w, in.y + in.h - (head.y + head.h + U(s, 10)));
-  // content height: rows plus the selected row's detail
-  float detail_h = U(s, 108);
-  float content = cnt * (rowh + gap) + (sel >= 0 ? detail_h : 0);
-  float off = ui_vscroll_begin(c, ui_id("fe.world.list"), view, content, rowh + gap);
-  float y = view.y + off;
+  // All 16 compact rows fit above the fixed detail/purchase footer at both 1080p and 4K.
+  float gap = U(s, 3), rowh = U(s, 43), footer_h = U(s, 150);
+  UiRect footer = ui_rect(in.x, in.y + in.h - footer_h, in.w, footer_h);
+  UiRect view = ui_rect(in.x, head.y + head.h + U(s, 10), in.w, footer.y - U(s, 14) - (head.y + head.h + U(s, 10)));
+  float y = view.y;
   int clicked_row = -1;
   for (int oi = 0; oi < cnt; oi++) {
     int i = order[oi];
     const FeTag *T = &W->tag[i];
-    UiRect rr = ui_rect(view.x, y, view.w - U(s, 4), rowh);
+    UiRect rr = ui_rect(view.x, y, view.w, rowh);
+    uint32_t id = ui_idi(ui_id("fe.world.row"), i);
+    ui_hit(c, rr, U(s, 9), id, UI_HIT_BLOCK | UI_HIT_INTERACT);
+    int hot = ui_is_hot(c, id);
+    if (i == sel || hot) uid_rrect(ui_drawer(c), rr, U(s, 9), uid_alpha(t->surface_inset, i == sel ? 0.95f : 0.65f));
+    if (i == sel) uid_rrect_stroke(ui_drawer(c), rr, U(s, 9), U(s, 1), t->accent);
+    // golf's own emblem for the property (the maintainer: the drawn medallions were no fun; [ui] map_icons=medallions brings them back)
+    SDL_Texture *av = T->art >= 0 ? art[FE_ART_EMBLEM + T->art] : NULL;
+    if (av && !W->medallions) {
+      int ew = 1, eh = 1;
+      SDL_QueryTexture(av, NULL, NULL, &ew, &eh);
+      SDL_Rect src = {0, 0, ew < eh ? ew : eh, eh};   // the round badge is on the left, a sliver of golf's card follows it
+      float ah = U(s, 40), aw = ah * src.w / (float)eh;
+      UiRect ar = ui_rect(rr.x + U(s, 4) + (U(s, 40) - aw) / 2, rr.y + (rr.h - ah) / 2, aw, ah);
+      uid_image(ui_drawer(c), av, &src, ar, 0, (UiColor){255, 255, 255, (uint8_t)(T->state == 1 ? 255 : 200)});
+    } else {
+      map_medallion(c, ui_rect(rr.x + U(s, 5), rr.y + U(s, 4), U(s, 35), U(s, 35)), i, T->state != 1);
+    }
     char line[100], price[32] = "";
-    if (T->state == 2) snprintf(line, sizeof line, "%s  \xC2\xB7  Already purchased", T->feature);
-    else if (T->acres) snprintf(line, sizeof line, "%s  \xC2\xB7  %d acres", T->feature, T->acres);
+    if (T->state == 2) snprintf(line, sizeof line, "%s  |  Purchased", T->feature);
+    else if (T->acres) snprintf(line, sizeof line, "%s  |  %d acres", T->feature, T->acres);
     else snprintf(line, sizeof line, "%s", T->feature);
     if (!W->sandbox && T->price > 0) fe_money(price, sizeof price, T->price);
-    g_layout.row[oi] = rr;   // by place in the list (tests click the first available property)
-    SDL_Texture *av = T->art >= 0 ? art[FE_ART_EMBLEM + T->art] : NULL;
-    int fl = (i == sel ? UI_SELECTED : 0) | (T->state != 1 ? UI_DISABLED : 0);
-    if (ui_list_row(c, ui_idi(ui_id("fe.world.row"), i), rr, NULL, T->name, line, price[0] ? price : NULL, fl)) clicked_row = i;
-    if (av) {   // golf's emblem, kept to its own proportions (it already is a round badge with alpha)
-      int tw = 1, th = 1;
-      SDL_QueryTexture(av, NULL, NULL, &tw, &th);
-      SDL_Rect src = {0, 0, tw < th ? tw : th, th};   // the round badge is on the left, a sliver of golf's card follows it
-      float aw = U(s, 56), ah = aw * th / (float)src.w;
-      UiRect ar = ui_rect(rr.x + U(s, 12) + (U(s, 52) - aw) / 2, rr.y + (rr.h - ah) / 2, aw, ah);
-      uid_image(ui_drawer(c), av, &src, ar, 0, (UiColor){255, 255, 255, (uint8_t)(T->state == 1 ? 255 : 200)});
-    }
+    float tx = rr.x + U(s, 50), pw = price[0] ? ui_text_width(c, UI_TYPE_LABEL, price) + U(s, 16) : 0;
+    float tw = rr.x + rr.w - U(s, 8) - tx - pw;
+    ui_text_fit(c, ui_rect(tx, rr.y + U(s, 1), tw, U(s, 22)), UI_TYPE_LABEL, t->text_primary, T->name, 0);
+    ui_text_fit(c, ui_rect(tx, rr.y + U(s, 22), tw, U(s, 19)), UI_TYPE_CAPTION, t->text_secondary, line, 0);
+    if (price[0]) ui_text_fit(c, ui_rect(rr.x + rr.w - pw - U(s, 8), rr.y, pw, rr.h), UI_TYPE_LABEL,
+                            T->state == 0 ? t->text_tertiary : t->text_primary, price, 1);
+    // Too dear/purchased properties are still inspectable; only their purchase button is disabled.
+    if (ui_clicked(c, id)) clicked_row = i;
+    g_layout.row[oi] = rr;
+    g_layout.row_tag[oi] = i;
     y += rowh + gap;
-    if (i == sel) {
-      UiRect d = ui_rect(view.x + U(s, 12), y - gap + U(s, 2), view.w - U(s, 28), detail_h - U(s, 4));
-      char text[240] = "";
-      for (int dline = 0; dline < T->n_detail; dline++) {
-        const char *dp = T->detail[dline];
-        while (*dp == ' ') dp++;   // golf's lines start with a space when they continue a sentence
-        strncat(text, dp, sizeof text - strlen(text) - 1);
-        strncat(text, " ", sizeof text - strlen(text) - 1);
-      }
-      if (!text[0]) snprintf(text, sizeof text, "Looking at this property...");
-      char wl[3][160];
-      int nl = 0;
-      wrap_text(c, UI_TYPE_BODY, text, d.w - U(s, 70), wl, 3, &nl);
-      UiFont bf = ui_font(c, UI_TYPE_BODY);
-      float ty = d.y + U(s, 6);
-      for (int li = 0; li < nl; li++) {
-        ui_text_in(c, ui_rect(d.x + U(s, 66), ty, d.w, bf.line), UI_TYPE_BODY, t->text_secondary, wl[li], 0);
-        ty += bf.line;
-      }
-      UiRect bb = ui_rect(d.x + d.w - U(s, 200), d.y + d.h - U(s, 48), U(s, 200), U(s, 44));
-      const char *label = T->state == 1 ? "Build here" : T->state == 2 ? "Already purchased" : "Not enough money";
-      if (ui_button(c, ui_id("fe.world.build"), bb, label, T->state == 1 ? UI_ICON_CHEV : UI_ICON_NONE, UI_BTN_PRIMARY, T->state == 1 ? 0 : UI_DISABLED))
-        push_act(acts, max, &n, FE_A_TAG, i);
-      y += detail_h;
-      g_layout.ok = bb;
-    }
   }
-  ui_vscroll_end(c);
+  uid_line(ui_drawer(c), footer.x, footer.y, footer.x + footer.w, footer.y, U(s, 1), t->divider);
+  if (sel >= 0) {
+    const FeTag *T = &W->tag[sel];
+    g_layout.world_selected = sel;
+    g_layout.world_state = T->state;
+    char text[256] = "";
+    for (int li = 0; li < T->n_detail; li++) {
+      const char *part = T->detail[li];
+      while (*part == ' ') part++;
+      strncat(text, part, sizeof text - strlen(text) - 1);
+      strncat(text, " ", sizeof text - strlen(text) - 1);
+    }
+    if (!text[0]) snprintf(text, sizeof text, "%s. %s", T->feature, T->info[0] ? T->info : "Loading property details...");
+    ui_text_fit(c, ui_rect(footer.x, footer.y + U(s, 8), footer.w, U(s, 24)), UI_TYPE_HEADING, t->text_primary, T->name, 0);
+    char wrapped[12][160]; int nl = 0;
+    wrap_text(c, UI_TYPE_CAPTION, text, footer.w - U(s, 4), wrapped, 12, &nl);
+    UiFont df = ui_font(c, UI_TYPE_CAPTION);
+    UiRect detail = ui_rect(footer.x, footer.y + U(s, 34), footer.w, U(s, 58));
+    float offset = ui_vscroll_begin(c, ui_id("fe.world.details"), detail, nl * df.line, df.line);
+    for (int li = 0; li < nl; li++) ui_text_in(c, ui_rect(detail.x, detail.y + offset + li * df.line, detail.w, df.line), UI_TYPE_CAPTION, t->text_secondary, wrapped[li], 0);
+    ui_vscroll_end(c);
+    UiRect bb = ui_rect(footer.x + footer.w - U(s, 220), footer.y + footer.h - U(s, 46), U(s, 220), U(s, 44));
+    const char *label = T->state == 1 ? "Build here" : T->state == 2 ? "Already purchased" : "Not enough money";
+    if (ui_button(c, ui_id("fe.world.build"), bb, label, T->state == 1 ? UI_ICON_CHEV : UI_ICON_NONE, UI_BTN_PRIMARY, T->state == 1 ? 0 : UI_DISABLED))
+      push_act(acts, max, &n, FE_A_TAG, sel);
+    g_layout.ok = bb;
+  } else {
+    ui_text_fit(c, ui_rect(footer.x, footer.y + U(s, 25), footer.w, U(s, 32)), UI_TYPE_BODY, t->text_secondary, "Select a property to inspect its details and price.", 0);
+  }
   if (pin_hit >= 0) clicked_row = pin_hit;
   float *lastp = ui_state(c, ui_id("fe.world.sent"));   // when the pointer was last sent to the selected tag (ms)
   double now = ui_now(c);
@@ -765,6 +781,10 @@ static int draw_pro(Scene *s, const FeSnap *snap, SDL_Texture *const *art, FeAct
   g_layout.ok = ok;
   if (ui_button(c, ui_id("fe.list.ok"), ok, "Pick this pro", UI_ICON_CHEV, UI_BTN_PRIMARY, P->has_info ? 0 : UI_DISABLED))
     push_act(acts, max, &n, FE_A_OK, 0);
+  UiRect del = ui_rect(ok.x - U(s, 14) - U(s, 150), ok.y, U(s, 150), bh);
+  g_layout.del = del;
+  if (ui_button(c, ui_id("fe.list.del"), del, "Delete", UI_ICON_TRASH, UI_BTN_PILL, P->has_info ? 0 : UI_DISABLED))
+    push_act(acts, max, &n, FE_A_DELETE, 0);
   return n;
 }
 
@@ -923,6 +943,7 @@ int ui_frontend_draw(UiCtx *c, const FeSnap *snap, SDL_Texture *const *art, FeAc
   Scene s;
   scene_init(&s, c);
   memset(&g_layout, 0, sizeof g_layout);
+  g_layout.world_selected = -1;
   switch (snap->screen) {
     case FE_TITLE: return draw_title(&s, snap, art, acts, max);
     case FE_DIFFICULTY: return draw_difficulty(&s, snap, art, acts, max);

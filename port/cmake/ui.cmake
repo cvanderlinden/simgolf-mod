@@ -26,13 +26,16 @@ target_sources(golf PRIVATE src/port/options_frosted.c)
 target_sources(golf PRIVATE src/port/reports_frosted.c src/port/reports_game.c)
 
 add_executable(ui_tests "${CMAKE_SOURCE_DIR}/../tests/ui/test_ui.c" ${SIMGOLF_UI_PLAIN} third_party/tomlc99/toml.c)
+add_executable(ui_text_tests "${CMAKE_SOURCE_DIR}/../tests/ui/test_text.c" src/port/ui/ui_text.c)
 add_executable(ui_gallery src/port/ui/ui_gallery.c ${SIMGOLF_UI_PLAIN} ${SIMGOLF_UI_SDL} third_party/tomlc99/toml.c)
-foreach(t ui_tests ui_gallery)
+foreach(t ui_tests ui_gallery ui_text_tests)
   target_include_directories(${t} PRIVATE src third_party third_party/stb src/compat/msvc "${SIMGOLF_SDL2}/include")
   target_compile_definitions(${t} PRIVATE _CRT_SECURE_NO_WARNINGS _CRT_NONSTDC_NO_WARNINGS _USE_MATH_DEFINES)
   target_compile_options(${t} PRIVATE $<$<COMPILE_LANGUAGE:C>:/clang:-std=gnu11> -Wno-unused-function)
 endforeach()
 target_link_libraries(ui_gallery PRIVATE "${SIMGOLF_SDL2}/lib/x86/SDL2.lib")
+target_link_libraries(ui_text_tests PRIVATE "${SIMGOLF_SDL2}/lib/x86/SDL2.lib")
+target_compile_options(ui_text_tests PRIVATE /O2)
 set_target_properties(ui_gallery PROPERTIES WIN32_EXECUTABLE FALSE)
 
 # The tokens next to the exe (ui/frosted_mint.toml), re-copied when edited.

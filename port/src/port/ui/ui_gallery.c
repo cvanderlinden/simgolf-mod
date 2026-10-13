@@ -824,11 +824,10 @@ static void fe_demo(FeSnap *s) {
     s->fatigue[i] = 1 + i;
   }
   FeWorld *W = &s->world;
-  static const char *const names[FE_TAGS] = {"San Diego", "Wales", "Jamaica", "Florida", "Ireland", "Phoenix", "Northeast", "Carolina",
-                                             "Spain", "Nova Scotia", "Hawaii", "Monterey", "Rocky Mtns.", "Las Vegas", "Oahu", "Scotland"};
-  static const char *const feat[FE_TAGS] = {"Dolphins", "Stonehenge", "Scenic Statues", "Free Pro Shop", "Leprechauns", "Free Spa", "Civil War Battlefield",
-                                            "Free Putting Green", "Scenic Vineyards", "Scenic Lighthouse", "Scenic Waterfall", "Scenic Cypress", "Free Hotel",
-                                            "Fun, Fun, Fun", "Japanese Garden", "Free Castle"};
+  static const char *const names[FE_TAGS] = {"Monterey", "San Diego", "Rocky Mtns.", "Las Vegas", "Phoenix", "Hawaii", "Oahu", "Nova Scotia",
+                                             "Northeast", "Carolina", "Ireland", "Scotland", "Wales", "Spain", "Florida", "Jamaica"};
+  static const char *const feat[FE_TAGS] = {"Scenic Cypress", "Dolphins", "Free Hotel", "Fun, Fun, Fun", "Free Spa", "Scenic Waterfall", "Japanese Garden", "Scenic Lighthouse",
+                                            "Civil War Battlefield", "Free Putting Green", "Leprechauns", "Free Castle", "Stonehenge", "Scenic Vineyards", "Free Pro Shop", "Scenic Statues"};
   W->n = FE_TAGS;
   W->hover = -1;
   W->difficulty = 0;
@@ -1060,6 +1059,20 @@ static void rp_demo_text(RpSnap *s, int x, int y, int align, int col, const char
 }
 
 static void pages_demo(RpSnap *s, int kind) {
+  if (kind == RP_PHOTO) {   // task-105: the accomplishment board, two photos, the newest just won with points to follow
+    memset(s, 0, sizeof *s);
+    s->magic = RP_MAGIC, s->kind = kind;
+    s->ext[1] = 3, s->ext[2] = 1, s->ext[3] = 2, s->ext[5] = 1;
+    static const struct { int id, x, y; const char *name, *cap; } ph[2] = {{0, 20, 0x1bb - 0xa6, "1st Challenge Hole", "Dolphin Coast MC 2 March 2001"},
+                                                                          {3, 535, 0x1ad - 0xa6, "1st Tournament", "Dolphin Coast MC 6 March 2001"}};
+    for (int i = 0; i < 2; i++) {
+      RpItem *it = &s->it[s->n++];
+      it->type = RP_IT_RECT, it->x = (int16_t)ph[i].x, it->y = (int16_t)ph[i].y, it->w = 200, it->h = 160, it->art = (uint8_t)ph[i].id;
+      snprintf(it->s, sizeof it->s, "%s", ph[i].name);
+      rp_demo_text(s, ph[i].x, ph[i].y + 0xa6, RP_AL_LEFT, 0x2108, ph[i].cap);
+    }
+    return;
+  }
   if (kind == RP_SKILLS) {   // task-102: the pro's ten skill points, three spent
     static const char *const nm[10] = {"Power Hitter", "Long Driver", "Accurate Driver", "Accurate Irons", "Accurate Putter",
                                        "Draw Shot (R to L)", "Fade Shot (L to R)", "High Backspin Shot", "Recovery Skills", "Luck"};
@@ -1067,7 +1080,7 @@ static void pages_demo(RpSnap *s, int kind) {
     s->magic = RP_MAGIC, s->kind = kind;
     snprintf(s->title, sizeof s->title, "Gary Golf");
     snprintf(s->bio, sizeof s->bio, "Before you play your course you may customize your character by improving his or her golf skills. You can also win additional skill points for each accomplishment added to your trophy.");
-    s->ext[1] = 10, s->ext[2] = 7, s->ext[3] = 200;
+    s->ext[1] = 10, s->ext[2] = 7, s->ext[3] = 200, s->ext[4] = -1;
     for (int i = 0; i < 10; i++) {
       RpItem *it = &s->it[s->n++];
       it->type = RP_IT_TEXT, it->x = (int16_t)i, it->y = (int16_t)(i == 0 ? 2 : i == 4 ? 1 : 0);
@@ -1135,10 +1148,10 @@ static void pages_demo(RpSnap *s, int kind) {
 int ui_pages_raw_data(void);
 
 static int page_pages(Page *p, const char *out) {
-  static const struct { int kind; const char *name; } pages[4] = {{RP_PROFILE, "pages-profile"}, {RP_TRACTS, "pages-tracts"}, {-RP_PROFILE, "pages-pro-create"}, {RP_SKILLS, "pages-skills"}};
+  static const struct { int kind; const char *name; } pages[5] = {{RP_PROFILE, "pages-profile"}, {RP_TRACTS, "pages-tracts"}, {-RP_PROFILE, "pages-pro-create"}, {RP_SKILLS, "pages-skills"}, {RP_PHOTO, "pages-board"}};
   static RpSnap snap;
   RpAction acts[8];
-  for (int pi = 0; pi < 4; pi++) {
+  for (int pi = 0; pi < 5; pi++) {
     pages_demo(&snap, pages[pi].kind);
     for (int f = 0; f < 4; f++) {
       begin_page(p, 90000.0 + pi * 5000 + f * 400);

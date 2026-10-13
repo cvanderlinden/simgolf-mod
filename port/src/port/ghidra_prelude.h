@@ -398,6 +398,10 @@ int rp_end(int v);              // the screen is leaving with v: closes the nati
 // task-102 (golf.pages.json): the pro's skill points screen (FUN_0045f0f0) as a native page
 void rp_skills(char *name, int points, int who, int x0);   // the screen opens (not for its draw-only call, points -1)
 int rp_skills_frosted(void);    // the native page will show it (FUN_004065c0 then leaves out golf's hint box)
+void rp_photo(int id, int x, int y);   // task-105: golf pinned accomplishment id's photo at x,y (200x160) on its board
+void rp_photo_blit(void *source, int target, int x, int y, int id); // task-105: safe native scratch blit, original browser blit
+int rp_photo_limit(int vertical); // task-105: the actual source surface extent less the photo size; original when disabled
+void rp_board_wait(int n);      // task-105: the board's waits (FUN_0045bf80(n,0)); the turns' waits go while the native page is up
 void rp_pace(void);             // a task-73 page's wait between turns (golf's 50 ms, none while the native page is up)
 
 // task-32 (src/port/golf/frontend_hooks.c, frontend_game.c): the Frosted Mint

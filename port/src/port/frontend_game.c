@@ -52,6 +52,7 @@ int FUN_004049d0(char *s, int x, int y, uint32_t col);
 int FUN_00404ad0(char *s, int x, int y, uint32_t col);
 int FUN_0045ae70(void);   // a key is waiting
 int FUN_0045ae30(void);   // takes the special key (VK code)
+int FUN_0045ae50(void);   // takes the character key
 
 #define PROPERTY_TABLE 0x4e3dc0   // the 16 emblem positions of the property screen (short x, short y)
 #define SPRITE_EMBLEM 0x53c570    // golf's property emblems: sprite (theme * 4 + state), 0x2c each
@@ -70,6 +71,7 @@ static int g_log = -1;
 static int g_champ;         // the difficulty screen belongs to the championship flow
 static unsigned char g_art_done[FE_ART_MAX];
 static int g_last_screen;
+static int g_world_active;
 
 // the click injector
 static int g_inj, g_inj_x, g_inj_y, g_inj_stage, g_inj_wait, g_inj_click;
@@ -269,6 +271,33 @@ static void inj_step(void) {
   g_inj_stage++;
 }
 
+// Modal screens can return on DOWN before another heartbeat releases it.
+void fe_world_end(void) {
+  if (g_inj && g_inj_click && g_inj_stage == 2) sdl_button(g_inj_x, g_inj_y, 0);
+  g_inj = 0;
+  fef_set_injecting(0);
+  if (g_world_active && g_log) fprintf(stderr, "frontend: world closed\n");
+  g_world_active = 0;
+  g_on = 0;
+  g_last_screen = FE_NONE;
+  g_snap.screen = FE_NONE;
+  g_snap.magic = FE_MAGIC;
+  g_snap.serial = ++g_serial;
+  fef_publish(&g_snap);   // modal exit must remove the renderer's last map snapshot immediately
+  FeAction stale;
+  while (fef_take_action(&stale)) {}   // a queued map hover/click must not reopen it over a report
+}
+
+// Called at the original theme loop's authoritative keyboard poll.
+int fe_theme_key_ready(void) {
+  int ready = FUN_0045ae70();
+  if (!fef_enabled() || !ready) return ready;
+  int key = FUN_0045ae30();
+  FUN_0045ae50();
+  if (key == 0x1b && !g_inj) inj_start(0x267, 0x22b, 1);
+  return 0;
+}
+
 // ------------------------------------------------------------------ the property screen
 
 // What the original draws while it loops over its 16 property tags (index
@@ -429,6 +458,34 @@ static void draw_emblem(int bx, int by, void *user) {
   FUN_00473e60((void *)(uintptr_t)(SPRITE_EMBLEM + (uintptr_t)(intptr_t)user * 0x2c), G32(0x4c1570), bx + 8, by + 8, 0);
 }
 
+// Once per captured source globe, not per frame. The original land mask and projection stay at exactly the same
+// pixels, so the game's recorded pin coordinates remain authoritative. Only the globe's material changes.
+static void matte_map_globe(uint32_t *px, int w, int h) {
+  float cx = (w - 1) * 0.5f, cy = (h - 1) * 0.5f, rad = fminf(w, h) * 0.5f;
+  for (int y = 0; y < h; y++)
+    for (int x = 0; x < w; x++) {
+      uint32_t old = px[y * w + x];
+      float nx = (x - cx) / rad, ny = (y - cy) / rad, rr = nx * nx + ny * ny;
+      if (rr >= 1 || !(old >> 24)) { px[y * w + x] = 0; continue; }
+      int r = (old >> 16) & 255, g = (old >> 8) & 255, b = old & 255;
+      int land = g > b * 0.88f && g > r * 1.04f && g > 45;
+      float nz = sqrtf(1 - rr), light = fmaxf(0, -nx * 0.35f - ny * 0.42f + nz * 0.72f);
+      float shade = 0.77f + 0.23f * light;
+      // Staggered shallow dimples, softened and compressed near the silhouette. No halo or specular glow.
+      int row = (int)floorf(ny / 0.095f + 0.5f);
+      float dx = nx / 0.10f - (row & 1) * 0.5f;
+      dx = (dx - floorf(dx + 0.5f)) * 0.10f;
+      float dy = ny - row * 0.095f;
+      float crater = sqrtf(dx * dx + dy * dy) / (0.026f + 0.012f * nz);
+      float relief = crater < 1 ? (1 - crater) * (dy < 0 ? -12.0f : 7.0f) * nz : 0;
+      int red = (int)((land ? 120 : 247) * shade + relief);
+      int green = (int)((land ? 185 : 246) * shade + relief);
+      int blue = (int)((land ? 164 : 237) * shade + relief);
+      uint32_t alpha = old & 0xff000000u;
+      px[y * w + x] = alpha | (uint32_t)red << 16 | (uint32_t)green << 8 | (uint32_t)blue;
+    }
+}
+
 static void world_begin(void) {
   memset(g_wrec, 0, sizeof g_wrec);
   g_n_wglob = 0;
@@ -438,6 +495,9 @@ static void world_begin(void) {
     int w = 0, h = 0;
     uint32_t *px = grab_circle(201, 308, 196, &w, &h);
     if (px) {
+      // the maintainer: the golf-ball globe did not read as a golf ball; golf's own globe by default, [ui] map_globe=ball opts in
+      const char *mg = mods_get("ui.map_globe");
+      if (mg && !strcmp(mg, "ball")) matte_map_globe(px, w, h);
       fef_publish_art(FE_ART_GLOBE, px, w, h);
       free(px);
       g_art_done[FE_ART_GLOBE] = 1;
@@ -509,6 +569,7 @@ static void read_world(void) {
   W->n = FE_TAGS;
   W->hover = g_w_hover;
   W->sandbox = (G32(0x59e7b8) & 0x1000000) != 0;
+  { const char *mi = mods_get("ui.map_icons"); W->medallions = mi && !strcmp(mi, "medallions"); }
   int diff = G32(0x822c88);
   W->difficulty = diff >= 0 && diff < 4 ? diff : -1;
   W->can_refresh = 1;
@@ -765,8 +826,10 @@ static int action_point(int screen, const FeAction *a, int *x, int *y) {
   if (screen == FE_THEME) {
     switch (a->kind) {
       case FE_A_ROW: *x = 150; *y = 0x5c + 0x20 * a->arg + 12; return a->arg >= 0 && a->arg < FE_THEMES;   // the row's name
-      case FE_A_OK: *x = 0x267; *y = 0x22b; return 1;
-      case FE_A_BACK: *x = 0x2ed; *y = 0x22c; return 1;
+      // Rows already update the selected theme. Back keeps that selection;
+      // the original Cancel disc would silently replace it with Standard.
+      case FE_A_OK:
+      case FE_A_BACK: *x = 0x267; *y = 0x22b; return 1;
       default: return 0;
     }
   }
@@ -775,7 +838,7 @@ static int action_point(int screen, const FeAction *a, int *x, int *y) {
       case FE_A_ROW: *x = 336; *y = 0x74 + 16 * a->arg + 8; return a->arg >= 0 && a->arg < FE_ROWS;
       case FE_A_OK: *x = 0x279; *y = 0x22b; return 1;
       case FE_A_BACK: *x = 0x301; *y = 0x22c; return 1;
-      case FE_A_DELETE: *x = 0x2c0; *y = 0x22b; return screen == FE_LOAD;
+      case FE_A_DELETE: *x = 0x2c0; *y = 0x22b; return 1;
       case FE_A_SCROLL: *x = 0x310; *y = a->arg < 0 ? 0x78 : 400; return 1;   // golf's scroll arrows: 4 rows a click
       default: return 0;
     }
@@ -947,9 +1010,21 @@ void fe_base(int screen) {
 
 void fe_frame(int screen) {
   if (g_log < 0) g_log = getenv("SIMGOLF_FRONTEND_LOG") != NULL;
+  if (screen == FE_WORLD && !g_world_active) {
+    g_world_active = 1;
+    if (g_log) fprintf(stderr, "frontend: world opened in_game %d\n", G32(IN_GAME) != 0);
+  }
   g_on = fef_enabled();
   dlgf_enabled();   // task-27: registers the dialogs layer (after this one, so it draws over the screen) early, a dialog on a front-end screen needs it up
-  if (!g_on) return;
+  if (!g_on) {
+    // The in-game map keeps its original presentation, even with the new HUD.
+    // Its Escape route must not depend on the title-screen appearance setting.
+    if (screen == FE_WORLD && G32(IN_GAME)) {
+      if (!g_inj && FUN_0045ae70() && FUN_0045ae30() == 0x1b) inj_start(768, 557, 1);
+      inj_step();
+    }
+    return;
+  }
   if (screen != g_last_screen) {
     g_last_screen = screen;
     if (g_log) fprintf(stderr, "frontend: screen %d\n", screen);

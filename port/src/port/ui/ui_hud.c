@@ -5,6 +5,7 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 // Original 800x600 click points (HUD_DISPATCH.md 2.2, 2.3).
@@ -350,6 +351,8 @@ static float g_tile_wmul = 1;   // width of the compact tiles (people_tray widen
 static void people_log(const char *what, UiRect r);
 static int mini_tile(UiCtx *c, uint32_t id, UiRect r, const Tile *t, int flags, const char *tip) {
   if (t->labelled && g_s && (g_s->employee_overlay || g_s->dock_mode == 2) && (!strcmp(t->name, "Fire") || !strcmp(t->name, "Move") || !strcmp(t->name, "Rename") || !strcmp(t->name, "Hire")))
+    people_log(t->name, r);
+  else if (t->labelled && (!strcmp(t->name, "Skills") || !strcmp(t->name, "Create pro")))   // task-102b: the Your pro tiles, for the tests
     people_log(t->name, r);
   if (t->labelled) return ui_tile_mini_label(c, id, r, t->icon, t->name, flags, tip);
   return ui_tile_mini(c, id, r, t->art, t->icon, flags, tip);
@@ -1943,6 +1946,14 @@ static void place_panel(UiCtx *c, UiHud *h, const HudSnap *s, SDL_Texture *const
   ui_text_in(c, ui_rect(x + ui_s(c, 2), y, title_w, segh), UI_TYPE_HEADING, t->text_primary, title, 0);
   UiRect rr = ui_rect(r.x + r.w - pad - rw, y, rw, segh);
   uint32_t rid = ui_id("hud.place.rotate");
+  if (club && getenv("SIMGOLF_FRONTEND_LOG")) {
+    static int old_x = -1, old_y = -1;
+    int rx = (int)(rr.x + rr.w / 2), ry = (int)(rr.y + rr.h / 2);
+    if (rx != old_x || ry != old_y) {
+      old_x = rx, old_y = ry;
+      fprintf(stderr, "hud: clubhouse rotate at %d,%d target %.0fx%.0f\n", rx, ry, scr.w, scr.h);
+    }
+  }
   if (ui_button(c, rid, rr, k_rot_label, UI_ICON_ROTR, UI_BTN_PILL, 0)) act(a, (HudAction){HUD_ACT_KEY, 0, 0, 0, 9});
   ui_tooltip(c, rid, rr, "Rotate what you are placing (the Tab key does the same)");
   y += segh + ui_s(c, 8);

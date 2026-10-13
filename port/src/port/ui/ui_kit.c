@@ -281,14 +281,8 @@ void ui_text_fit(UiCtx *c, UiRect r, int style, UiColor col, const char *s, floa
   }
   char buf[256];
   float ell = uit_measure(&c->t, f.weight, f.px, "\xE2\x80\xA6", f.tracking);
-  int n = (int)strlen(s);
-  if (n > 250) n = 250;
-  while (n > 0) {
-    memcpy(buf, s, (size_t)n);
-    buf[n] = 0;
-    if (uit_measure(&c->t, f.weight, f.px, buf, f.tracking) + ell <= r.w) break;
-    n--;
-  }
+  int n = uit_prefix(&c->t, f.weight, f.px, s, f.tracking, r.w, 250, ell);
+  memcpy(buf, s, (size_t)n);
   while (n > 0 && buf[n - 1] == ' ') n--;
   memcpy(buf + n, "\xE2\x80\xA6", 4);
   ui_text_in(c, r, style, col, buf, align);

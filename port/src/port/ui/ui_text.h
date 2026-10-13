@@ -57,3 +57,6 @@ void uit_metrics(UiText *t, int weight, float px, float *ascent, float *descent)
 float uit_draw(UiText *t, float x, float y, int weight, float px, const char *s, float tracking, UiColor c);
 // The longest prefix of s (in bytes, at a space when there is one) that fits in max_w.
 int uit_fit(UiText *t, int weight, float px, const char *s, float tracking, float max_w);
+// Longest fitting prefix at a complete character boundary, up to max_bytes.
+// Unlike wrapping, scans all eligible prefixes (tracking can be negative).
+int uit_prefix(UiText *t, int weight, float px, const char *s, float tracking, float max_w, int max_bytes, float suffix_w);
