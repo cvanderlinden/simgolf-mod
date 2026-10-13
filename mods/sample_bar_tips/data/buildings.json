@@ -1,0 +1,4 @@
+{
+  "$schema": "../../../data/tables/buildings.json",
+  "add": {"snack_bar.income": 1}
+}

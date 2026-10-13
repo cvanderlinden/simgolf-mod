@@ -1,0 +1,16 @@
+# Sample mod for the Mods screen (task-22): needs another mod, so the dependency badge and order show.
+id = "sample_bar_tips"
+name = "Snack Bar Tips"
+version = "0.2.0"
+authors = ["Ann Example", "SimGolf mod team"]
+description = "Golfers tip a little more at the Snack Bar. It builds on Cheap Snack Bar, so that one has to load first; the Mods screen turns it on for you."
+platform = "^1.0"
+game = ">=1.2.0"
+tags = ["economy", "sample"]
+load_after = ["sample_cheap_bar"]
+
+[dependencies]
+sample_cheap_bar = "^1.0"
+
+[touches.data]
+"buildings.snack_bar.income" = "add"

@@ -1,0 +1,13 @@
+# Sample mod for the Mods screen (task-22): needs a library that is not installed, so the missing badge shows.
+id = "sample_fancy_menu"
+name = "Fancy Menu Pack"
+version = "2.0.0"
+authors = ["Cy Example"]
+description = "New dishes for the clubhouse menu. Needs the Menu Library mod, which is not installed, so this sample cannot load until it is."
+platform = "^1.0"
+game = ">=1.2.0"
+tags = ["content", "sample"]
+changes_saves = true
+
+[dependencies]
+menu_library = ">=1.0"

@@ -22,6 +22,7 @@
 #include "port/hd_art.h"
 #include "port/hd_native.h"
 #include "port/host.h"
+#include "port/mods_frosted.h"
 #include "port/runtime.h"
 #include "port/ui/ui_kit.h"
 
@@ -231,6 +232,7 @@ static volatile int g_in_course;   // the course view is showing (render thread)
 static volatile double g_note_until;
 static char g_note_title[64], g_note_line[160];
 static int g_tab;
+static UiRect g_mods_btn;   // the Mods button in the header (the layout log)
 static double g_open_t;
 static int g_paused_by_us;
 
@@ -400,6 +402,7 @@ static void log_layout(int w, int h, const UiRect *close, const UiRect *tabs, in
   PUT("close", close);
   PUT("done", done);
   PUT("reset", reset);
+  PUT("mods", &g_mods_btn);
   for (int i = 0; i < ntabs && o < 1500; i++) {
     char nm[16];
     snprintf(nm, sizeof nm, "tab%d", i);
@@ -503,6 +506,14 @@ static void draw_page(UiCtx *c, int w, int h, double now) {
   (void)tf;
   UiRect closer = ui_rect(in.x + in.w - hh, in.y, hh, hh);
   int do_close = ui_icon_button(c, ui_id("opt.close"), closer, UI_ICON_X, UI_ROUND, "Close (Esc)");
+  {   // task-22: the Mods screen, one click from here (the wrench menu's Options... item is how a running game gets here)
+    UiRect mb = ui_rect(closer.x - ui_s(c, 14) - ui_s(c, 150), in.y, ui_s(c, 150), hh);
+    g_mods_btn = mb;
+    if (ui_button(c, ui_id("opt.mods"), mb, "Mods", UI_ICON_SPARKLE, UI_BTN_PILL, 0)) {
+      modsp_open();
+      do_close = 1;
+    }
+  }
 
   // tabs
   float ty = in.y + hh + ui_s(c, 14);
@@ -762,7 +773,8 @@ static void draw(const HdUiFrame *f, void *user) {
     g_close_req = 0;
   }
   int note = now < g_note_until;
-  if (!g_open && !note) {
+  int mods_open = modsp_is_open();
+  if (!g_open && !note && !mods_open) {
     if (g_ui) ui_skip_frame(g_ui);
     return;
   }
@@ -793,7 +805,8 @@ static void draw(const HdUiFrame *f, void *user) {
         if (k_pages[p].rows[i].type != OT_HEAD) row_value(&k_pages[p].rows[i], g_initial[p][i], sizeof g_initial[p][i]);
   }
   ui_begin(g_ui, f->target, w, h, page_scale(w, h), f->target, now);
-  if (g_open) draw_page(g_ui, w, h, now);
+  if (mods_open) modsp_draw(g_ui, r, w, h, now, g_in_course);
+  else if (g_open) draw_page(g_ui, w, h, now);
   if (note) draw_note(g_ui, now);
   ui_end(g_ui);
 }
@@ -840,6 +853,17 @@ static int input(SDL_Event *e, int course, void *user) {
     SDL_Keycode k = e->key.keysym.sym;
     int down = e->type == SDL_KEYDOWN;
     if (!down) return 0;   // releases go on: a key held when the page opened must not stay down
+    if (modsp_is_open()) {   // task-22: the Mods screen takes every key press while it is up
+      modsp_key(e);
+      return 1;
+    }
+    if (km_event_is(e, "mods_page")) {
+      if (!e->key.repeat) {
+        g_close_req = 1;
+        modsp_open();
+      }
+      return 1;
+    }
     if (g_open && g_listen_a >= 0) {
       listen_key(e);
       return 1;
@@ -871,7 +895,7 @@ static int input(SDL_Event *e, int course, void *user) {
     else if (k == SDLK_END) g_scroll_req = 2000;
     return 1;   // the page takes every key press while it is open
   }
-  if (!g_open || !g_ui) return 0;
+  if ((!g_open && !modsp_is_open()) || !g_ui) return 0;
   UiEvent u = {0};
   int cx = 0, cy = 0;
   switch (e->type) {
@@ -927,7 +951,7 @@ void opt_game_frame(void) {
     labelled = 1;
     memcpy((void *)(uintptr_t)0x4c7c6f, "Options...      ", 16);
   }
-  int open = g_open;
+  int open = g_open || modsp_is_open();
   if (open && !g_paused_by_us) {
     if (!(G32(FLAGS) & 4)) {
       G32(FLAGS) |= 4;

@@ -233,7 +233,7 @@ static int read_touches(ModManifest *m, toml_table_t *t) {
 static const char *const k_known[] = {"id", "name", "version", "description", "authors", "platform", "game",
                                       "load_after", "load_before", "provides", "dependencies",
                                       "optional_dependencies", "incompatibilities", "settings", "patch",
-                                      "touches", "homepage", "license", NULL};
+                                      "touches", "homepage", "license", "icon", "tags", "links", "changes_saves", NULL};
 
 int manifest_parse_text(ModManifest *m, char *text, const char *dir, int builtin) {
   memset(m, 0, sizeof *m);
@@ -253,6 +253,21 @@ int manifest_parse_text(ModManifest *m, char *text, const char *dir, int builtin
   m->description = str_in(t, "description");
   m->platform = str_in(t, "platform");
   m->game = str_in(t, "game");
+  m->icon = str_in(t, "icon");
+  m->homepage = str_in(t, "homepage");
+  {
+    toml_datum_t cs = toml_bool_in(t, "changes_saves");
+    m->changes_saves = cs.ok && cs.u.b;
+    toml_table_t *links = toml_table_in(t, "links");
+    for (int i = 0; links && toml_key_in(links, i); i++) {
+      char *u = str_in(links, toml_key_in(links, i));
+      if (!u) continue;
+      m->link_names = (char **)realloc(m->link_names, sizeof(char *) * (size_t)(m->nlinks + 1));
+      m->link_urls = (char **)realloc(m->link_urls, sizeof(char *) * (size_t)(m->nlinks + 1));
+      m->link_names[m->nlinks] = mods_strdup(toml_key_in(links, i));
+      m->link_urls[m->nlinks++] = u;
+    }
+  }
   if (!m->platform) m->platform = mods_strdup("*");
   if (!m->game) m->game = mods_strdup("*");
   const char *bad = NULL;
@@ -267,6 +282,7 @@ int manifest_parse_text(ModManifest *m, char *text, const char *dir, int builtin
   else if (!read_id_list(m, t, "load_after", &m->after, &m->nafter)) bad = "load_after must be a list of mod ids";
   else if (!read_id_list(m, t, "load_before", &m->before, &m->nbefore)) bad = "load_before must be a list of mod ids";
   else if (!read_id_list(m, t, "provides", &m->provides, &m->nprovides)) bad = "provides must be a list of ids";
+  else if (!read_id_list(m, t, "tags", &m->tags, &m->ntags)) bad = "tags must be a list of words";
   else if (!read_deps(m, t, "dependencies", &m->deps, &m->ndeps)) bad = "bad [dependencies]";
   else if (!read_deps(m, t, "optional_dependencies", &m->opt, &m->nopt)) bad = "bad [optional_dependencies]";
   else if (!read_deps(m, t, "incompatibilities", &m->incompat, &m->nincompat)) bad = "bad [incompatibilities]";
@@ -335,6 +351,10 @@ static void free_deps(ModDep *a, int n) {
 void manifest_free(ModManifest *m) {
   free(m->id); free(m->name); free(m->version); free(m->description);
   free(m->platform); free(m->game); free(m->dir); free(m->error);
+  free(m->icon); free(m->homepage);
+  free_strs(m->tags, m->ntags);
+  free_strs(m->link_names, m->nlinks);
+  free_strs(m->link_urls, m->nlinks);
   free_strs(m->authors, m->nauthors);
   free_strs(m->after, m->nafter);
   free_strs(m->before, m->nbefore);

@@ -17,6 +17,7 @@
 #include "port/dialogs_frosted.h"
 #include "port/hd_native.h"
 #include "port/host.h"
+#include "port/mods_frosted.h"
 #include "port/options_frosted.h"
 #include "port/runtime.h"
 
@@ -291,9 +292,10 @@ static void draw(const HdUiFrame *f, void *user) {
     }
   }
   free(s);
-  for (int i = 0; i < n; i++)   // the Options pill is the presenter's own: open the page, tell the original nothing
-    if (acts[i].kind == FE_A_OPTIONS) {
-      opt_open();
+  for (int i = 0; i < n; i++)   // the Options and Mods pills are the presenter's own: open the page, tell the original nothing
+    if (acts[i].kind == FE_A_OPTIONS || acts[i].kind == FE_A_MODS) {
+      if (acts[i].kind == FE_A_MODS) modsp_open();
+      else opt_open();
       memmove(&acts[i], &acts[i + 1], sizeof acts[0] * (size_t)(n - i - 1));
       n--;
       i--;

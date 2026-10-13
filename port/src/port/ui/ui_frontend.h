@@ -145,7 +145,8 @@ enum {
   FE_A_OK,
   FE_A_DELETE,
   FE_A_SCROLL,      // list: arg rows down (negative up)
-  FE_A_OPTIONS      // title: open the native Options page (presenter only, never reaches the original)
+  FE_A_OPTIONS,     // title: open the native Options page (presenter only, never reaches the original)
+  FE_A_MODS         // title: open the native Mods screen (presenter only, task-22)
 };
 typedef struct FeAction {
   int kind;

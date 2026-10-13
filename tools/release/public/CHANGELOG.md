@@ -2,6 +2,8 @@
 
 ## 0.1.4 (next release, in the source now)
 
+- New: a Mod Manager (Mods on the start menu, in Options, or Shift+F12): search, sort, filters, load order, profiles, conflict and missing-mod warnings, changes apply on restart
+- The property map legend says "Can't afford" instead of "Too dear"
 - Fixed: the old 2002 menu and loading screen flashed at startup and after choosing a property (Build here). A clean loading card now covers every frame until the new screens are ready
 
 ## 0.1.3 (next release, in the source now)

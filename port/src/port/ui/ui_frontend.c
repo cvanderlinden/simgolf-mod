@@ -235,6 +235,9 @@ static int draw_title(Scene *s, const FeSnap *snap, SDL_Texture *const *art, FeA
   UiRect o = R(s, gx + gw - 118 - 12 - 150, fy, 150, 40);   // task-24: the native Options page (handled by the presenter, not the original)
   g_layout.btn[6] = o;
   if (ui_button(c, ui_id("fe.options"), o, "Options", UI_ICON_GEAR, UI_BTN_PILL, 0)) push_act(acts, max, &n, FE_A_OPTIONS, 0);
+  UiRect md = R(s, gx + gw - 118 - 12 - 150 - 12 - 130, fy, 130, 40);   // task-22: the native Mods screen
+  g_layout.btn[7] = md;
+  if (ui_button(c, ui_id("fe.mods"), md, "Mods", UI_ICON_SPARKLE, UI_BTN_PILL, 0)) push_act(acts, max, &n, FE_A_MODS, 0);
   return n;
 }
 
@@ -415,7 +418,7 @@ static int draw_world(Scene *s, const FeSnap *snap, SDL_Texture *const *art, FeA
 
   // the legend
   {
-    static const struct { const char *label; UiColor col; } L[3] = {{"Available", {242, 181, 58, 255}}, {"Too dear", {154, 165, 159, 255}}, {"Purchased", {217, 88, 59, 255}}};
+    static const struct { const char *label; UiColor col; } L[3] = {{"Available", {242, 181, 58, 255}}, {"Can't afford", {154, 165, 159, 255}}, {"Purchased", {217, 88, 59, 255}}};
     float x = 50;
     for (int i = 0; i < 3; i++) {
       pin_dot(s, s->S.x + U(s, x + 8), s->S.y + U(s, 1038), L[i].col, 0, 0);
@@ -488,7 +491,7 @@ static int draw_world(Scene *s, const FeSnap *snap, SDL_Texture *const *art, FeA
     ui_text_fit(c, ui_rect(tx, rr.y + U(s, 22), tw, U(s, 19)), UI_TYPE_CAPTION, t->text_secondary, line, 0);
     if (price[0]) ui_text_fit(c, ui_rect(rr.x + rr.w - pw - U(s, 8), rr.y, pw, rr.h), UI_TYPE_LABEL,
                             T->state == 0 ? t->text_tertiary : t->text_primary, price, 1);
-    // Too dear/purchased properties are still inspectable; only their purchase button is disabled.
+    // Unaffordable or purchased properties are still inspectable; only their purchase button is disabled.
     if (ui_clicked(c, id)) clicked_row = i;
     g_layout.row[oi] = rr;
     g_layout.row_tag[oi] = i;

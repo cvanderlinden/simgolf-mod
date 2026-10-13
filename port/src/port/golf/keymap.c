@@ -114,6 +114,7 @@ static const Act k_act[] = {
     A("path_view", "Cart path view (what joins the clubhouse)", "This mod", K_STORE, 1, "Y", NONE, SAME),
     A("textures_cycle", "Switch Textures (HD, Pixel HD, Original)", "This mod", K_OPT, 0, "F11", NONE, SAME),
     A("opt_page", "Open the Options page", "This mod", K_OPT, 0, "F12", NONE, SAME),
+    A("mods_page", "Open the Mods screen", "This mod", K_OPT, 0, "Shift+F12", NONE, SAME),
 };
 #define NACT ((int)(sizeof k_act / sizeof k_act[0]))
 

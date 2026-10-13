@@ -105,6 +105,12 @@ typedef struct {
   char **before; int nbefore;   // load_before: these load after this mod
   char **provides; int nprovides;
   ModTouch *touches; int ntouches;
+  // shown by the in-game Mods screen (task-22); all optional
+  char *icon;       // picture inside the folder (default: preview.png when present)
+  char *homepage;
+  char **tags; int ntags;       // categories ("economy", "visual"), lowercase
+  char **link_names; char **link_urls; int nlinks;   // [links] name = "https://..."
+  int changes_saves;            // changes_saves = true: saves made with it need it to load right
   char *error;      // set when the manifest is unusable (the mod cannot load)
   ModDiags warns;   // problems that do not stop it (unknown keys, odd values)
 } ModManifest;

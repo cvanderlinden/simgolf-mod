@@ -218,10 +218,10 @@ the same store. Changing which mods load needs a restart; values change live.
   last to first (`mods_dir(id)` + path), falling back to the game folder;
   register with `mods_touch(id, "asset", path, "replace"|"add")`;
   `mods_winner("asset", path)` names the mod whose file is used.
-- **Mod manager (task-22)**: `modctl_core resolve --json` (or the same C
-  calls: `modset_scan`, `loadorder_read`, `mods_resolve`, `mods_report_json`)
-  gives everything a screen needs; edits go through `loadorder_write`. The
-  bridge command `mods_status` (MCP tool `mods_status`) shows the running state.
+- **Mod manager (task-22, done: docs/modding/MANAGER.md)**: the Mods screen (start menu, Options page, Shift+F12) over
+  `port/src/mods/modmgr.c`, which asks `mods_resolve` for every conflict and dependency and writes
+  `load_order.toml` with `loadorder_write`, like modctl. New optional mod.toml keys it shows: `tags`, `icon`,
+  `homepage`, `[links]`, `changes_saves`.
 - **Modder kit (task-23)**: `modctl new`/`validate` are the start of
   validate/pack; the JSON from `modctl_core` is stable (keys only added).
 

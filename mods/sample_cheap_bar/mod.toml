@@ -1,0 +1,17 @@
+# Sample mod for the Mods screen (task-22): one small data tweak. Off unless a profile lists it.
+id = "sample_cheap_bar"
+name = "Cheap Snack Bar"
+version = "1.0.0"
+authors = ["SimGolf mod team"]
+description = "The Snack Bar costs a third ($5,000 instead of $15,000) and earns a little more per visit. A small sample mod: it only changes numbers in the data tables, so it works with any save."
+platform = "^1.0"
+game = ">=1.2.0"
+tags = ["economy", "sample"]
+homepage = "https://example.com/simgolf-mods/cheap-snack-bar"
+
+[links]
+"Report a problem" = "https://example.com/simgolf-mods/cheap-snack-bar/issues"
+
+[touches.data]
+"buildings.snack_bar.cost" = "set"
+"buildings.snack_bar.income" = "add"

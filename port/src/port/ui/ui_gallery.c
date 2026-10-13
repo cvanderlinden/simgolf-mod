@@ -21,6 +21,7 @@
 #include "port/ui/ui_golfers.h"
 #include "port/ui/ui_hud.h"
 #include "port/ui/ui_kit.h"
+#include "port/ui/ui_mods.h"
 #include "port/reports_frosted.h"
 #include "port/ui/ui_png.h"
 
@@ -1183,6 +1184,84 @@ static void page_dialog(Page *p, const char *out) {
   save_page(p, out, "dialog");
 }
 
+// task-22: the Mods screen over the repo's mods folder (--mods DIR), with a draft that turns the sample mods on
+// so a conflict, a dependency and a missing dependency show.
+static const char *g_mods_dir = "mods";
+static int g_only_mods;   // --only mods: just the Mods pages
+
+static int page_mods(Page *p, const char *out) {
+  const char *running[16];
+  int nrun = 0;
+  {   // what the game "loaded": the default profile's mods
+    ModMgr *probe = modmgr_open(g_mods_dir, NULL, -1);
+    const char *ids[64];
+    nrun = modmgr_list(probe, ids, 16);
+    for (int i = 0; i < nrun; i++) running[i] = strdup(ids[i]);
+    modmgr_close(probe);
+  }
+  ModMgr *m = modmgr_open(g_mods_dir, running, nrun);
+  if (!m || modmgr_count(m) == 0) {
+    printf("FAIL mods page: no mods in %s\n", g_mods_dir);
+    return 1;
+  }
+  char err[160];
+  modmgr_profile_create(m, "my_setup", 1, err, sizeof err);   // a copy of the default, to edit
+  const char *turn_on[] = {"sample_pricey_bar", "sample_cheap_bar", "sample_bar_tips", "sample_fancy_menu"};
+  for (int i = 0; i < 4; i++) {
+    int k = modmgr_find(m, turn_on[i]);
+    if (k >= 0) modmgr_set_enabled(m, k, 1);
+  }
+  ModsUi ui;
+  ui_mods_init(&ui, m);
+  ui.selected = modmgr_find(m, "sample_pricey_bar");
+  ui.view.sort = MM_SORT_RECENT;   // the sample mods are the newest
+  for (int f = 0; f < 4; f++) {
+    begin_page(p, 120000.0 + f * 400);
+    ui_mods_draw(p->ui, &ui, 120000.0 + f * 400);
+    ui_end(p->ui);
+  }
+  save_page(p, out, "mods-list");
+  // filtered: the conflicts chip and a search
+  ui.view.only_conflicts = 1;
+  ui.selected = modmgr_find(m, "sample_fancy_menu");
+  for (int f = 0; f < 4; f++) {
+    begin_page(p, 121000.0 + f * 400);
+    ui_mods_draw(p->ui, &ui, 121000.0 + f * 400);
+    ui_end(p->ui);
+  }
+  save_page(p, out, "mods-conflicts");
+  ui.view.only_conflicts = 0;
+  ui.view.sort = MM_SORT_NAME;
+  snprintf(ui.view.search, sizeof ui.view.search, "bar");
+  ui.selected = modmgr_find(m, "sample_bar_tips");
+  for (int f = 0; f < 4; f++) {
+    begin_page(p, 122000.0 + f * 400);
+    ui_mods_draw(p->ui, &ui, 122000.0 + f * 400);
+    ui_end(p->ui);
+  }
+  save_page(p, out, "mods-search");
+  ui.view.search[0] = 0;
+  ui.dd_open = 1;
+  for (int f = 0; f < 4; f++) {
+    begin_page(p, 123000.0 + f * 400);
+    ui_mods_draw(p->ui, &ui, 123000.0 + f * 400);
+    ui_end(p->ui);
+  }
+  save_page(p, out, "mods-profiles");
+  ui.dd_open = 0;
+  ui.dialog = MUI_DLG_NEW;
+  snprintf(ui.field, sizeof ui.field, "weekend");
+  ui.dlg_copy = 1;
+  for (int f = 0; f < 4; f++) {
+    begin_page(p, 124000.0 + f * 400);
+    ui_mods_draw(p->ui, &ui, 124000.0 + f * 400);
+    ui_end(p->ui);
+  }
+  save_page(p, out, "mods-newprofile");
+  modmgr_close(m);
+  return 0;
+}
+
 int main(int argc, char **argv) {
   const char *out = "evidence/ui-kit", *fonts = "build/native/fonts/plus-jakarta-sans", *tokens = "data/ui/frosted_mint.toml";
   const char *backdrop = NULL, *sizes = "1920x1080,3840x2160", *renderer = "software", *artdir = NULL;
@@ -1194,6 +1273,8 @@ int main(int argc, char **argv) {
     else if (!strcmp(argv[i], "--sizes")) sizes = argv[i + 1];
     else if (!strcmp(argv[i], "--renderer")) renderer = argv[i + 1];
     else if (!strcmp(argv[i], "--faces")) g_old_faces = argv[i + 1];   // mood_<i>.bmp from SIMGOLF_FACES_DUMP
+    else if (!strcmp(argv[i], "--mods")) g_mods_dir = argv[i + 1];
+    else if (!strcmp(argv[i], "--only")) g_only_mods = !strcmp(argv[i + 1], "mods");
     else if (!strcmp(argv[i], "--art")) artdir = argv[i + 1];   // art_<slot>.bmp from SIMGOLF_UI_DUMP_ART
   }
   SDL_SetMainReady();
@@ -1273,22 +1354,25 @@ int main(int argc, char **argv) {
       p.art[i] = at;
     }
     printf("gallery %dx%d on %s, UI scale %.2f\n", w, h, info.name, p.scale);
-    page_hud(&p, out, HUD_JWE, "");
-    page_hud(&p, out, HUD_REGULAR, "-regular");
-    page_messages(&p, out);
-    page_density(&p, out);
-    page_components(&p, out);
-    page_dialog(&p, out);
-    fails += page_golfers(&p, out);
-    page_names(&p, out);
-    page_faces(&p, out);
-    page_zoomout(&p, out);
-    page_contrast(&p, out, 0.75f, "o075");
-    page_contrast(&p, out, 0.85f, "default");
-    page_contrast(&p, out, 1.0f, "task31");
-    fails += page_frontend(&p, out);
-    fails += page_dialogs(&p, out);
-    fails += page_pages(&p, out);
+    if (!g_only_mods) {
+      page_hud(&p, out, HUD_JWE, "");
+      page_hud(&p, out, HUD_REGULAR, "-regular");
+      page_messages(&p, out);
+      page_density(&p, out);
+      page_components(&p, out);
+      page_dialog(&p, out);
+      fails += page_golfers(&p, out);
+      page_names(&p, out);
+      page_faces(&p, out);
+      page_zoomout(&p, out);
+      page_contrast(&p, out, 0.75f, "o075");
+      page_contrast(&p, out, 0.85f, "default");
+      page_contrast(&p, out, 1.0f, "task31");
+      fails += page_frontend(&p, out);
+      fails += page_dialogs(&p, out);
+      fails += page_pages(&p, out);
+    }
+    fails += page_mods(&p, out);
     ui_destroy(p.ui);
     for (int i = 0; i < HUD_ART_MAX; i++)
       if (p.art[i]) SDL_DestroyTexture(p.art[i]);

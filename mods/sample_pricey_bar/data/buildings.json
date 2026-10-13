@@ -1,0 +1,5 @@
+{
+  "$schema": "../../../data/tables/buildings.json",
+  "description": "Money is in $100: 250 is $25,000.",
+  "set": {"snack_bar.cost": 250}
+}

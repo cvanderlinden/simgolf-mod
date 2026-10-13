@@ -1,0 +1,12 @@
+# Sample mod for the Mods screen (task-22): sets the same number as sample_cheap_bar, so a conflict shows.
+id = "sample_pricey_bar"
+name = "Pricey Snack Bar"
+version = "1.1.0"
+authors = ["Bob Example"]
+description = "A premium Snack Bar: it costs $25,000 and earns more per visit. Sets the same price as Cheap Snack Bar, so with both on, the one that loads later wins."
+platform = "^1.0"
+game = ">=1.2.0"
+tags = ["economy", "sample"]
+
+[touches.data]
+"buildings.snack_bar.cost" = "set"
