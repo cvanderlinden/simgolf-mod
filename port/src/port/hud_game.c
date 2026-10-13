@@ -461,7 +461,12 @@ static void pro_action(int what) {
   fprintf(stderr, "hud: pro %s (ready %d)\n", what == HUD_PRO_SKILLS ? "skills" : what == HUD_PRO_PROFILE ? "profile" : "create",
           pro_ready());
   hud_hide_now();
-  if (what == HUD_PRO_PROFILE || what == HUD_PRO_CREATE) pro_profile();
+  if (what == HUD_PRO_PROFILE || what == HUD_PRO_CREATE) {
+    void rp_pro_next(int on);   // reports_game.c: the page says the skill points come next (task-102)
+    rp_pro_next(what == HUD_PRO_CREATE && !pro_ready());
+    pro_profile();
+    rp_pro_next(0);
+  }
   if (what == HUD_PRO_SKILLS || what == HUD_PRO_CREATE) {
     if (!pro_ready()) {
       FUN_004065c0();   // the first setup, exactly as before the first round

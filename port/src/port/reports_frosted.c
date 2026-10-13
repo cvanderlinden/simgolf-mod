@@ -192,25 +192,31 @@ static void draw(const HdUiFrame *f, void *user) {
   int n = ui_reports_draw(g_ui, s, g_tex, acts, 8);
   ui_end(g_ui);
   static int log_layout = -1;
-  static uint32_t logged_kind = ~0u;
+  static uint32_t logged_kind = ~0u, logged_hash;
   if (log_layout < 0) log_layout = getenv("SIMGOLF_REPORTS_LOG") != NULL;
-  if (log_layout && logged_kind != (uint32_t)s->kind) {
-    logged_kind = (uint32_t)s->kind;
+  if (log_layout) {
     RpLayout l;
-    ui_reports_layout(&l);
-    char buf[512];
+    if (s->kind >= RP_PROFILE) ui_pages_layout(&l);
+    else ui_reports_layout(&l);
+    char buf[2048];
     int k = snprintf(buf, sizeof buf, "reports: layout kind %d target %dx%d close %d,%d", s->kind, w, h, (int)l.close_x, (int)l.close_y);
     for (int i = 0; i < l.ntabs && k < (int)sizeof buf - 32; i++) k += snprintf(buf + k, sizeof buf - k, " tab%d %d,%d", i, (int)l.tab_x[i], (int)l.tab_y);
-    fputs(buf, stderr);
-    fputc(10, stderr);
-    fflush(stderr);
+    for (int i = 0; i < l.nctl && k < (int)sizeof buf - 40; i++) k += snprintf(buf + k, sizeof buf - k, " %s %d,%d", l.ctl_name[i], (int)l.ctl_x[i], (int)l.ctl_y[i]);
+    uint32_t hsh = 2166136261u;
+    for (const char *q = buf; *q; q++) hsh = (hsh ^ (uint8_t)*q) * 16777619u;
+    if (logged_kind != (uint32_t)s->kind || (s->kind >= RP_PROFILE && logged_hash != hsh)) {
+      logged_kind = (uint32_t)s->kind, logged_hash = hsh;
+      fputs(buf, stderr);
+      fputc(10, stderr);
+      fflush(stderr);
+    }
   }
   free(s);
   if (n) {
     static int log_on = -1;
     if (log_on < 0) log_on = getenv("SIMGOLF_REPORTS_LOG") != NULL;
     if (log_on)
-      for (int i = 0; i < n; i++) fprintf(stderr, "reports: native action %d arg %d\n", acts[i].kind, acts[i].arg);
+      for (int i = 0; i < n; i++) fprintf(stderr, "reports: native action %d arg %d at %u ms\n", acts[i].kind, acts[i].arg, (unsigned)SDL_GetTicks());
     lock();
     for (int i = 0; i < n && g_qn < QMAX; i++) g_q[g_qn++] = acts[i];
     unlock();

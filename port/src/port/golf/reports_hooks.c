@@ -39,5 +39,9 @@ int rp_esc(void) { return 0; }
 void rp_wfix(int on) { (void)on; }
 int rp_warg(int flags, int parent) { (void)parent; return flags; }
 int rp_end(int v) { return v; }
+// task-102: the skill points screen
+void rp_skills(char *name, int points, int who, int x0) { (void)name, (void)points, (void)who, (void)x0; }
+int rp_skills_frosted(void) { return 0; }
+void rp_pace(void) { FUN_0045bf80(5, 0); }
 
 #endif

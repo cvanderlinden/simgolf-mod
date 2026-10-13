@@ -5,6 +5,7 @@
 Playability fixes: everything from the original game reachable in the new interface.
 
 - Fixed: no way to create your pro or spend skill points in the new HUD. A new career now opens pro creation, People has a "Your pro" tab (Create pro, Profile, Skills, Practice, Match, Tournament), and accomplishments offer the three skill points again
+- Fixed: the pro profile at a career start was slow (about a second per click) and led to the tiny old skill screen. It is now "Create your pro" with clear steps, clicks register at once, and a new skill points page has big - and + buttons and a points counter
 - Fixed: the female head crash from the official 1.03 patch, ported
 - Fixed: dark see-through blobs at cliff corners with the HD art (rock chips drawn as shadows)
 - Fixed: a dark wedge behind waterfalls; golf's own waterfall spray is back

@@ -36,6 +36,7 @@ enum {
   RP_PROFILE = 30,   // golfer profile page (the editor, FUN_004385d0)
   RP_PHOTO = 31,     // snapshot popup, the bulletin board of great shots (FUN_0046e810)
   RP_TRACTS = 32,    // year-end land purchase map (FUN_004587a0)
+  RP_SKILLS = 33,    // task-102: the pro's skill points screen (FUN_0045f0f0)
 };
 
 enum { RP_AL_LEFT = 0, RP_AL_CENTRE = 1, RP_AL_RIGHT = 2 };
@@ -82,8 +83,12 @@ typedef struct {
   float close_x, close_y;
   int ntabs;
   float tab_x[8], tab_y;
+  int nctl;   // the profile page's controls (chips, buttons): centre in target pixels, for the log and the tests
+  char ctl_name[48][14];
+  float ctl_x[48], ctl_y[48];
 } RpLayout;
 void ui_reports_layout(RpLayout *out);
+void ui_pages_layout(RpLayout *out);   // the task-73 pages' controls (ui_pages.c)
 // The original page rectangle the panel maps (for tests and the gallery).
 void ui_reports_bounds(const RpSnap *s, float *x0, float *y0, float *x1, float *y1);
 

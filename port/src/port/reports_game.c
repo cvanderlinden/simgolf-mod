@@ -115,22 +115,55 @@ static void sdl_button(int x, int y, int down) {
   SDL_PushEvent(&e);
 }
 
-// One step per frame: move, press, release.
+// task-102: the clicks a page asks for while one is still being sent wait here (they used to be dropped)
+static int g_iq[8], g_iq_btn[8], g_iqn;
+static int g_log_on(void) { return g_log > 0; }
+
+static void inj_start(int arg, int btn) {
+  g_inj = 1;
+  g_inj_btn = btn;
+  g_inj_x = arg & 0xffff;
+  g_inj_y = (arg >> 16) & 0xffff;
+  g_inj_stage = g_inj_wait = 0;
+  if (g_log_on()) fprintf(stderr, "reports: click at the original's %d,%d\n", g_inj_x, g_inj_y);
+}
+
+// One step per frame: move, press, release. The task-73 pages' loops turn only about ten times a second (golf waits
+// 2 x 50 ms in each turn, FUN_0045bf80(5,0)), so for them each step goes in the very next turn: golf reads the pointer
+// at the top of a turn, so the move goes in one turn, press and release in the next (task-102: it took 9 turns, near a second).
 static void inj_step(void) {
   if (!g_inj) return;
   if (g_inj_wait > 0) {
     g_inj_wait--;
     return;
   }
+  int page = g_kind >= RP_PROFILE;
+  if (g_log_on() && page) fprintf(stderr, "reports: click step %d at %u ms\n", g_inj_stage, (unsigned)SDL_GetTicks());
   switch (g_inj_stage) {
-    case 0: sdl_motion(g_inj_x, g_inj_y); g_inj_wait = 1; break;
-    case 1: sdl_button(g_inj_x, g_inj_y, 1); g_inj_wait = 2; break;
-    case 2: sdl_button(g_inj_x, g_inj_y, 0); g_inj_wait = 1; break;
-    case 3:   // task-73 pages: park golf's pointer where it hovers over nothing (no tooltip in the kept pictures)
-      if (g_kind >= RP_PROFILE) sdl_motion(690, 160);
-      g_inj_wait = 1;
+    case 0: sdl_motion(g_inj_x, g_inj_y); g_inj_wait = !page; break;
+    case 1:
+      sdl_button(g_inj_x, g_inj_y, 1);
+      g_inj_wait = page ? 0 : 2;
+      if (page) {   // golf takes the click once the button is up: both in the same turn (measured: one turn earlier)
+        sdl_button(g_inj_x, g_inj_y, 0);
+        g_inj_stage++;
+      }
       break;
-    default: g_inj = 0; return;
+    case 2: sdl_button(g_inj_x, g_inj_y, 0); g_inj_wait = !page; break;
+    case 3:   // task-73 pages: park golf's pointer where it hovers over nothing (no tooltip in the kept pictures)
+      if (page && !g_iqn) sdl_motion(690, 160);
+      g_inj_wait = !page;
+      break;
+    default:
+      g_inj = 0;
+      if (g_iqn) {   // the next click the page asked for
+        int arg = g_iq[0], btn = g_iq_btn[0];
+        memmove(g_iq, g_iq + 1, sizeof g_iq[0] * (size_t)(g_iqn - 1));
+        memmove(g_iq_btn, g_iq_btn + 1, sizeof g_iq_btn[0] * (size_t)(g_iqn - 1));
+        g_iqn--;
+        inj_start(arg, btn);
+      }
+      return;
   }
   g_inj_stage++;
 }
@@ -181,6 +214,7 @@ void rp_begin(int kind) {
   g_kind = kind;
   g_closing = 0;
   g_inj = 0;
+  g_iqn = 0;
   g_col = 0;
   g_dirty = 1;
   memset(&g_snap, 0, offsetof(RpSnap, it));
@@ -545,7 +579,91 @@ void rp_edit(void) {
   g_in_edit = 0;
 }
 
+// SIMGOLF_REPORTS_LOG: once a second, how often the page's loop turns and what rp_frame costs of that (card task-102)
+static void frame_stats(double t0, double t1) {
+  static double last_end, win_start, cost;
+  static int n;
+  if (g_log <= 0) return;
+  if (t0 - last_end > 500 || win_start == 0) win_start = t0, n = 0, cost = 0;   // a new page or a long wait: a new window
+  last_end = t1;
+  n++;
+  cost += t1 - t0;
+  if (t1 - win_start >= 1000) {
+    fprintf(stderr, "reports: kind %d loop %.1f/s, rp_frame %.2f ms each\n", g_kind, n * 1000.0 / (t1 - win_start), cost / n);
+    fflush(stderr);
+    win_start = t1, n = 0, cost = 0;
+  }
+}
+
+// hud_game.c: the profile page is the first step of the pro's creation (golf's skill setup follows it)
+static int g_pro_next;
+void rp_pro_next(int on) { g_pro_next = on; }
+
+// ------------------------------------------------------------------ task-102: golf's skill points screen (FUN_0045f0f0)
+
+// The screen draws golf's skills with tiny yellow arrows; with the Frosted pages it is a native page. Nothing of it is
+// text the page records: the levels, the points and the names are read from golf's state each turn, and a click goes
+// to the arrow's place in golf's screen (x0 + 0x32..0x52, the row's top half adds, the bottom half takes away; OK at
+// x0 + 0x15e, 0x14e), so golf's own rules apply (at most 10, never below the level the screen opened with).
+static struct {
+  int points, who, x0;
+  uint8_t start[10];
+  char name[64], text[RP_TEXT * 4];
+} g_sk;
+
+static volatile uint8_t *sk_levels(void) {   // where FUN_0045f0f0 reads the levels it shows
+  int who = g_sk.who;
+  if (who == -1 || *(volatile int16_t *)(uintptr_t)(0x57956e + who * 0x100) == 0) return (volatile uint8_t *)(uintptr_t)0x5a5a04;
+  return (volatile uint8_t *)(uintptr_t)(0x5795a8 + who * 0x100);
+}
+
+int rp_skills_frosted(void) { return rpf_enabled_kind(RP_SKILLS); }
+
+void rp_skills(char *name, int points, int who, int x0) {
+  g_sk.points = points, g_sk.who = who, g_sk.x0 = x0;
+  copy_str(g_sk.name, sizeof g_sk.name, name ? name : "", -1);
+  // golf's text buffer holds what the caller said before the screen (the first setup, an accomplishment's three points)
+  copy_str(g_sk.text, sizeof g_sk.text, points > 0 ? (const char *)(uintptr_t)0x51a068 : "", -1);
+  for (int i = 0; i < 10; i++) g_sk.start[i] = *(volatile uint8_t *)(uintptr_t)(0x5a5a04 + i);
+  rp_begin(RP_SKILLS);
+}
+
+// The pages' waits (FUN_004385d0 and FUN_0045f0f0 wait 50 ms, twice a turn in the profile): golf's pages turned about seven
+// times a second. The native page only needs golf to take its clicks, so while it is up golf does not wait (its pump still
+// yields to the system when nothing is queued). Measured on the profile, Hard, 1080p: 7 turns a second, 10 ms waits 15.
+int FUN_0045bf80(int a, int b);
+void rp_pace(void) {
+  if (!(g_on && g_kind >= RP_PROFILE)) FUN_0045bf80(5, 0);
+}
+
+static void skills_snap(void) {
+  volatile uint8_t *lv = sk_levels();
+  int spent = 0;
+  for (int i = 0; i < 10; i++) spent += *(volatile uint8_t *)(uintptr_t)(0x5a5a04 + i) - g_sk.start[i];
+  copy_str(g_snap.title, sizeof g_snap.title, g_sk.name, -1);
+  copy_str(g_snap.bio, sizeof g_snap.bio, g_sk.text, -1);
+  g_snap.ext[1] = g_sk.points;
+  g_snap.ext[2] = g_sk.points - spent;   // golf's own count (local_314): one per level added, back on a level taken away
+  g_snap.ext[3] = g_sk.x0;
+  g_snap.n = 0;
+  for (int i = 0; i < 10; i++) {
+    RpItem *it = &g_snap.it[g_snap.n++];
+    memset(it, 0, sizeof *it);
+    it->type = RP_IT_TEXT;
+    it->x = (int16_t)i, it->y = (int16_t)lv[i], it->w = (int16_t)g_sk.start[i];
+    const char *nm = (const char *)(uintptr_t)(uint32_t)G32(0x4c2c3c + 4 * i);   // "Power Hitter", ...
+    copy_str(it->s, sizeof it->s, nm, -1);
+  }
+}
+
+static void rp_frame_body(void);
 void rp_frame(void) {
+  double t0 = SDL_GetPerformanceCounter() * 1000.0 / SDL_GetPerformanceFrequency();
+  rp_frame_body();
+  if (g_on && g_kind >= RP_PROFILE) frame_stats(t0, SDL_GetPerformanceCounter() * 1000.0 / SDL_GetPerformanceFrequency());
+}
+
+static void rp_frame_body(void) {
   if (!g_on || g_sub) return;
   if (g_kind == RP_PROFILE) {
     g_snap.ext[0] = g_in_edit;   // the bio editor is open
@@ -556,7 +674,26 @@ void rp_frame(void) {
       if (wb > 0x10000) bio = (const char *)(uintptr_t)wb;
     }
     if (gi < 0x200) copy_str(g_snap.bio, sizeof g_snap.bio, bio, -1);
+    // task-102: whose page it is and, for the player's pro before the first skill setup, the points golf will give
+    // (FUN_004065c0: 10, plus 3 for each accomplishment already won in the table at 0x4c15a0)
+    g_snap.ext[1] = gi;
+    int set_up = (*(volatile uint16_t *)(uintptr_t)0x4c2c9c) != 0;
+    for (int i = 0; i < 10; i++) set_up |= *(volatile uint8_t *)(uintptr_t)(0x5a5a04 + i) != 0;
+    int pts = 10;
+    for (int i = 0; i < 22; i++) pts += G32(0x4c15a0 + 0x30 * i) != 0 ? 3 : 0;
+    g_snap.ext[2] = gi == 0 && !set_up && g_pro_next;
+    g_snap.ext[3] = pts;
     if (!g_in_edit) profile_page_keep();
+  }
+  if (g_kind == RP_SKILLS) skills_snap();
+  if (g_log > 0 && g_kind >= RP_PROFILE) {   // task-102: when golf took a click (the tests time a click from the native action)
+    static uint32_t last;
+    uint32_t hsh = 2166136261u;
+    hsh = (hsh ^ *(volatile uint8_t *)(uintptr_t)0x4d60a8) * 16777619u;   // the pro's personality
+    hsh = (hsh ^ *(volatile uint8_t *)(uintptr_t)0x582dd1) * 16777619u;   // the page's skill wants
+    for (int i = 0; i < 10; i++) hsh = (hsh ^ *(volatile uint8_t *)(uintptr_t)(0x5a5a04 + i)) * 16777619u;
+    if (hsh != last) fprintf(stderr, "reports: golf state changed at %u ms\n", (unsigned)SDL_GetTicks());
+    last = hsh;
   }
   g_snap.serial = ++g_serial;
   rpf_publish(&g_snap);
@@ -564,6 +701,7 @@ void rp_frame(void) {
   while (rpf_take_action(&a)) {
     // the land map has no Esc of its own: its leave control is the check button (golf's right click also leaves)
     if (a.kind == RP_A_CLOSE && g_kind == RP_TRACTS) a = (RpAction){RP_A_CLICK, 688 | (560 << 16)};
+    if (a.kind == RP_A_CLOSE && g_kind == RP_SKILLS) a = (RpAction){RP_A_CLICK, (g_sk.x0 + 0x15e) | (0x14e << 16)};   // its OK
     if (a.kind == RP_A_CLOSE || a.kind == RP_A_TAB) {
       if (a.kind == RP_A_TAB && a.arg != g_kind) g_pending = a.arg;
       if (!g_closing) {
@@ -574,13 +712,14 @@ void rp_frame(void) {
     } else if (a.kind == RP_A_KEY) {
       push_key((SDL_Keycode)a.arg, 1);
       push_key((SDL_Keycode)a.arg, 0);
-    } else if ((a.kind == RP_A_CLICK || a.kind == RP_A_RCLICK) && !g_inj) {
-      g_inj = 1;
-      g_inj_btn = a.kind == RP_A_RCLICK ? SDL_BUTTON_RIGHT : SDL_BUTTON_LEFT;
-      g_inj_x = a.arg & 0xffff;
-      g_inj_y = (a.arg >> 16) & 0xffff;
-      g_inj_stage = g_inj_wait = 0;
-      if (g_log) fprintf(stderr, "reports: click at the original's %d,%d\n", g_inj_x, g_inj_y);
+    } else if (a.kind == RP_A_CLICK || a.kind == RP_A_RCLICK) {
+      int btn = a.kind == RP_A_RCLICK ? SDL_BUTTON_RIGHT : SDL_BUTTON_LEFT;
+      if (!g_inj) inj_start(a.arg, btn);
+      else if (g_kind >= RP_PROFILE && g_iqn < 8) {
+        g_iq[g_iqn] = a.arg, g_iq_btn[g_iqn] = btn, g_iqn++;
+        if (g_log_on()) fprintf(stderr, "reports: click at %d,%d queued (%d waiting)\n", a.arg & 0xffff, (a.arg >> 16) & 0xffff, g_iqn);
+      } else if (g_log_on())
+        fprintf(stderr, "reports: click at %d,%d DROPPED (the last one is still being sent, stage %d)\n", a.arg & 0xffff, (a.arg >> 16) & 0xffff, g_inj_stage);
     }
   }
   inj_step();
@@ -588,7 +727,10 @@ void rp_frame(void) {
   // not while golf's text widget draws over the portrait; the land map only when golf drew it (it draws once, then the page is put back)
   if (!g_in_edit && (g_kind != RP_TRACTS || g_dirty)) capture_pics();
   keep_restore();
-  if (g_dirty) FUN_00480c80((void *)0x519a60);   // only when golf drew: a waiting report presents no frames
+  // only when golf drew: a waiting report presents no frames. Not on the profile and skill pages: their loops flush right
+  // after rp_frame, and every present waits for the 30 a second cap (gdi.c win_present), so two a turn halved their pace
+  // (task-102, measured: 15 turns a second with two, the click took three turns)
+  if (g_dirty && g_kind != RP_PROFILE && g_kind != RP_SKILLS) FUN_00480c80((void *)0x519a60);
   g_dirty = 0;
 }
 
@@ -696,4 +838,5 @@ void rp_done(void) {
   g_on = 0;
   g_kind = 0;
   g_inj = 0;
+  g_iqn = 0;
 }

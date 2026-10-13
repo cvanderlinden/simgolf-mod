@@ -210,6 +210,28 @@ static void pf_read(const RpSnap *s, Prof *p) {
 #define PF_H (28 + 44 + 14 + PF_TOP + 16 + 22 + 11 * PF_SAY_ROW + 14 + 44 + 28)
 
 static RpLayout g_pf_layout;
+// task-102: a chip shows its new state on the frame it is clicked; golf's page (about ten turns a second) confirms it a
+// moment later. 0..4 personality, 5..7 skills; -1 nothing pending.
+static int g_pend[8] = {-1, -1, -1, -1, -1, -1, -1, -1};
+static double g_pend_t[8];
+static int pend_show(UiCtx *c, int i, int golf_on) {
+  if (g_pend[i] < 0) return golf_on;
+  if (g_pend[i] == golf_on || ui_now(c) - g_pend_t[i] > 1500) {   // golf has it (or never took it: show golf's)
+    g_pend[i] = -1;
+    return golf_on;
+  }
+  return g_pend[i];
+}
+static void pend_set(UiCtx *c, int i, int shown) {
+  g_pend[i] = !shown;
+  g_pend_t[i] = ui_now(c);
+}
+static void pf_ctl(const char *name, UiRect r) {   // remember a control's centre for the log and the tests
+  if (g_pf_layout.nctl >= 48) return;
+  snprintf(g_pf_layout.ctl_name[g_pf_layout.nctl], sizeof g_pf_layout.ctl_name[0], "%s", name);
+  g_pf_layout.ctl_x[g_pf_layout.nctl] = r.x + r.w / 2, g_pf_layout.ctl_y[g_pf_layout.nctl] = r.y + r.h / 2;
+  g_pf_layout.nctl++;
+}
 static int g_raw_data;   // visible profile texts that still contain golf's DATA( placeholder (the gallery checks it is 0)
 int ui_pages_raw_data(void) { return g_raw_data; }
 
@@ -220,6 +242,9 @@ static int draw_profile(UiCtx *c, const RpSnap *s, SDL_Texture *const *art, RpAc
   Prof p;
   pf_read(s, &p);
   int editing = s->ext[0] != 0;
+  // task-102: the player's own pro (golf's record 0) keeps its skill levels to golf's skill screen (golf ignores the
+  // page's level clicks for it); the first step of a new pro says so and leads on to the skill points
+  int own_pro = p.pro && s->ext[1] == 0, create = own_pro && s->ext[2] != 0, points = s->ext[3];
   UiRect scr = ui_screen(c);
   float margin = ui_s(c, t->edge_margin);
   float k = fminf(1.0f, fminf((scr.w - 2 * margin) / ui_s(c, PF_W), (scr.h - 2 * margin) / ui_s(c, PF_H)));
@@ -231,6 +256,7 @@ static int draw_profile(UiCtx *c, const RpSnap *s, SDL_Texture *const *art, RpAc
   scrim_and_panel(c, pr);
   UiRect in = ui_inset_all(pr, pad);
   g_pf_layout.panel = pr;
+  g_pf_layout.nctl = 0;
 
   // header: title, close
   UiFont tf = ui_font(c, UI_TYPE_TITLE);
@@ -238,8 +264,17 @@ static int draw_profile(UiCtx *c, const RpSnap *s, SDL_Texture *const *art, RpAc
   UiRect close_r = ui_rect(in.x + in.w - cb, in.y, cb, cb);
   if (ui_icon_button(c, ui_id("pages.close"), close_r, UI_ICON_X, editing ? UI_DISABLED : 0, "Done (Esc)") && na < max) acts[na++] = (RpAction){RP_A_CLOSE, 0};
   g_pf_layout.close_x = close_r.x + close_r.w / 2, g_pf_layout.close_y = close_r.y + close_r.h / 2;
-  ui_text_fit(c, ui_rect(in.x, in.y + (cb - tf.line) / 2, in.w - cb - ui_s(c, 12), tf.line), UI_TYPE_TITLE, t->text_primary,
-              p.pro ? "Pro profile" : "Golfer profile", 0);
+  const char *title = create ? "Create your pro" : p.pro ? "Pro profile" : "Golfer profile";
+  float title_w = fminf(ui_text_width(c, UI_TYPE_TITLE, title) + ui_s(c, 4), in.w - cb - ui_s(c, 12));
+  ui_text_fit(c, ui_rect(in.x, in.y + (cb - tf.line) / 2, title_w, tf.line), UI_TYPE_TITLE, t->text_primary, title, 0);
+  if (create || own_pro) {   // one line that says what to do here
+    char sub[160];
+    if (create) snprintf(sub, sizeof sub, "Pick a look and a personality, then press Next to spend your %d skill points.", points);
+    else snprintf(sub, sizeof sub, "Skill levels go up with the skill points golf gives you (the Skills tile of Your pro).");
+    UiFont bf0 = ui_font(c, UI_TYPE_BODY);
+    float sx = in.x + title_w + ui_s(c, 24);
+    ui_text_fit(c, ui_rect(sx, in.y + (cb - bf0.line) / 2, in.x + in.w - cb - ui_s(c, 16) - sx, bf0.line), UI_TYPE_BODY, t->text_secondary, sub, 0);
+  }
 
   float top_y = in.y + ui_s(c, 44 + 14), top_h = ui_s(c, PF_TOP);
   float gap = ui_s(c, 16);
@@ -254,6 +289,7 @@ static int draw_profile(UiCtx *c, const RpSnap *s, SDL_Texture *const *art, RpAc
     // the name: a control (golf asks for a new one)
     UiRect nr = ui_rect(ax, ay, aw, ui_s(c, 40));
     uint32_t id = ui_id("pf.name");
+    pf_ctl("name", nr);
     ui_hit(c, nr, ui_s(c, 10), id, UI_HIT_BLOCK | (editing ? 0 : UI_HIT_INTERACT));
     float hov = ui_anim(c, id, !editing && ui_is_hot(c, id) ? 1.0f : 0.0f, t->motion_hover);
     if (hov > 0.01f) uid_rrect(d, nr, ui_s(c, 10), uid_alpha(t->surface_inset, 0.7f * hov));
@@ -273,16 +309,20 @@ static int draw_profile(UiCtx *c, const RpSnap *s, SDL_Texture *const *art, RpAc
     }
     ay += ui_s(c, 6);
     // personality: five chips that flip golf's personality bits
-    section_label(c, ax, ay, aw, "Personality");
+    section_label(c, ax, ay, aw, "Personality (click to switch on or off)");
     ay += ui_font(c, UI_TYPE_LABEL).line + ui_s(c, 4);
-    float cx = ax, ch = ui_s(c, 30);
+    float cx = ax, ch = ui_s(c, 34);   // task-102: bigger chips, easier to hit
     for (int i = 0; i < 5; i++) {
-      float w1 = ui_text_width(c, UI_TYPE_LABEL, p.trait[i]) + ui_s(c, 28);
+      float w1 = ui_text_width(c, UI_TYPE_LABEL, p.trait[i]) + ui_s(c, 34);
       if (cx + w1 > ax + aw + 1) cx = ax, ay += ch + ui_s(c, 5);
       char key[16];
       snprintf(key, sizeof key, "pf.trait%d", i);
-      if (chip(c, ui_id(key), ui_rect(cx, ay, w1, ch), p.trait[i], p.trait_on[i], editing, UI_TYPE_LABEL) && na < max)
+      pf_ctl(key + 3, ui_rect(cx, ay, w1, ch));
+      int on = pend_show(c, i, p.trait_on[i]);
+      if (chip(c, ui_id(key), ui_rect(cx, ay, w1, ch), p.trait[i], on, editing, UI_TYPE_LABEL) && na < max) {
         acts[na++] = (RpAction){RP_A_CLICK, CLICK(PF_TRAIT[i][0], PF_TRAIT[i][1])};
+        pend_set(c, i, on);
+      }
       cx += w1 + ui_s(c, 6);
     }
     ay += ch + ui_s(c, 10);
@@ -290,12 +330,16 @@ static int draw_profile(UiCtx *c, const RpSnap *s, SDL_Texture *const *art, RpAc
     ay += ui_font(c, UI_TYPE_LABEL).line + ui_s(c, 4);
     cx = ax;
     for (int i = 0; i < 3; i++) {
-      float w1 = ui_text_width(c, UI_TYPE_LABEL, p.skill[i]) + ui_s(c, 28);
+      float w1 = ui_text_width(c, UI_TYPE_LABEL, p.skill[i]) + ui_s(c, 34);
       if (cx + w1 > ax + aw + 1) cx = ax, ay += ch + ui_s(c, 5);
       char key[16];
       snprintf(key, sizeof key, "pf.skill%d", i);
-      if (chip(c, ui_id(key), ui_rect(cx, ay, w1, ch), p.skill[i], p.skill_on[i], editing, UI_TYPE_LABEL) && na < max)
+      pf_ctl(key + 3, ui_rect(cx, ay, w1, ch));
+      int on = pend_show(c, 5 + i, p.skill_on[i]);
+      if (chip(c, ui_id(key), ui_rect(cx, ay, w1, ch), p.skill[i], on, editing, UI_TYPE_LABEL) && na < max) {
         acts[na++] = (RpAction){RP_A_CLICK, CLICK(PF_SKILL[i][0], PF_SKILL[i][1])};
+        pend_set(c, 5 + i, on);
+      }
       cx += w1 + ui_s(c, 6);
     }
   }
@@ -370,7 +414,7 @@ static int draw_profile(UiCtx *c, const RpSnap *s, SDL_Texture *const *art, RpAc
     }
     cy += bh + ui_s(c, 12);
   } else {
-    section_label(c, C.x, cy, C.w, "Golf skill levels");
+    section_label(c, C.x, cy, C.w, create ? "Golf skill levels (you set them next)" : "Golf skill levels");
     cy += ui_font(c, UI_TYPE_LABEL).line + ui_s(c, 4);
     float half = (C.w - ui_s(c, 14)) / 2;
     // two columns of five: name, a level meter and - / + (a left click adds a level in golf, a right click takes one)
@@ -379,16 +423,21 @@ static int draw_profile(UiCtx *c, const RpSnap *s, SDL_Texture *const *art, RpAc
       int colx = i / 5, rowy = i % 5;
       UiRect rr = ui_rect(C.x + colx * (half + ui_s(c, 14)), cy + rowy * (row + ui_s(c, 4)), half, row);
       uid_rrect(d, rr, ui_s(c, t->radius_tile), uid_alpha(t->surface_inset, 0.55f));
-      float bw = ui_s(c, 28);
-      ui_text_fit(c, ui_rect(rr.x + ui_s(c, 12), rr.y, rr.w - 2 * bw - ui_s(c, 100), rr.h), UI_TYPE_LABEL, t->text_primary, p.lev_name[i], 0);
-      UiRect mr = ui_rect(rr.x + rr.w - 2 * bw - ui_s(c, 94), rr.y + (rr.h - ui_s(c, 8)) / 2, ui_s(c, 60), ui_s(c, 8));
+      float bw = ui_s(c, 28), bws = own_pro ? ui_s(c, 4) : 2 * bw;   // the player's pro: no buttons, the meter moves right
+      ui_text_fit(c, ui_rect(rr.x + ui_s(c, 12), rr.y, rr.w - bws - ui_s(c, 100), rr.h), UI_TYPE_LABEL, t->text_primary, p.lev_name[i], 0);
+      UiRect mr = ui_rect(rr.x + rr.w - bws - ui_s(c, 94), rr.y + (rr.h - ui_s(c, 8)) / 2, ui_s(c, 60), ui_s(c, 8));
       ui_meter(c, mr, p.lev[i] / 10.0f);
       char num[16];
       snprintf(num, sizeof num, "%d", p.lev[i]);
       ui_text_in(c, ui_rect(mr.x + mr.w + ui_s(c, 2), rr.y, ui_s(c, 24), rr.h), UI_TYPE_LABEL, t->text_secondary, num, 0.5f);
       char key[24];
-      snprintf(key, sizeof key, "pf.lev%d.minus", i);
       int oy = 0x48 + 16 * i;
+      if (own_pro) continue;   // no dead buttons: golf changes these only through its skill screen
+      snprintf(key, sizeof key, "lev%d-", i);
+      pf_ctl(key, ui_rect(rr.x + rr.w - 2 * bw - ui_s(c, 4), rr.y + ui_s(c, 3), bw, row - ui_s(c, 6)));
+      snprintf(key, sizeof key, "lev%d+", i);
+      pf_ctl(key, ui_rect(rr.x + rr.w - bw - ui_s(c, 2), rr.y + ui_s(c, 3), bw, row - ui_s(c, 6)));
+      snprintf(key, sizeof key, "pf.lev%d.minus", i);
       if (ui_icon_button(c, ui_id(key), ui_rect(rr.x + rr.w - 2 * bw - ui_s(c, 4), rr.y + ui_s(c, 3), bw, row - ui_s(c, 6)), UI_ICON_MINUS, UI_COMPACT, NULL) && na < max)
         acts[na++] = (RpAction){RP_A_RCLICK, CLICK(520, oy)};
       snprintf(key, sizeof key, "pf.lev%d.plus", i);
@@ -411,6 +460,7 @@ static int draw_profile(UiCtx *c, const RpSnap *s, SDL_Texture *const *art, RpAc
       UiRect cr = ui_rect(C.x + (i % 4) * (cw4 + ui_s(c, 8)), cy + (i / 4) * (chh + ui_s(c, 8)), cw4, chh);
       char key[16];
       snprintf(key, sizeof key, "pf.look%d", i);
+      pf_ctl(key + 3, cr);
       if (chip(c, ui_id(key), cr, lk[i].label, 0, editing, UI_TYPE_LABEL) && na < max)
         acts[na++] = (RpAction){RP_A_CLICK, CLICK(PF_BTN[lk[i].btn - 8][0], PF_BTN[lk[i].btn - 8][1])};
     }
@@ -462,19 +512,151 @@ static int draw_profile(UiCtx *c, const RpSnap *s, SDL_Texture *const *art, RpAc
 
   // ---- footer
   float fy = in.y + in.h - ui_s(c, 44);
-  float bw = ui_s(c, 140), bh = ui_s(c, 44);
-  if (ui_button(c, ui_id("pf.done"), ui_rect(in.x + in.w - bw, fy, bw, bh), "Done", UI_ICON_NONE, UI_BTN_PRIMARY, editing ? UI_DISABLED : 0) && na < max)
+  float bw = ui_s(c, 140), bh = ui_s(c, 44), dw = create ? ui_s(c, 250) : bw;
+  pf_ctl("done", ui_rect(in.x + in.w - dw, fy, dw, bh));
+  if (ui_button(c, ui_id("pf.done"), ui_rect(in.x + in.w - dw, fy, dw, bh), create ? "Next: skill points" : "Done", create ? UI_ICON_CHEV : UI_ICON_NONE,
+                UI_BTN_PRIMARY, editing ? UI_DISABLED : 0) && na < max)
     acts[na++] = (RpAction){RP_A_CLOSE, 0};
-  if (ui_button(c, ui_id("pf.cancel"), ui_rect(in.x + in.w - 2 * bw - ui_s(c, 12) - ui_s(c, 30), fy, bw + ui_s(c, 30), bh), "Undo changes", UI_ICON_NONE, UI_BTN_PILL, editing ? UI_DISABLED : 0) && na < max)
+  if (ui_button(c, ui_id("pf.cancel"), ui_rect(in.x + in.w - dw - bw - ui_s(c, 12) - ui_s(c, 30), fy, bw + ui_s(c, 30), bh), "Undo changes", UI_ICON_NONE, UI_BTN_PILL, editing ? UI_DISABLED : 0) && na < max)
     acts[na++] = (RpAction){RP_A_CLICK, CLICK(PF_BTN[PF_CANCEL - 8][0], PF_BTN[PF_CANCEL - 8][1])};
   float lw = ui_s(c, 190);
   if (ui_button(c, ui_id("pf.load"), ui_rect(in.x, fy, lw, bh), "Load character", UI_ICON_FOLDER, UI_BTN_PILL, editing ? UI_DISABLED : 0) && na < max)
     acts[na++] = (RpAction){RP_A_CLICK, CLICK(PF_BTN[PF_LOAD - 8][0], PF_BTN[PF_LOAD - 8][1])};
   if (ui_button(c, ui_id("pf.save"), ui_rect(in.x + lw + ui_s(c, 12), fy, lw, bh), "Save character", UI_ICON_PIN, UI_BTN_PILL, editing ? UI_DISABLED : 0) && na < max)
     acts[na++] = (RpAction){RP_A_CLICK, CLICK(PF_BTN[PF_SAVE - 8][0], PF_BTN[PF_SAVE - 8][1])};
-  ui_text_in(c, ui_rect(in.x + 2 * lw + ui_s(c, 36), fy, in.w - 2 * lw - 2 * bw - ui_s(c, 80), bh), UI_TYPE_CAPTION, t->text_tertiary,
-             editing ? "Type the bio, Enter finishes" : "Esc keeps the changes and closes", 0);
+  ui_text_fit(c, ui_rect(in.x + 2 * lw + ui_s(c, 36), fy, in.w - 2 * lw - dw - bw - ui_s(c, 90), bh), UI_TYPE_CAPTION, t->text_tertiary,
+              editing ? "Type the bio, Enter finishes" : create ? "Esc also keeps the changes and goes on" : "Esc keeps the changes and closes", 0);
 
+  if (k < 1.0f) ui_pop_scale(c);
+  return na;
+}
+
+// ------------------------------------------------------------------ skill points (FUN_0045f0f0, task-102)
+
+// The snapshot (reports_game.c skills_snap): title = the pro's name, bio = what golf said before the screen, ext[1] the
+// points this screen gives, ext[2] the points left, ext[3] golf's x of the screen; it[i] (i < 10): s = the skill's name,
+// y = its level (0..10), w = the level the screen opened with (golf never takes a level below it).
+static int g_sk_target[10] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
+static double g_sk_t;
+
+#define SK_W 820.0f
+#define SK_ROW 50.0f
+
+static int draw_skills(UiCtx *c, const RpSnap *s, RpAction *acts, int max) {
+  const UiTokens *t = ui_tokens(c);
+  UiDraw *d = ui_drawer(c);
+  int na = 0;
+  int points = s->ext[1], left = s->ext[2], x0 = s->ext[3];
+  int n = s->n < 10 ? s->n : 10;
+  char text[RP_TEXT * 5];
+  fix_text(text, sizeof text, s->bio);
+  UiRect scr = ui_screen(c);
+  float margin = ui_s(c, t->edge_margin);
+  // a click shows on the frame it is made; golf's screen confirms it a moment later (or the old value comes back)
+  if (ui_now(c) - g_sk_t > 1500)
+    for (int i = 0; i < 10; i++) g_sk_target[i] = -1;
+  int lv[10], pend = 0;
+  for (int i = 0; i < n; i++) {
+    lv[i] = s->it[i].y;
+    if (g_sk_target[i] >= 0 && g_sk_target[i] == lv[i]) g_sk_target[i] = -1;
+    if (g_sk_target[i] >= 0) pend += g_sk_target[i] - lv[i], lv[i] = g_sk_target[i];
+  }
+  int left_shown = left - pend;
+  char lines[WRAP_LINES][WRAP_LEN];
+  float tw = ui_s(c, SK_W) - 2 * ui_s(c, 28);
+  int nl = text[0] ? wrap(c, UI_TYPE_BODY, text, tw, lines) : 0;
+  if (nl > 4) nl = 4;
+  UiFont bf = ui_font(c, UI_TYPE_BODY);
+  float design_h = 28 + 44 + 12 + nl * bf.line / ui_s(c, 1) + 12 + 64 + 12 + 10 * SK_ROW + 16 + 44 + 28;
+  float k = fminf(1.0f, fminf((scr.w - 2 * margin) / ui_s(c, SK_W), (scr.h - 2 * margin) / ui_s(c, design_h)));
+  if (k < 1.0f) ui_push_scale(c, k);
+  float pad = ui_s(c, 28);
+  UiRect scr2 = ui_screen(c);
+  bf = ui_font(c, UI_TYPE_BODY);
+  float H = ui_s(c, 28 + 44 + 12) + nl * bf.line + ui_s(c, 12 + 64 + 12 + 10 * SK_ROW + 16 + 44 + 28);
+  UiRect pr = ui_rect_round(ui_center(scr2, ui_s(c, SK_W), H));
+  scrim_and_panel(c, pr);
+  UiRect in = ui_inset_all(pr, pad);
+  g_pf_layout.panel = pr;
+  g_pf_layout.nctl = 0;
+
+  // header
+  UiFont tf = ui_font(c, UI_TYPE_TITLE);
+  float cb = ui_s(c, 40);
+  UiRect close_r = ui_rect(in.x + in.w - cb, in.y, cb, cb);
+  if (ui_icon_button(c, ui_id("sk.close"), close_r, UI_ICON_X, 0, "Done") && na < max) acts[na++] = (RpAction){RP_A_CLOSE, 0};
+  g_pf_layout.close_x = close_r.x + close_r.w / 2, g_pf_layout.close_y = close_r.y + close_r.h / 2;
+  char title[RP_TEXT + 32];
+  char name[64];
+  fix_text(name, sizeof name, s->title);
+  if (points > 0) snprintf(title, sizeof title, "Skill points for %s", name[0] ? name : "your pro");
+  else snprintf(title, sizeof title, "%s's golf skills", name[0] ? name : "Your pro");
+  ui_text_fit(c, ui_rect(in.x, in.y + (cb - tf.line) / 2, in.w - cb - ui_s(c, 12), tf.line), UI_TYPE_TITLE, t->text_primary, title, 0);
+  float y = in.y + ui_s(c, 44 + 12);
+  for (int i = 0; i < nl; i++, y += bf.line) ui_text_in(c, ui_rect(in.x, y, in.w, bf.line), UI_TYPE_BODY, t->text_secondary, lines[i], 0);
+  y += ui_s(c, 12);
+
+  // the points left: big, in the accent colour while there are any
+  UiRect pb = ui_rect(in.x, y, in.w, ui_s(c, 64));
+  uid_rrect(d, pb, ui_s(c, t->radius_card), left_shown > 0 ? uid_alpha(t->accent_soft, 0.9f) : uid_alpha(t->surface_inset, 0.55f));
+  char big[32], small[96];
+  snprintf(big, sizeof big, "%d", left_shown);
+  if (points > 0)
+    snprintf(small, sizeof small, left_shown == 1 ? "point left to spend (of %d)" : "points left to spend (of %d)", points);
+  else
+    snprintf(small, sizeof small, "No points to spend now. Each accomplishment gives 3 more.");
+  UiFont df = ui_font(c, UI_TYPE_DISPLAY);
+  float bw0 = points > 0 ? ui_text_width(c, UI_TYPE_DISPLAY, big) + ui_s(c, 16) : 0;
+  if (points > 0)
+    ui_text_in(c, ui_rect(pb.x + ui_s(c, 18), pb.y + (pb.h - df.line) / 2, bw0, df.line), UI_TYPE_DISPLAY,
+               left_shown > 0 ? t->accent_soft_text : t->text_secondary, big, 0);
+  ui_text_fit(c, ui_rect(pb.x + ui_s(c, 18) + bw0, pb.y, pb.w - bw0 - ui_s(c, 36), pb.h), UI_TYPE_HEADING,
+              left_shown > 0 ? t->accent_soft_text : t->text_secondary, small, 0);
+  y += pb.h + ui_s(c, 12);
+
+  // ten rows: name, a meter, the percent golf shows, then - and + (big targets)
+  float rh = ui_s(c, SK_ROW), bsz = ui_s(c, 40);
+  for (int i = 0; i < n; i++) {
+    UiRect rr = ui_rect(in.x, y + i * rh, in.w, rh - ui_s(c, 6));
+    uid_rrect(d, rr, ui_s(c, t->radius_tile), uid_alpha(t->surface_inset, i % 2 ? 0.35f : 0.55f));
+    char nm[RP_TEXT];
+    fix_text(nm, sizeof nm, s->it[i].s);
+    float nx = rr.x + ui_s(c, 16);
+    float bx_plus = rr.x + rr.w - ui_s(c, 6) - bsz, bx_minus = bx_plus - ui_s(c, 8) - bsz;
+    float pct_w = ui_s(c, 64), mw = ui_s(c, 180);
+    float mx = (points > 0 ? bx_minus : rr.x + rr.w) - ui_s(c, 16) - pct_w - mw;
+    ui_text_fit(c, ui_rect(nx, rr.y, mx - nx - ui_s(c, 12), rr.h), UI_TYPE_HEADING, t->text_primary, nm, 0);
+    ui_meter(c, ui_rect(mx, rr.y + (rr.h - ui_s(c, 10)) / 2, mw, ui_s(c, 10)), lv[i] / 10.0f);
+    char pct[16];
+    snprintf(pct, sizeof pct, "%d%%", lv[i] * 10);
+    ui_text_in(c, ui_rect(mx + mw, rr.y, pct_w, rr.h), UI_TYPE_HEADING, lv[i] ? t->text_primary : t->text_tertiary, pct, 1);
+    if (points <= 0) continue;
+    int y_add = 0x5a + 0x18 * i;   // the row's arrows in golf's screen: top half adds, bottom half takes away
+    UiRect mr = ui_rect(bx_minus, rr.y + (rr.h - bsz) / 2, bsz, bsz), pr2 = ui_rect(bx_plus, rr.y + (rr.h - bsz) / 2, bsz, bsz);
+    char key[16];
+    snprintf(key, sizeof key, "sk%d-", i);
+    pf_ctl(key, mr);
+    int can_minus = lv[i] > s->it[i].w, can_plus = left_shown > 0 && lv[i] < 10;
+    if (ui_icon_button(c, ui_idi(ui_id("sk.minus"), i), mr, UI_ICON_MINUS, can_minus ? 0 : UI_DISABLED, "One level less") && can_minus && na < max) {
+      acts[na++] = (RpAction){RP_A_CLICK, CLICK(x0 + 0x42, y_add + 0x12)};
+      g_sk_target[i] = lv[i] - 1, g_sk_t = ui_now(c);
+    }
+    snprintf(key, sizeof key, "sk%d+", i);
+    pf_ctl(key, pr2);
+    if (ui_icon_button(c, ui_idi(ui_id("sk.plus"), i), pr2, UI_ICON_PLUS, can_plus ? 0 : UI_DISABLED, "One level more") && can_plus && na < max) {
+      acts[na++] = (RpAction){RP_A_CLICK, CLICK(x0 + 0x42, y_add + 6)};
+      g_sk_target[i] = lv[i] + 1, g_sk_t = ui_now(c);
+    }
+  }
+
+  // footer
+  float fy = in.y + in.h - ui_s(c, 44);
+  float dw = ui_s(c, 180), bh = ui_s(c, 44);
+  UiRect dr = ui_rect(in.x + in.w - dw, fy, dw, bh);
+  pf_ctl("done", dr);
+  if (ui_button(c, ui_id("sk.done"), dr, "Done", UI_ICON_NONE, UI_BTN_PRIMARY, 0) && na < max) acts[na++] = (RpAction){RP_A_CLOSE, 0};
+  ui_text_fit(c, ui_rect(in.x, fy, in.w - dw - ui_s(c, 16), bh), UI_TYPE_CAPTION, t->text_tertiary,
+              points > 0 && left_shown > 0 ? "Click + to raise a skill (up to 100%). - gives a point back." : "Done keeps these skills.", 0);
   if (k < 1.0f) ui_pop_scale(c);
   return na;
 }
@@ -487,6 +669,7 @@ int ui_pages_draw(UiCtx *c, const RpSnap *s, SDL_Texture *const *art, RpAction *
   switch (s->kind) {
     case RP_PROFILE: return draw_profile(c, s, art, acts, max);
     case RP_TRACTS: return draw_tracts(c, s, art, acts, max);
+    case RP_SKILLS: return draw_skills(c, s, acts, max);
     default: return 0;
   }
 }

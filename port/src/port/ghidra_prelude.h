@@ -395,6 +395,10 @@ void rp_wfix(int on);           // FUN_00486110 creates its text widget: the cre
 int rp_warg(int flags, int parent);   // FUN_0047a4c0's FUN_0047abe0 argument
 int rp_esc(void);               // Esc was pressed on the native land map
 int rp_end(int v);              // the screen is leaving with v: closes the native page, returns v
+// task-102 (golf.pages.json): the pro's skill points screen (FUN_0045f0f0) as a native page
+void rp_skills(char *name, int points, int who, int x0);   // the screen opens (not for its draw-only call, points -1)
+int rp_skills_frosted(void);    // the native page will show it (FUN_004065c0 then leaves out golf's hint box)
+void rp_pace(void);             // a task-73 page's wait between turns (golf's 50 ms, none while the native page is up)
 
 // task-32 (src/port/golf/frontend_hooks.c, frontend_game.c): the Frosted Mint
 // front end. Translator patches (tools/translate/golf.frontend.json) in the

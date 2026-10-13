@@ -1060,8 +1060,35 @@ static void rp_demo_text(RpSnap *s, int x, int y, int align, int col, const char
 }
 
 static void pages_demo(RpSnap *s, int kind) {
+  if (kind == RP_SKILLS) {   // task-102: the pro's ten skill points, three spent
+    static const char *const nm[10] = {"Power Hitter", "Long Driver", "Accurate Driver", "Accurate Irons", "Accurate Putter",
+                                       "Draw Shot (R to L)", "Fade Shot (L to R)", "High Backspin Shot", "Recovery Skills", "Luck"};
+    memset(s, 0, sizeof *s);
+    s->magic = RP_MAGIC, s->kind = kind;
+    snprintf(s->title, sizeof s->title, "Gary Golf");
+    snprintf(s->bio, sizeof s->bio, "Before you play your course you may customize your character by improving his or her golf skills. You can also win additional skill points for each accomplishment added to your trophy.");
+    s->ext[1] = 10, s->ext[2] = 7, s->ext[3] = 200;
+    for (int i = 0; i < 10; i++) {
+      RpItem *it = &s->it[s->n++];
+      it->type = RP_IT_TEXT, it->x = (int16_t)i, it->y = (int16_t)(i == 0 ? 2 : i == 4 ? 1 : 0);
+      snprintf(it->s, sizeof it->s, "%s", nm[i]);
+    }
+    return;
+  }
+  int pro = kind == -RP_PROFILE;   // task-102: the player's pro as a new career opens it (first step of the creation)
+  if (pro) kind = RP_PROFILE;
   memset(s, 0, sizeof *s);
   s->magic = RP_MAGIC, s->kind = kind;
+  if (pro) {
+    static const char *const lev[10] = {"Power Hitter", "Driving Accuracy", "Long Irons", "Short Irons", "Chipping",
+                                        "Sand Master", "Putting", "Fade", "Draw", "Recovery"};
+    s->ext[1] = 0, s->ext[2] = 1, s->ext[3] = 10;
+    rp_demo_text(s, 585, 30, RP_AL_LEFT, 0, "Golf Skill Levels");
+    for (int i = 0; i < 10; i++) {
+      rp_demo_text(s, 501, 61 + 16 * i, RP_AL_LEFT, 0, "0");
+      rp_demo_text(s, 546, 61 + 16 * i, RP_AL_LEFT, 0, lev[i]);
+    }
+  }
   if (kind == RP_PROFILE) {
     static const char *const trait[5] = {"Neat", "Outgoing", "Active", "Playful", "Nice"};
     static const char *const skill[3] = {"Length", "Accuracy", "Imagination"};
@@ -1071,10 +1098,12 @@ static void pages_demo(RpSnap *s, int kind) {
     rp_demo_text(s, 154, 90, RP_AL_LEFT, 0, "Young");
     for (int i = 0; i < 5; i++) rp_demo_text(s, 93, 122 + 28 * i, RP_AL_CENTRE, i == 1 || i == 2 ? 0x0848 : 0, trait[i]);
     for (int i = 0; i < 3; i++) rp_demo_text(s, 212, 142 + 35 * i, RP_AL_CENTRE, i != 1 ? 0x0848 : 0, skill[i]);
-    rp_demo_text(s, 580, 30, RP_AL_LEFT, 0, "Visitor");
-    rp_demo_text(s, 580, 50, RP_AL_LEFT, 0, "Low round: -");
-    rp_demo_text(s, 580, 64, RP_AL_LEFT, 0, "Handicap: -");
-    rp_demo_text(s, 580, 78, RP_AL_LEFT, 0, "Rounds played: 1");
+    if (!pro) {
+      rp_demo_text(s, 580, 30, RP_AL_LEFT, 0, "Visitor");
+      rp_demo_text(s, 580, 50, RP_AL_LEFT, 0, "Low round: -");
+      rp_demo_text(s, 580, 64, RP_AL_LEFT, 0, "Handicap: -");
+      rp_demo_text(s, 580, 78, RP_AL_LEFT, 0, "Rounds played: 1");
+    }
     static const char *const lab[6] = {"Signature saying...", "Made good shot...", "Too easy shot...", "Hard shot...", "Hit bad shot...", "Hit into the water..."};
     static const char *const val[6] = {"Surf's up, dude.", "How'd you like that shot, Mary!", "This shot looks pretty easy.", "Eeek, I gotta stay away from the DATA(tees).", "Darn, I'm DATA(in the tees)!", "Nooooo, I'm in the drink!"};
     for (int i = 0; i < 6; i++) {
@@ -1106,10 +1135,10 @@ static void pages_demo(RpSnap *s, int kind) {
 int ui_pages_raw_data(void);
 
 static int page_pages(Page *p, const char *out) {
-  static const struct { int kind; const char *name; } pages[2] = {{RP_PROFILE, "pages-profile"}, {RP_TRACTS, "pages-tracts"}};
+  static const struct { int kind; const char *name; } pages[4] = {{RP_PROFILE, "pages-profile"}, {RP_TRACTS, "pages-tracts"}, {-RP_PROFILE, "pages-pro-create"}, {RP_SKILLS, "pages-skills"}};
   static RpSnap snap;
   RpAction acts[8];
-  for (int pi = 0; pi < 2; pi++) {
+  for (int pi = 0; pi < 4; pi++) {
     pages_demo(&snap, pages[pi].kind);
     for (int f = 0; f < 4; f++) {
       begin_page(p, 90000.0 + pi * 5000 + f * 400);

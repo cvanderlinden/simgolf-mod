@@ -1,5 +1,5 @@
 {
-  "comment": "task-73: translator patches for the last old modal screens in the Frosted Mint look: the golfer profile page (editor, FUN_004385d0) and its nested screens, drawn by ui/ui_pages.c through the reports machinery (reports_game.c: rp_begin / rp_frame / rp_done, rp_tc records golf's text). Merged into golf.json's patches (translate.py, <stem>.<topic>.json). Hooks: port/src/port/reports_game.c (native), golf/reports_hooks.c (browser: originals). With ui.reports=original or ui.dialogs=original the hooks record nothing and change nothing.",
+  "comment": "task-73: translator patches for the last old modal screens in the Frosted Mint look: the golfer profile page (editor, FUN_004385d0) and its nested screens, drawn by ui/ui_pages.c through the reports machinery (reports_game.c: rp_begin / rp_frame / rp_done, rp_tc records golf's text). Merged into golf.json's patches (translate.py, <stem>.<topic>.json). Hooks: port/src/port/reports_game.c (native), golf/reports_hooks.c (browser: originals). With ui.reports=original or ui.dialogs=original the hooks record nothing and change nothing. task-102: the pro's skill points screen FUN_0045f0f0 (rp_skills, rp_frame, rp_end) and the pages' waits (rp_pace).",
   "patches": {
     "FUN_00486110": [
       [
@@ -45,6 +45,10 @@
       [
         "FUN_00483d80();\n          FUN_0045c030();\n          FUN_00480c80(&DAT_00519a60);",
         "FUN_00483d80();\n          FUN_0045c030();\n          rp_edit();\n          FUN_00480c80(&DAT_00519a60);"
+      ],
+      [
+        "FUN_0045bf80(5,0);\n      FUN_0045c030();\n      dlg_profile_tick();\n      FUN_0045bf80(5,0);",
+        "rp_pace();\n      FUN_0045c030();\n      dlg_profile_tick();\n      rp_pace();"
       ]
     ],
     "FUN_0045b0d0": [
@@ -101,6 +105,30 @@
       [
         "return 1;",
         "return rp_end(1);"
+      ]
+    ],
+    "FUN_0045f0f0": [
+      [
+        "  local_310 = param_3;\nLAB_0045f146:",
+        "  local_310 = param_3;\n  if (param_3 != -1) rp_skills(param_1, param_3, param_4, param_5);\nLAB_0045f146:"
+      ],
+      [
+        "      FUN_00480c80(&DAT_00519a60);\n      FUN_0045bf80(5,0);\n      FUN_0045c030();\n    } while ((DAT_00822d68 == 0)",
+        "      rp_frame();\n      FUN_00480c80(&DAT_00519a60);\n      rp_pace();\n      FUN_0045c030();\n    } while ((DAT_00822d68 == 0)"
+      ],
+      [
+        "    FUN_0045bf80(5,0);\n    FUN_00483d30();\n    if ((DAT_00822d68 != 0) &&",
+        "    rp_pace();\n    FUN_00483d30();\n    if ((DAT_00822d68 != 0) &&"
+      ],
+      [
+        "LAB_0045f844:\n        ExceptionList = pvStack_c;\n        return (int)(short)DAT_004c2c9c;",
+        "LAB_0045f844:\n        ExceptionList = pvStack_c;\n        return rp_end((int)(short)DAT_004c2c9c);"
+      ]
+    ],
+    "FUN_004065c0": [
+      [
+        "FUN_0040d320(200,0x172,0x80007fff,-2);",
+        "if (!rp_skills_frosted()) FUN_0040d320(200,0x172,0x80007fff,-2);   // task-102: the native page shows this text itself"
       ]
     ]
   }
