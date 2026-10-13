@@ -13,6 +13,8 @@
 #include "port/dialogs_frosted.h"
 #include "port/hud_frosted.h"
 #include "port/host.h"
+#include "mods/mdata.h"
+#include "port/grid.h"
 
 #define G32(a) (*(volatile int32_t *)(uintptr_t)(a))
 #define G16(a) (*(volatile int16_t *)(uintptr_t)(a))
@@ -37,7 +39,12 @@ uint32_t FUN_00407280(int hole);                                                
 int FUN_004065c0(void);                                                                    // the pro's first skill setup (10 points, 3 per accomplishment)
 int FUN_0045f0f0(char *title, uint32_t mask, int points, int slot, int xoff);              // the skill dialog
 uint32_t FUN_004385d0(int a, int b);                                                       // the golfer profile page
+void *FUN_0043d6f0(int group, int last, int flags);                                         // an object's sprite set
+uint32_t FUN_004628d0(int x, int y, int z, int sx, int sy, void *set, int rot, uint32_t frame);   // draw an object
 int FUN_0040bfa0(int x, int y);                                                            // terrain at a world point
+uint32_t FUN_004074a0(int design, int full);                                                // landmark name, appended to text_buf
+uint32_t FUN_004676e0(uint32_t slot, int what);                                            // golfer name -> text_buf
+uint32_t FUN_00467600(int rec);                                                            // employee name (or its default) -> text_buf
 const char *mods_get(const char *key);
 
 
@@ -163,7 +170,9 @@ static void hide_art(void) { hd_art_hide_rects(&g_rects[0].x, g_nrects); }
 // Draws a game sprite into a scratch box of the back buffer (inside the
 // area hud_restore puts back) over black and over white, and turns the two
 // into ARGB with alpha: a = 1 - (white - black), colour = black / a.
-// kind: 0 FUN_00473cb0 (plain), 1 FUN_00473f60 (with its alpha sprite mask), 2 FUN_00473e60
+// kind: 0 FUN_00473cb0 (plain), 1 FUN_00473f60 (with its alpha sprite mask), 2 FUN_00473e60,
+// 3 FUN_004628d0 (sprite is an object sprite set; g_obj_* say how)
+static int g_obj_scale = 100, g_obj_rot, g_obj_frame;
 static uint32_t *snap_sprite(void *sprite, int kind, void *mask, int *ow, int *oh) {
   int w, h, pitch, is565;
   uint16_t *bb = g_target >= 0 ? gdi_screen_dib(g_target, &w, &h, &pitch, &is565) : NULL;
@@ -174,11 +183,16 @@ static uint32_t *snap_sprite(void *sprite, int kind, void *mask, int *ow, int *o
     uint16_t fillc = pass ? (is565 ? 0xffff : 0x7fff) : 0;
     for (int y = 0; y < BH; y++)
       for (int x = 0; x < BW; x++) bb[(ptrdiff_t)(BY + y) * pitch + BX + x] = fillc;
+    if (kind == 3) {   // an object from its sprite set, as the design strips draw it (FUN_00432200)
+      FUN_004628d0(BX + BW / 2, BY + BH - 30, 0, g_obj_scale, g_obj_scale, sprite, g_obj_rot, (uint32_t)g_obj_frame);
+      goto drawn;
+    }
     int ox = G32((uintptr_t)sprite + 0x20), oy = G32((uintptr_t)sprite + 0x24);
     int dx = BX + 8 - (ox > 0 ? 0 : ox), dy = BY + 8 - (oy > 0 ? 0 : oy);
     if (kind == 1) FUN_00473f60(sprite, (int)(uintptr_t)mask, G32(0x4c1570), dx, dy, 0);
     else if (kind == 2) FUN_00473e60(sprite, G32(0x4c1570), dx, dy, 0);
     else FUN_00473cb0(sprite, G32(0x4c1570), dx, dy, 1, 1, 1, 0);
+  drawn:
     for (int y = 0; y < BH; y++)
       for (int x = 0; x < BW; x++) shot[pass][y * BW + x] = bb[(ptrdiff_t)(BY + y) * pitch + BX + x];
   }
@@ -229,6 +243,38 @@ static void publish_sprite(int slot, void *sprite, int kind, void *mask) {
   free(px);
 }
 
+// task-95: every design of the five amenity strips (FUN_00434cf0's FUN_00432200 calls), the way the strip
+// picks group and frame for design i, drawn at full size for the chooser's tiles.
+static void snap_designs(void) {
+  static int c_bench = -1, c_land = -1;
+  static const struct { int slot, group, step, frame, rot, max; } k[5] = {
+      {HUD_ART_BENCH, 0x208, 1, 0xaa, 4, 6},    {HUD_ART_LANDMARK, 0x168, 1, 100, -4, 16},
+      {HUD_ART_FLOWER, 0x1a3, 0, 0x2d, -6, 15}, {HUD_ART_TREE, 0x12f, 1, 0xb4, 2, 7},
+      {HUD_ART_BRIDGE, 0x226, 1, 0xa9, 4, 8},
+  };
+  int counts[5] = {mdata_cell(&c_bench, "trays", "amenities", "bench_designs", 5),
+                   mdata_cell(&c_land, "trays", "amenities", "landmark_designs", 14), 15, 7, 8};
+  for (int f = 0; f < 5; f++) {
+    int n = counts[f] > k[f].max ? k[f].max : counts[f];
+    int group = k[f].group, base = k[f].frame, off = 0;
+    for (int i = 0; i < n; i++) {
+      int g = group + off;
+      void *set = FUN_0043d6f0(g, G32(0x53f3e8 + g * 4) - 1, 0);
+      g_obj_rot = k[f].rot;
+      g_obj_frame = i + base;
+      int w = 0, h = 0;
+      uint32_t *px = set ? snap_sprite(set, 3, NULL, &w, &h) : NULL;
+      hudf_publish_art(k[f].slot + i, px, w, h);
+      free(px);
+      off += k[f].step;
+      // the flower strip moves to the next two groups a third and two thirds along (FUN_00432200)
+      if (group == 0x1a3 && i + 1 == n / 3) group = 0x1a9, base -= n / 3;
+      else if (group == 0x1a9 && i + 1 == n * 2 / 3) group = 0x1af, base += -5;
+      else if (group == 0x226) base -= 1;
+    }
+  }
+}
+
 static void snap_art(void) {
   // terrain slots: sprite 0x570cb8 + (state + slot*4) * 0x2c, state 0 = normal
   for (int i = 0; i < 16; i++) publish_sprite(HUD_ART_TERRAIN + i, (void *)(uintptr_t)(0x570cb8 + i * 4 * 0x2c), 0, NULL);
@@ -249,6 +295,7 @@ static void snap_art(void) {
     publish_sprite(HUD_ART_AMENITY + i, (void *)(uintptr_t)(0x59ba68 + amen_slot[i] * 0x84), 2, NULL);
   // elevation tools (FUN_00433e50): the selected look, 0x571d6c + tool * 0x84
   for (int i = 0; i < 4; i++) publish_sprite(HUD_ART_ELEVATION + i, (void *)(uintptr_t)(0x571d6c + i * 0x84), 2, NULL);
+  snap_designs();
   g_art_serial++;
 }
 
@@ -445,6 +492,158 @@ static void pro_create_tick(const HudSnap *s) {
   pro_action(HUD_PRO_CREATE);
 }
 
+// task-96: what the design chooser needs. Bench and landmark counts come from the same mod table the
+// original strip's patch reads (trays.json); flower bed 15, scenic trees 7, bridge 8 are fixed in the game.
+static void read_design(HudSnap *s, int flags) {
+  static int c_bench = -1, c_land = -1;
+  int tool = s->build_tool;
+  s->design = G32(0x56a514);
+  s->landmark_mask = (uint32_t)G32(0x543cfc);
+  s->landmark_free = (uint32_t)G32(0x822c70);
+  s->clubhouse = tool == 15 && (flags & 0x800) != 0;
+  s->design_n = tool == 1 ? mdata_cell(&c_bench, "trays", "amenities", "bench_designs", 5)
+              : tool == 2 ? 15 : tool == 4 ? mdata_cell(&c_land, "trays", "amenities", "landmark_designs", 14)
+              : tool == 16 ? 7 : tool == 19 ? 8 : 0;
+  if (s->design_n > 16) s->design_n = 16;
+  if (tool == 4) {   // short names, the way the strip's label is built (scratch: text_buf)
+    char keep[256];
+    memcpy(keep, (void *)(uintptr_t)TEXT_BUF, sizeof keep);
+    for (int i = 0; i < s->design_n; i++) {
+      *(char *)(uintptr_t)TEXT_BUF = 0;
+      FUN_004074a0(i, 0);
+      copy_str(s->landmark_name[i], sizeof s->landmark_name[i], (const char *)(uintptr_t)TEXT_BUF);
+      if (s->landmark_name[i][0] >= 'a' && s->landmark_name[i][0] <= 'z') s->landmark_name[i][0] -= 32;
+    }
+    memcpy((void *)(uintptr_t)TEXT_BUF, keep, sizeof keep);
+  }
+}
+
+static void inject(int x, int y);
+
+// ------------------------------------------------------------------ People lists (task-94)
+//
+// The original's Golfers page was a 4x4 list of golfers with a mood face (FUN_00435760, the records at
+// 0x5794b8 + slot * 0x100: hole byte +0x21, mood short +0xa4) and its Staff page a strip of 8 employee
+// portraits with Fire, Move and Rename (FUN_00436e50 draws, FUN_00436c00 handles; records at 0x585850 +
+// n * 0x4c: status +0x12, job +0x13, tile +0x10/+0x11, name +0x2a, wage +0x24). Both are hidden with the
+// old HUD, so the snapshot carries the lists and the actions below click golf's own controls.
+#define EMP_BASE 0x585850
+#define EMP_COUNT 64
+#define EMP_LIST 0x5aa5b8     // the draw's list of the visible portraits: employee records
+#define EMP_SCROLL 0x5aa558   // first portrait shown (steps of 2)
+#define EMP_SEL 0x4c7aec      // selected portrait, -1 none
+#define EMP_MOVE 0x4c2e10     // record being moved, -1 none
+#define EMP_BTN 0x4c7af0      // hot spot table: (x, y) shorts, 4 bytes each
+
+static int emp_active(int r) {
+  int st = G8(EMP_BASE + r * 0x4c + 0x12) & 0xff, job = G8(EMP_BASE + r * 0x4c + 0x13);
+  return st != 0 && job < 0 && job != -6;
+}
+
+static int emp_job(int r) {   // 0..7: Club Pro, Celebrity, Ranger, Marshall, Groundskeeper, Technician, Soda Vendor, Refresher
+  int st = G8(EMP_BASE + r * 0x4c + 0x12) & 0xff, job = G8(EMP_BASE + r * 0x4c + 0x13);
+  int j = (-job - 2) * 2 + ((st & 8) >> 3);
+  return j < 0 ? 0 : j > 7 ? 7 : j;
+}
+
+static void read_people(HudSnap *s) {
+  char keep[512];
+  int names = s->dock_mode == 2 && !s->employee_overlay;
+  if (names) memcpy(keep, (void *)(uintptr_t)TEXT_BUF, sizeof keep);
+  s->golfer_n = 0;
+  memset(s->mood_count, 0, sizeof s->mood_count);
+  for (int i = 0; i < HUD_GOLFER_MAX; i++) {
+    int hole = G8(0x5794d9 + i * 0x100);
+    if (hole <= 0) continue;
+    int face = G16(0x57955c + i * 0x100) + 2;
+    face = face < 1 ? 1 : face > 10 ? 10 : face;
+    s->mood_count[(face - 1) / 2]++;
+    __typeof__(s->golfer[0]) *g = &s->golfer[s->golfer_n++];
+    g->slot = (short)i;
+    g->hole = (signed char)hole;
+    g->mood = (signed char)face;
+    g->name[0] = 0;
+    if (names) {
+      *(char *)(uintptr_t)TEXT_BUF = 0;
+      FUN_004676e0((uint32_t)i, 0);
+      copy_str(g->name, sizeof g->name, (const char *)(uintptr_t)TEXT_BUF);
+    }
+  }
+  if (names) memcpy((void *)(uintptr_t)TEXT_BUF, keep, sizeof keep);
+  s->staff_n = 0;
+  int staff_names = s->employee_overlay;
+  if (staff_names) memcpy(keep, (void *)(uintptr_t)TEXT_BUF, sizeof keep);
+  for (int r = 0; r < EMP_COUNT; r++) {
+    if (!emp_active(r)) continue;
+    __typeof__(s->staff[0]) *e = &s->staff[s->staff_n++];
+    e->rec = (short)r;
+    e->job = (signed char)emp_job(r);
+    e->wage = (G8(0x4c2e2c + e->job) & 0xff) * 100;   // the job's weekly wage, as the hire menu lists it
+    e->name[0] = 0;
+    if (staff_names) {
+      *(char *)(uintptr_t)TEXT_BUF = 0;
+      FUN_00467600(r);
+      copy_str(e->name, sizeof e->name, (const char *)(uintptr_t)TEXT_BUF);
+    }
+  }
+  if (staff_names) memcpy((void *)(uintptr_t)TEXT_BUF, keep, sizeof keep);
+  int k = G32(EMP_SEL), visible = G32(0x5aa6c0);
+  s->staff_sel = -1;
+  if (s->employee_overlay && k >= 0 && k < 8 && k < visible && G32(0x59ca54) != 0) s->staff_sel = G32(EMP_LIST + k * 4);
+  s->staff_moving = s->employee_overlay ? G32(EMP_MOVE) : -1;
+  s->staff_fire_cost = 2500;
+  static int last_g = -1, last_s = -1, last_sel = -2, last_mv = -2;
+  if (s->golfer_n != last_g || s->staff_n != last_s || s->staff_sel != last_sel || s->staff_moving != last_mv) {
+    last_g = s->golfer_n; last_s = s->staff_n; last_sel = s->staff_sel; last_mv = s->staff_moving;
+    fprintf(stderr, "hud: people golfers %d staff %d selected %d moving %d (moods %d %d %d %d %d, waiting %d)\n", s->golfer_n, s->staff_n,
+            s->staff_sel, s->staff_moving, s->mood_count[0], s->mood_count[1], s->mood_count[2], s->mood_count[3], s->mood_count[4], s->waiting); fflush(stderr);
+  }
+}
+
+static int g_staff_pend = -1, g_staff_wait;   // an employee to select once the portraits have scrolled to them
+
+static void emp_click_slot(int i, int dx) {   // golf's hit test is FUN_00467170(click - hot spot - offset) < 16
+  inject(G16(EMP_BTN + i * 4) + dx, G16(EMP_BTN + i * 4 + 2) + 0x10);
+}
+
+static int emp_pos(int rec) {   // place of the record among the hired
+  int pos = 0;
+  for (int r = 0; r < rec; r++)
+    if (emp_active(r)) pos++;
+  return pos;
+}
+
+static void staff_action(int what, int rec) {
+  fprintf(stderr, "hud: staff %s %d\n", what == HUD_STAFF_SELECT ? "select" : what == HUD_STAFF_FIRE ? "fire" : what == HUD_STAFF_MOVE ? "move" : "rename", rec);
+  if (what == HUD_STAFF_SELECT) {
+    if (rec < 0 || rec >= EMP_COUNT || !emp_active(rec)) return;
+    int pos = emp_pos(rec), scroll = G32(EMP_SCROLL);
+    if (pos < scroll || pos >= scroll + 8) G32(EMP_SCROLL) = pos < 8 ? 0 : (pos & ~1);
+    g_staff_pend = rec;
+    g_staff_wait = 0;
+  } else if (what == HUD_STAFF_FIRE) {
+    emp_click_slot(5, 0x10);
+  } else if (what == HUD_STAFF_MOVE) {
+    emp_click_slot(4, 0x10);
+  } else if (what == HUD_STAFF_RENAME) {
+    emp_click_slot(6, 0x10);
+  }
+}
+
+// Once the portraits show the wanted employee (a frame after the scroll), click their portrait.
+static int staff_pending(void) {
+  if (g_staff_pend < 0) return 0;
+  if (++g_staff_wait < 2) return 1;
+  for (int k = 0; k < 8; k++)
+    if (G32(EMP_LIST + k * 4) == g_staff_pend && k < G32(0x5aa6c0)) {
+      g_staff_pend = -1;
+      emp_click_slot(8 + k, 0x20);
+      return 1;
+    }
+  if (g_staff_wait > 12) g_staff_pend = -1;
+  return 1;
+}
+
 static void read_state(HudSnap *s) {
   int flags = G32(FLAGS);
   s->canvas_w = win_screen_w;
@@ -519,6 +718,8 @@ static void read_state(HudSnap *s) {
   s->msg_n = g_hist_n;
   memcpy(s->msgs, g_hist, sizeof g_hist[0] * (size_t)g_hist_n);
   read_pro(s, flags);
+  read_design(s, flags);
+  read_people(s);
 }
 
 // ------------------------------------------------------------------ actions
@@ -596,6 +797,7 @@ static void run_actions(void) {
     g_inj = 0;
     hudf_set_injecting(0);
   }
+  if (staff_pending()) return;
   if (g_show_golfer >= 0 && !g_goal_on) {
     if (G32(DOCK_MODE) == 5) {
       show_golfer(g_show_golfer);
@@ -649,6 +851,13 @@ static void run_actions(void) {
       }
       break;
     case HUD_ACT_PRO: pro_action(a.x); break;
+    case HUD_ACT_DESIGN:   // the strip's pick: what FUN_00434ac0's default case stores for the next map click
+      if (a.x == G32(0x4c2854)) {
+        G32(0x5a9f50) = G32(0x5a9f60) = G32(0x56a514) = a.y;
+        fprintf(stderr, "hud: design tool %d design %d\n", a.x, a.y);
+      }
+      break;
+    case HUD_ACT_STAFF: staff_action(a.x, a.y); break;
     case HUD_ACT_GOAL:
       g_goal = a;
       g_goal_on = 1;
@@ -664,6 +873,41 @@ void hud_clean_pages(void) {
   if (!g_on) return;
   for (int i = 0; i < PAGES; i++) copy_rects(i, 0);
   hide_art();
+}
+
+// Test peek (task-95): one log line per tile the player's build changed: terrain 0x5722e8, the design byte
+// 0x56988c, flags 0x53caf0. A landmark is terrain 16 with design + 1; a flower bed terrain 4 with its design.
+static void log_tile_changes(void) {
+  enum { N = 50 * 50 };
+  static uint8_t t0[N], d0[N];
+  static uint16_t f0[N];
+  static int have;
+  int ch = 0, first[8];
+  uint8_t t1[N], d1[N];
+  uint16_t f1[N];
+  for (int i = 0; i < N; i++) {   // golf's addresses of arrays the grid moved: through grid_translate
+    t1[i] = *(volatile uint8_t *)grid_translate(0x5722e8 + i);
+    d1[i] = *(volatile uint8_t *)grid_translate(0x56988c + i);
+    f1[i] = *(volatile uint16_t *)grid_translate(0x53caf0 + i * 2);
+  }
+  if (have)
+    for (int i = 0; i < N; i++)
+      if (t1[i] != t0[i] || d1[i] != d0[i] || (f1[i] ^ f0[i]) & 0x1220) {
+        if (ch < 8) first[ch] = i;
+        ch++;
+      }
+  if (ch > 0) {
+    fprintf(stderr, "hud: tiles changed %d\n", ch);
+    for (int k = 0; k < ch && k < 8; k++) {
+      int i = first[k];
+      fprintf(stderr, "hud: tile %d,%d terrain %d->%d design %d->%d flags %04x->%04x tool %d\n", i / 50, i % 50, t0[i], t1[i],
+              d0[i], d1[i], f0[i], f1[i], G32(0x4c2854));
+    }
+  }
+  memcpy(t0, t1, N);
+  memcpy(d0, d1, N);
+  memcpy(f0, f1, sizeof f0);
+  have = 1;
 }
 
 void hud_restore(void) {
@@ -690,13 +934,14 @@ void hud_restore(void) {
   // one line whenever what the HUD shows changes (tests read these)
   static char last[160];
   char now[160];
-  snprintf(now, sizeof now, "dock %d amenities %d elevation %d staff %d terrain %d build %d elev_tool %d elev_edit %d paused %d zoom %d rot %d shape %d pro %d%d%d",
+  snprintf(now, sizeof now, "dock %d amenities %d elevation %d staff %d terrain %d build %d elev_tool %d elev_edit %d paused %d zoom %d rot %d shape %d pro %d%d%d money %d design %d club %d",
            s->dock_mode, s->amenities_on, s->elevation_on, s->employee_overlay, s->terrain_tool, s->build_tool,
-           s->elevation_tool, s->elev_edit, s->paused, G32(0x4c2844), s->rotation, s->shape, s->pro_ready, s->pro_out, s->pro_practice);
+           s->elevation_tool, s->elev_edit, s->paused, G32(0x4c2844), s->rotation, s->shape, s->pro_ready, s->pro_out, s->pro_practice, s->money, s->design, s->clubhouse);
   if (strcmp(now, last)) {
     fprintf(stderr, "hud: state %s\n", now);
     memcpy(last, now, sizeof last);
   }
+  log_tile_changes();
   run_actions();
   pro_create_tick(s);
 }

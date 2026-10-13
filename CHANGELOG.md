@@ -11,6 +11,8 @@ Playability fixes: everything from the original game reachable in the new interf
 - Fixed: an old popup frame showing beside the new Options menu
 - Fixed: a dark pixelated dot following the ball; the ball shadow is softer
 - Fixed: trees, palms and forests vanished at the farthest zoom
+- Fixed: the People tab had no golfer or staff list. Golfers now lists everyone with their mood and hole (click to jump to them), and Staff lists every employee with Hire, Fire, Move and Rename
+- Fixed: landmarks could not be placed, and benches, flower beds, scenic trees and bridges gave a random design. A chooser now shows a picture of every design, with Rotate (Tab); greens and the clubhouse get Rotate too
 - Fixed: building upgrades greyed out one level early; the N key (cancel match) was taken by the name tags toggle (name tags are now Shift+N)
 - New: cart path help (path view on Y, no-path markers), a tiny ball splash in water
 - Pro skills can grow past 100 percent on 18-hole courses

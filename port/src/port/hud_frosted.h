@@ -21,7 +21,7 @@
 extern "C" {
 #endif
 
-#define HUD_ART_MAX 64
+#define HUD_ART_MAX 96
 
 enum {   // art slots (game sprites read back with alpha)
   HUD_ART_TERRAIN = 0,      // 16 terrain tray slots
@@ -29,6 +29,12 @@ enum {   // art slots (game sprites read back with alpha)
   HUD_ART_BUILDING = 24,    // 9 building lots
   HUD_ART_ELEVATION = 33,   // 4 elevation tools
   HUD_ART_EMBLEM = 37,      // the course emblem
+  // task-95: each amenity design as the original strip draws it (FUN_00432200), for the design chooser
+  HUD_ART_BENCH = 38,       // 6 (the cut_content mod's lovers' bench is the sixth)
+  HUD_ART_LANDMARK = 44,    // 16
+  HUD_ART_FLOWER = 60,      // 15
+  HUD_ART_TREE = 75,        // 7
+  HUD_ART_BRIDGE = 82,      // 8, up to 89
 };
 
 // One game message (task-62): what the game's news strip said, kept for the HUD's history.
@@ -43,6 +49,8 @@ typedef struct HudMsg {
   int target;        // golfer slot, or hole number 1..18
 } HudMsg;
 
+#define HUD_GOLFER_MAX 152
+#define HUD_STAFF_MAX 64
 typedef struct HudSnap {
   int valid;
   uint32_t serial;
@@ -80,11 +88,31 @@ typedef struct HudSnap {
   int pro_shot;           // golf's shot choice 0x58f330: 0 straight, -1 fade, 1 draw, 3 high backspin, 4 low punch
   int pro_skill[10];      // Power Hitter .. Luck, 0..10 (or the [skills] cap)
   char pro_name[32];
+  // task-96 / task-97: the design chooser for amenities and the clubhouse cue
+  int design;             // 0x56a514: the design the armed tool will place (-1: none picked yet, landmarks)
+  int design_n;           // designs the armed amenity offers (0: the tool has no choice); mod tables can widen it
+  unsigned landmark_mask; // 0x543cfc: landmark designs the player has (bit per design)
+  unsigned landmark_free; // 0x822c70: landmark designs that cost nothing
+  char landmark_name[16][20];   // FUN_004074a0's short names, "Sundial"
+  int clubhouse;          // placing the clubhouse (build tool 15, flag 0x800)
+  // task-94: the People lists. Golfers: every golfer on the course (hole > 0), moods always, names while the
+  // Golfers tab is open. Staff: every hired employee, in the order of golf's own table.
+  int golfer_n;
+  struct { short slot; signed char hole; signed char mood; char name[28]; } golfer[HUD_GOLFER_MAX];
+  int mood_count[5];      // golfers per mood: 0 furious .. 4 delighted (golf's faces 1-2, 3-4, 5-6, 7-8, 9-10)
+  int staff_n;
+  struct { short rec; signed char job; char name[28]; int wage; } staff[HUD_STAFF_MAX];   // job: 0..7 as HUD_JOB_NAMES
+  int staff_sel;          // record of the selected employee, -1 none
+  int staff_moving;       // record being moved (the next click on the course places them), -1 none
+  int staff_fire_cost;    // dollars a Fire costs
 } HudSnap;
 
 enum { HUD_ACT_CLICK = 1, HUD_ACT_KEY = 2, HUD_ACT_VKEY = 3, HUD_ACT_GOAL = 4,
        HUD_ACT_SHOW = 5,     // SHOW: x = HUD_SHOW_*, y = golfer slot or hole number (camera jump, as the game's own clicks and keys)
-       HUD_ACT_PRO = 6 };    // task-92: x = HUD_PRO_*
+       HUD_ACT_PRO = 6,      // task-92: x = HUD_PRO_*
+       HUD_ACT_DESIGN = 7,   // task-96: x = amenity build tool (1 bench, 2 flower, 4 landmark, 16 tree, 19 bridge), y = design
+       HUD_ACT_STAFF = 8 };  // task-94: x = HUD_STAFF_*, y = employee record (SELECT)
+enum { HUD_STAFF_SELECT = 1, HUD_STAFF_FIRE = 2, HUD_STAFF_MOVE = 3, HUD_STAFF_RENAME = 4, HUD_STAFF_SCROLL = 5 };
 enum { HUD_PRO_SKILLS = 1,   // the skill dialog: the first setup (10 points, 3 more per accomplishment) or the skills with OK
        HUD_PRO_PROFILE = 2,  // the pro's profile page (name, look, bio)
        HUD_PRO_CREATE = 3 }; // profile, then the skill setup (the start of a new career)

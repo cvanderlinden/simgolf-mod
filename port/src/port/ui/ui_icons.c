@@ -47,6 +47,8 @@ static const struct { const char *name, *src; } k_icons[UI_ICON_COUNT] = {
     [UI_ICON_TREE] = {"tree", "M12 21v-5M12 3l-6 9h4l-4 4h12l-4-4h4z"},
     [UI_ICON_PIN] = {"pin", "M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z;O12 9 2.5"},
     [UI_ICON_CHECK] = {"check", "M5 12.5l5 5L20 7"},
+    [UI_ICON_UP] = {"up", "M5 15l7-7 7 7"},
+    [UI_ICON_DOWN] = {"down", "M5 9l7 7 7-7"},
     [UI_ICON_TRASH] ={"trash", "M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"},
 };
 

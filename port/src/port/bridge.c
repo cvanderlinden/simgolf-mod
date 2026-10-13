@@ -394,7 +394,7 @@ static void push_act_g(char op, int x, int y, int button, const char *text, int 
 // the press, the press held across a frame, a frame after the release); key
 // and text acts wait for delivery.
 static void push_act(char op, int x, int y, int button, const char *text, int after_ms) {
-  int frames = (op == 'm' || op == 'd' || op == 'u' || op == 'M' || op == 'D' || op == 'U' || op == 'K' || op == 'L') ? 1 : 0;
+  int frames = (op == 'm' || op == 'd' || op == 'u' || op == 'M' || op == 'W' || op == 'D' || op == 'U' || op == 'K' || op == 'L') ? 1 : 0;
   int ack = (op == 'k' || op == 't' || op == 'K' || op == 'L');
   push_act_g(op, x, y, button, text, after_ms, frames, ack);
 }
@@ -435,6 +435,14 @@ static void sdl_wbutton(int x, int y, int right, int down) {
   e.button.clicks = 1;
   e.button.x = x;
   e.button.y = y;
+  SDL_PushEvent(&e);
+}
+
+static void sdl_wwheel(int n) {   // task-94: a mouse wheel notch count over the window pointer (button field carries n)
+  SDL_Event e = {0};
+  e.type = SDL_MOUSEWHEEL;
+  e.wheel.windowID = window_id();
+  e.wheel.y = n;
   SDL_PushEvent(&e);
 }
 
@@ -523,6 +531,7 @@ static void run_acts(void) {
     switch (a->op) {
       case 'm': sdl_motion(a->x, a->y); break;
       case 'M': sdl_wmotion(a->x, a->y); break;
+      case 'W': sdl_wwheel(a->button); break;
       case 'D': sdl_wbutton(a->x, a->y, a->button, 1); break;
       case 'U': sdl_wbutton(a->x, a->y, a->button, 0); break;
       case 'd': sdl_button(a->x, a->y, a->button, 1); break;
@@ -963,6 +972,13 @@ static void run_cmd(int ci, const char *line) {
       push_act('D', x, y, right, NULL, 100);
       push_act('U', x, y, right, NULL, 50);
     }
+    bprintf(&b, ",\"ok\":true");
+  } else if (!strcmp(cmd, "wwheel")) {
+    // task-94: the mouse over window pixel x,y, then n wheel notches (negative = towards you), as a real mouse
+    int x = (int)jnum_or(&o, "x", 0), y = (int)jnum_or(&o, "y", 0), n = (int)jnum_or(&o, "n", 0);
+    if (!act_room(2)) { reply_err(ci, id, "input queue full (wait for the earlier input to finish)"); return; }
+    push_act('M', x, y, 0, NULL, 100);
+    push_act('W', x, y, n, NULL, 100);
     bprintf(&b, ",\"ok\":true");
   } else if (!strcmp(cmd, "pixel")) {
     int x = (int)jnum_or(&o, "x", 0), y = (int)jnum_or(&o, "y", 0);

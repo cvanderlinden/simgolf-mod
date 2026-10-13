@@ -278,11 +278,28 @@ int ui_reports_draw(UiCtx *c, const RpSnap *s, SDL_Texture *const *art, RpAction
   // the roster's own controls (scroll arrows, sort) take clicks at their place in golf's page
   if (s->kind == RP_ROSTER) {
     uint32_t bid = ui_id("reports.body");
-    ui_hit(c, body, 0, bid, UI_HIT_BLOCK | UI_HIT_INTERACT);
+    ui_hit(c, body, 0, bid, UI_HIT_BLOCK | UI_HIT_INTERACT | UI_HIT_WHEEL);
     float px, py;
     if (ui_clicked(c, bid) && ui_pointer(c, &px, &py) && na < max) {
       int ox = (int)lroundf(x0 + (px - cx0) / kx), oy = (int)lroundf(y0 + (py - cy0) / ky);
       acts[na++] = (RpAction){RP_A_CLICK, (ox & 0xffff) | (oy << 16)};
+    }
+    // task-94: golf's scroll hot spots (0x2ff, 0x50..0x74 up, 0x2ff, 0x1ea..0x20e down) as visible arrows, and the wheel
+    static const int spot_y[2] = {0x62, 0x1fc};
+    for (int k = 0; k < 2; k++) {
+      float bs = ui_s(c, 34);
+      float ax = cx0 + (0x2ff + 8 - x0) * kx - bs / 2, ay = cy0 + (spot_y[k] - y0) * ky - bs / 2;
+      ax = fminf(fmaxf(ax, body.x), body.x + body.w - bs);
+      ay = fminf(fmaxf(ay, body.y), body.y + body.h - bs);
+      UiRect ar = ui_rect(ax, ay, bs, bs);
+      if (ui_icon_button(c, ui_idi(ui_id("reports.roster.arrow"), k), ar, k ? UI_ICON_DOWN : UI_ICON_UP, UI_COMPACT,
+                         k ? "Scroll down (or the mouse wheel)" : "Scroll up (or the mouse wheel)") && na < max)
+        acts[na++] = (RpAction){RP_A_CLICK, (0x30c & 0xffff) | (spot_y[k] << 16)};
+    }
+    float wh = ui_wheel(c, bid);
+    if (wh != 0 && na < max) {
+      int k = wh > 0 ? 0 : 1;
+      acts[na++] = (RpAction){RP_A_CLICK, (0x30c & 0xffff) | (spot_y[k] << 16)};
     }
   }
   if (ui_clicked(c, scrim_id) && na < max) acts[na++] = (RpAction){RP_A_CLOSE, 0};

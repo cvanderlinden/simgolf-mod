@@ -347,7 +347,10 @@ typedef struct {
   HudAction act;
 } Tile;
 static float g_tile_wmul = 1;   // width of the compact tiles (people_tray widens the labelled ones)
+static void people_log(const char *what, UiRect r);
 static int mini_tile(UiCtx *c, uint32_t id, UiRect r, const Tile *t, int flags, const char *tip) {
+  if (t->labelled && g_s && (g_s->employee_overlay || g_s->dock_mode == 2) && (!strcmp(t->name, "Fire") || !strcmp(t->name, "Move") || !strcmp(t->name, "Rename") || !strcmp(t->name, "Hire")))
+    people_log(t->name, r);
   if (t->labelled) return ui_tile_mini_label(c, id, r, t->icon, t->name, flags, tip);
   return ui_tile_mini(c, id, r, t->art, t->icon, flags, tip);
 }
@@ -439,7 +442,7 @@ static void tray(UiCtx *c, UiHud *hud, const char *title, const char *const *tab
   }
   UiRect view = ui_rect(x, y + head + ui_s(c, 12), inner, th);
   if (n == 0) {   // nothing to pick here: say what to do instead
-    const char *hint = ntabs && tab && *tab == 0 ? "Click a golfer on the course to see their card."
+    const char *hint = ntabs && tab && *tab == 0 ? "Pick a golfer from the list, or click one on the course."
                                                  : "Pick a tab above.";
     ui_text_in(c, view, UI_TYPE_BODY, t->text_secondary, hint, 0.5f);
     return;
@@ -509,7 +512,7 @@ static void tray_column(UiCtx *c, const char *title, const char *const *tabs, in
     }
   }
   if (!n) {
-    const char *hint = ntabs && tab && *tab == 0 ? "Click a golfer on the course to see their card." : "Pick a tab above.";
+    const char *hint = ntabs && tab && *tab == 0 ? "Pick a golfer from the list, or click one on the course." : "Pick a tab above.";
     ui_text_fit(c, ui_rect(x, y, iw, ui_s(c, 40)), UI_TYPE_CAPTION, t->text_secondary, hint, 0);
   }
   UiRect clip = ui_rect(r.x, y, r.w, r.y + r.h - pad - y);
@@ -588,7 +591,7 @@ static void strip(UiCtx *c, const char *title, const char *const *tabs, int ntab
     }
     UiRect view = ui_rect(x, r.y + pad, view_w, item);
     if (n == 0) {
-      const char *hint = ntabs && tab && *tab == 0 ? "Click a golfer on the course to see their card." : "Pick a tab.";
+      const char *hint = ntabs && tab && *tab == 0 ? "Pick a golfer from the list, or click one on the course." : "Pick a tab.";
       ui_text_fit(c, view, UI_TYPE_CAPTION, t->text_secondary, hint, 0);
     } else {
       uint32_t sid = ui_id(title) ^ 0x5c011u;
@@ -898,7 +901,7 @@ static void stock_tray(UiCtx *c, const char *title, const char *const *tabs, int
   if (per > (n + 1) / 2) per = (n + 1) / 2;   // two rows, like the original's tray
   if (per < 1) per = 1;
   tw = fminf((r.w - 2 * pad - (per - 1) * g) / per, th * 1.8f);   // and as wide as the tray allows
-  if (n == 0) ui_text_in(c, ui_rect(x, gy, r.w - 2 * pad, gh), UI_TYPE_CAPTION, t->text_secondary, "Click a golfer on the course to see their card.", 0.5f);
+  if (n == 0) ui_text_in(c, ui_rect(x, gy, r.w - 2 * pad, gh), UI_TYPE_CAPTION, t->text_secondary, "Pick a golfer from the list, or click one on the course.", 0.5f);
   for (int i = 0; i < n && i < 2 * per; i++) {
     UiRect tr = ui_rect(x + (i % per) * (tw + g), gy + (i / per) * (th + g), tw, th);
     char tipbuf[96];
@@ -1184,7 +1187,7 @@ static void panel_tray(UiCtx *c, const char *title, const char *const *tabs, int
     click(a, undo_x, undo_y);
   y += segh + hgap;
   if (n == 0) {
-    const char *hint = ntabs && tab && *tab == 0 ? "Click a golfer on the course to see their card." : "Pick a tab.";
+    const char *hint = ntabs && tab && *tab == 0 ? "Pick a golfer from the list, or click one on the course." : "Pick a tab.";
     ui_text_in(c, ui_rect(x, y, inner, th), UI_TYPE_CAPTION, t->text_secondary, hint, 0);
   }
   for (int i = 0; i < n; i++) {
@@ -1244,7 +1247,7 @@ static void row_tray(UiCtx *c, const char *title, const char *const *tabs, int n
   }
   UiRect view = ui_rect(x, rowy, view_w, item);
   if (n == 0) {
-    const char *hint = ntabs && tab && *tab == 0 ? "Click a golfer on the course to see their card." : "Pick a tab.";
+    const char *hint = ntabs && tab && *tab == 0 ? "Pick a golfer from the list, or click one on the course." : "Pick a tab.";
     ui_text_fit(c, view, UI_TYPE_CAPTION, t->text_secondary, hint, 0);
   } else {
     uint32_t sid = ui_id(title) ^ 0x5c012u;
@@ -1325,7 +1328,7 @@ static void course_tray(UiCtx *c, UiHud *h, const HudSnap *s, SDL_Texture *const
     }
   }
   for (int i = 0; i < n; i++)   // Trees: a tree armed; Extras: an amenity armed
-    if (tiles[i].selected && (tab == 3 || tab == 4)) g_rotate = 1;
+    if (tiles[i].selected && (tab == 3 || tab == 4 || (tab == 0 && s->terrain_tool == 1))) g_rotate = 1;   // green: its shape
   tray(c, h, "Course", tabs, 5, &tab, tiles, n, 8, s->amenities_on ? 248 : 261, s->amenities_on ? 567 : 578, dock_r, a);
   if (tab != before) {
     if (tab == 4) goal(a, HUD_GOAL_EXTRAS, -1, -1);
@@ -1442,6 +1445,171 @@ static int pro_tiles(const HudSnap *s, Tile *t) {
   return n;
 }
 
+// ------------------------------------------------------------------ People lists (task-94)
+//
+// The Golfers and Staff pages of the People tray stand in for the original's golfer list (4x4 cards with a
+// mood face, FUN_00435760) and employee strip (8 portraits, FUN_00436e50): a panel above the camera pill
+// with one row per golfer or employee, scrolling when it is long. A golfer row jumps the camera to them and
+// opens their card (HUD_ACT_SHOW); an employee row selects them, and Fire, Move and Rename appear in the tray.
+static const char *const k_job[8] = {"Club Pro", "Celebrity", "Ranger", "Marshall", "Groundskeeper", "Technician", "Soda Vendor", "Refresher"};
+static const char *const k_mood_word[5] = {"Furious", "Unhappy", "Okay", "Happy", "Delighted"};
+
+// Tests read where the rows and buttons of the People lists are (window pixels): one line when one moves.
+static void people_log(const char *what, UiRect r) {
+  static struct { const char *what; int x, y, w, h; } last[12];
+  for (int i = 0; i < 12; i++) {
+    if (last[i].what && strcmp(last[i].what, what)) continue;
+    int x = (int)r.x, y = (int)r.y, w = (int)r.w, h = (int)r.h;
+    if (last[i].what && last[i].x == x && last[i].y == y && last[i].w == w && last[i].h == h) return;
+    last[i].what = what;
+    last[i].x = x; last[i].y = y; last[i].w = w; last[i].h = h;
+    fprintf(stderr, "hud: people %s at %d,%d size %dx%d\n", what, x, y, w, h); fflush(stderr);
+    return;
+  }
+}
+
+// the first row not cut off at the top of the list (the list scrolled when it changes)
+static void people_row_log(const char *kind, int i, UiRect rr) {
+  static int first[2] = {-1, -1};
+  int k = kind[0] == 's';
+  if (first[k] == i) return;
+  first[k] = i;
+  fprintf(stderr, "hud: people %s first row %d at %d,%d size %dx%d\n", kind, i, (int)rr.x, (int)rr.y, (int)rr.w, (int)rr.h); fflush(stderr);
+}
+
+static UiRect people_panel_frame(UiCtx *c, const char *title, float w, float rows_h, float head_extra, UiRect *view_out) {
+  const UiTokens *t = ui_tokens(c);
+  UiRect scr = ui_screen(c);
+  float pad = ui_s(c, 12), head = ui_s(c, 34) + head_extra;
+  float maxh = fminf(scr.h - ui_s(c, 300), ui_s(c, 520));
+  if (maxh < ui_s(c, 220)) maxh = ui_s(c, 220);
+  float view_h = fminf(rows_h, maxh - head - 2 * pad);
+  if (view_h < ui_s(c, 40)) view_h = ui_s(c, 40);
+  float h = pad + head + view_h + pad;
+  float k = ui_anim(c, ui_id(title) ^ 0x71a1u, 1, t->motion_open);
+  UiRect r = ui_rect_round(ui_anchor(scr, w, h, UI_BOTTOM_RIGHT, ui_s(c, 12), ui_s(c, 84) - (1 - k) * ui_s(c, 12)));
+  {   // tests wait for the panel: one line when it comes up (not drawn for half a second before)
+    static Uint32 seen;
+    static char kind;
+    Uint32 now = SDL_GetTicks();
+    if (now - seen > 500 || kind != title[0]) fprintf(stderr, "hud: people panel up: %s\n", title); fflush(stderr);
+    seen = now;
+    kind = title[0];
+  }
+  ui_panel(c, r, ui_s(c, 18), UI_PANEL_READABLE);
+  ui_text_in(c, ui_rect(r.x + pad + ui_s(c, 2), r.y + pad, w - 2 * pad, ui_s(c, 30)), UI_TYPE_HEADING, t->text_primary, title, 0);
+  *view_out = ui_rect(r.x + pad, r.y + pad + head, w - 2 * pad, view_h);
+  return r;
+}
+
+static void golfers_panel(UiCtx *c, const HudSnap *s, Acts *a) {
+  const UiTokens *t = ui_tokens(c);
+  float w = ui_s(c, 320), rh = ui_s(c, 40), rg = ui_s(c, 4), pad = ui_s(c, 12);
+  char title[48];
+  snprintf(title, sizeof title, "Golfers  (%d)", s->golfer_n);
+  float rows_h = s->golfer_n ? s->golfer_n * (rh + rg) - rg : ui_s(c, 48);
+  UiRect view;
+  UiRect r = people_panel_frame(c, title, w, rows_h, ui_s(c, 40) + (s->waiting > 0 ? ui_s(c, 20) : 0), &view);
+  // mood counts: one face per band with its count, how the course feels at a glance
+  float cx = r.x + pad, cy = r.y + pad + ui_s(c, 34);
+  float cell = (w - 2 * pad) / 5;
+  for (int m = 0; m < 5; m++) {
+    char n[12];
+    snprintf(n, sizeof n, "%d", s->mood_count[m]);
+    UiRect fr = ui_rect(cx + m * cell, cy, ui_s(c, 28), ui_s(c, 28));
+    ui_face(c, m * 2 + 2, fr, ui_s(c, 26), s->mood_count[m] ? 1.0f : 0.45f);
+    ui_text_in(c, ui_rect(fr.x + ui_s(c, 30), cy, cell - ui_s(c, 32), ui_s(c, 28)), UI_TYPE_NUMBER,
+               s->mood_count[m] ? t->text_primary : t->text_secondary, n, 0);
+    uint32_t mid = ui_idi(ui_id("hud.people.mood"), m);
+    UiRect mr = ui_rect(cx + m * cell, cy, cell, ui_s(c, 28));
+    ui_hit(c, mr, ui_s(c, 8), mid, UI_HIT_INTERACT);
+    ui_tooltip(c, mid, mr, k_mood_word[m]);
+  }
+  if (s->waiting > 0) {
+    char wt[48];
+    snprintf(wt, sizeof wt, "%d waiting to join the club", s->waiting);
+    ui_text_in(c, ui_rect(r.x + pad + ui_s(c, 2), cy + ui_s(c, 32), w - 2 * pad, ui_s(c, 18)), UI_TYPE_CAPTION, t->text_secondary, wt, 0);
+  }
+  if (!s->golfer_n) {
+    ui_text_in(c, view, UI_TYPE_CAPTION, t->text_secondary, "No golfers on the course yet.", 0);
+    return;
+  }
+  float off = ui_vscroll_begin(c, ui_id("hud.people.golfers.scroll"), view, rows_h, rh + rg);
+  int first_done = 0;
+  for (int i = 0; i < s->golfer_n; i++) {
+    UiRect rr = ui_rect(view.x, view.y + off + i * (rh + rg), view.w, rh);
+    if (rr.y + rr.h < view.y || rr.y > view.y + view.h) continue;
+    const char *nm = s->golfer[i].name[0] ? s->golfer[i].name : "Golfer";
+    if (!first_done && rr.y >= view.y - 1) { first_done = 1; people_row_log("golfer", i, rr); }
+    uint32_t id = ui_idi(ui_id("hud.people.golfer"), s->golfer[i].slot);
+    float rad = ui_s(c, 12);
+    ui_hit(c, rr, rad, id, UI_HIT_BLOCK | UI_HIT_INTERACT);
+    float hov = ui_anim(c, id, ui_is_hot(c, id) ? 1.0f : 0.0f, t->motion_hover);
+    uid_rrect(ui_drawer(c), rr, rad, uid_mix(t->surface_inset, t->tile_fill_on, hov));
+    uid_rrect_stroke(ui_drawer(c), rr, rad, ui_s(c, 1), t->surface_inset_border);
+    ui_face(c, s->golfer[i].mood, ui_rect(rr.x + ui_s(c, 6), rr.y + (rh - ui_s(c, 28)) / 2, ui_s(c, 28), ui_s(c, 28)), ui_s(c, 26), 1.0f);
+    char where[24];
+    if (s->golfer[i].hole > 18) snprintf(where, sizeof where, "leaving");
+    else snprintf(where, sizeof where, "Hole %d", s->golfer[i].hole);
+    float ww = ui_text_width(c, UI_TYPE_CAPTION, where) + ui_s(c, 8);
+    ui_text_fit(c, ui_rect(rr.x + ui_s(c, 40), rr.y, rr.w - ui_s(c, 48) - ww, rh), UI_TYPE_LABEL, t->text_primary, nm, 0);
+    ui_text_in(c, ui_rect(rr.x + rr.w - ww - ui_s(c, 6), rr.y, ww, rh), UI_TYPE_CAPTION, t->text_secondary, where, 1);
+    char tip[96];
+    snprintf(tip, sizeof tip, "%s, %s. Click to show the golfer", nm, k_mood_word[(s->golfer[i].mood - 1) / 2]);
+    ui_tooltip(c, id, rr, tip);
+    if (ui_clicked(c, id)) act(a, (HudAction){HUD_ACT_SHOW, HUD_SHOW_GOLFER, s->golfer[i].slot, 0, 0});
+  }
+  ui_vscroll_end(c);
+}
+
+static void staff_panel(UiCtx *c, const HudSnap *s, Acts *a) {
+  const UiTokens *t = ui_tokens(c);
+  float w = ui_s(c, 320), rh = ui_s(c, 48), rg = ui_s(c, 4);
+  char title[48];
+  snprintf(title, sizeof title, "Staff  (%d of 20)", s->staff_n);
+  float rows_h = s->staff_n ? s->staff_n * (rh + rg) - rg : ui_s(c, 48);
+  UiRect view;
+  UiRect r = people_panel_frame(c, title, w, rows_h, s->staff_n ? ui_s(c, 22) : 0, &view);
+  if (s->staff_moving >= 0)
+    ui_text_in(c, ui_rect(r.x + ui_s(c, 14), r.y + ui_s(c, 44), w - ui_s(c, 28), ui_s(c, 20)), UI_TYPE_CAPTION, t->accent_soft_text,
+               "Click a tile on the course to place them", 0);
+  else if (s->staff_n)   // the hint sits above the list (a tooltip would cover the row below the pointer)
+    ui_text_in(c, ui_rect(r.x + ui_s(c, 14), r.y + ui_s(c, 44), w - ui_s(c, 28), ui_s(c, 20)), UI_TYPE_CAPTION, t->text_secondary,
+               "Pick someone, then Fire, Move or Rename", 0);
+  if (!s->staff_n) {
+    ui_text_in(c, view, UI_TYPE_CAPTION, t->text_secondary, "Nobody hired yet. Use Hire below.", 0);
+    return;
+  }
+  float off = ui_vscroll_begin(c, ui_id("hud.people.staff.scroll"), view, rows_h, rh + rg);
+  int first_done = 0;
+  for (int i = 0; i < s->staff_n; i++) {
+    UiRect rr = ui_rect(view.x, view.y + off + i * (rh + rg), view.w, rh);
+    if (rr.y + rr.h < view.y || rr.y > view.y + view.h) continue;
+    int sel = s->staff[i].rec == s->staff_sel;
+    if (!first_done && rr.y >= view.y - 1) { first_done = 1; people_row_log("staff", i, rr); }
+    uint32_t id = ui_idi(ui_id("hud.people.emp"), s->staff[i].rec);
+    float rad = ui_s(c, 12);
+    ui_hit(c, rr, rad, id, UI_HIT_BLOCK | UI_HIT_INTERACT);
+    float hov = ui_anim(c, id, ui_is_hot(c, id) ? 1.0f : 0.0f, t->motion_hover);
+    if (sel) uid_rrect(ui_drawer(c), ui_inset_all(rr, -ui_s(c, 2)), rad + ui_s(c, 2), t->accent);
+    uid_rrect(ui_drawer(c), rr, rad, sel ? t->tile_fill_on : uid_mix(t->surface_inset, t->tile_fill_on, hov));
+    if (!sel) uid_rrect_stroke(ui_drawer(c), rr, rad, ui_s(c, 1), t->surface_inset_border);
+    ui_icon(c, UI_ICON_USERS, ui_rect(rr.x + ui_s(c, 8), rr.y + (rh - ui_s(c, 26)) / 2, ui_s(c, 26), ui_s(c, 26)), ui_s(c, 22), t->accent_soft_text);
+    char wage[32], wm[24];
+    ui_hud_money(wm, sizeof wm, s->staff[i].wage);
+    snprintf(wage, sizeof wage, "%s/wk", wm);
+    float ww = ui_text_width(c, UI_TYPE_CAPTION, wage) + ui_s(c, 8);
+    float tx = rr.x + ui_s(c, 42), tw = rr.w - ui_s(c, 50) - ww;
+    UiFont nf = ui_font(c, UI_TYPE_LABEL), cf = ui_font(c, UI_TYPE_CAPTION);
+    float y0 = rr.y + (rh - nf.line - cf.line) / 2;
+    ui_text_fit(c, ui_rect(tx, y0, tw, nf.line), UI_TYPE_LABEL, t->text_primary, s->staff[i].name[0] ? s->staff[i].name : "Employee", 0);
+    ui_text_fit(c, ui_rect(tx, y0 + nf.line, tw, cf.line), UI_TYPE_CAPTION, t->text_secondary, k_job[s->staff[i].job & 7], 0);
+    ui_text_in(c, ui_rect(rr.x + rr.w - ww - ui_s(c, 6), rr.y, ww, rh), UI_TYPE_CAPTION, t->text_secondary, wage, 1);
+    if (ui_clicked(c, id)) act(a, (HudAction){HUD_ACT_STAFF, HUD_STAFF_SELECT, s->staff[i].rec, 0, 0});
+  }
+  ui_vscroll_end(c);
+}
+
 static void people_tray(UiCtx *c, UiHud *h, const HudSnap *s, UiRect dock_r, Acts *a) {
   static const char *const tabs[3] = {"Golfers", "Your pro", "Staff"};
   int tab = s->employee_overlay ? 2 : s->dock_mode == 2 ? 0 : 1, before = tab;
@@ -1454,7 +1622,22 @@ static void people_tray(UiCtx *c, UiHud *h, const HudSnap *s, UiRect dock_r, Act
     tiles[0].icon = UI_ICON_PLUS;
     tiles[0].tip = "Hire a groundskeeper, ranger, club pro or caddie";
     tiles[0].act = (HudAction){HUD_ACT_CLICK, 270, 558, 0, 0};
+    tiles[0].labelled = 1;
+    g_tile_wmul = 1.7f;
     n = 1;
+    if (s->staff_sel >= 0) {   // task-94: the selected employee's three controls (golf's Fire, Move, Rename buttons)
+      static char fire_txt[24];
+      ui_hud_money(fire_txt, sizeof fire_txt, s->staff_fire_cost);
+      tiles[0].labelled = 1;
+      tiles[1] = (Tile){"Fire", fire_txt, "Let this employee go", NULL, UI_ICON_TRASH, 0, 0, 1, {HUD_ACT_STAFF, HUD_STAFF_FIRE, 0, 0, 0}};
+      tiles[2] = (Tile){"Move", "then click", "Pick them up, then click a tile on the course", NULL, UI_ICON_PIN, s->staff_moving >= 0, 0, 1,
+                        {HUD_ACT_STAFF, HUD_STAFF_MOVE, 0, 0, 0}};
+      tiles[3] = (Tile){"Rename", "name", "Give this employee a new name", NULL, UI_ICON_PALETTE, 0, 0, 1, {HUD_ACT_STAFF, HUD_STAFF_RENAME, 0, 0, 0}};
+      n = 4;
+    }
+    staff_panel(c, s, a);
+  } else if (tab == 0) {
+    golfers_panel(c, s, a);
   } else if (tab == 1) {
     n = pro_tiles(s, tiles);
     for (int i = 0; i < n; i++) tiles[i].labelled = 1;
@@ -1711,6 +1894,78 @@ static void hidden_hint(UiCtx *c, UiHud *h) {
   if (ui_clicked(c, id)) h->hidden = 0;
 }
 
+// ------------------------------------------------------------------ placement panel (task-96, task-97)
+
+// Floating panel while a piece with a choice of designs is armed (bench, flower bed, landmark, scenic
+// tree, scenic bridge) and while the clubhouse waits for its spot at the start of a course. The original
+// picked the design by hovering a strip, which a parked pointer never does; here a chip click writes it
+// (HUD_ACT_DESIGN). Rotate is the Tab key as a button. Independent of the tray, so it stays when the tray tucks away.
+static int place_chip_flags(const HudSnap *s, int tool, int i) {
+  int f = s->design == i ? UI_SELECTED : 0;
+  if (tool == 4 && !((s->landmark_mask >> i) & 1u)) f |= UI_DISABLED;
+  return f;
+}
+
+static void place_panel(UiCtx *c, UiHud *h, const HudSnap *s, SDL_Texture *const *art, Acts *a) {
+  int club = s->clubhouse, n = club ? 0 : s->design_n, tool = s->build_tool;
+  if (!club && n <= 0) return;
+  const UiTokens *t = ui_tokens(c);
+  UiRect scr = ui_screen(c);
+  const char *title = club ? "Place your clubhouse"
+                    : tool == 1 ? "Bench design" : tool == 2 ? "Flower bed design" : tool == 4 ? "Landmark"
+                    : tool == 16 ? "Scenic tree" : "Scenic bridge";
+  char hint[160] = "";
+  if (club) snprintf(hint, sizeof hint, "Click the course to set it down. Turn it with Rotate or the Tab key.");
+  else if (tool == 4 && (s->design < 0 || s->design >= n)) snprintf(hint, sizeof hint, "Pick a landmark, then click the course.");
+  else if (tool == 4) {
+    char cost[24];
+    if ((s->landmark_free >> s->design) & 1u) snprintf(cost, sizeof cost, "free");
+    else ui_hud_money(cost, sizeof cost, (s->design * 5 + 25) * 200);
+    snprintf(hint, sizeof hint, "%s, %s", s->landmark_name[s->design], cost);
+  } else snprintf(hint, sizeof hint, "Pick a design, then click the course.");
+  float pad = ui_s(c, 12), segh = ui_s(c, 34), g = ui_s(c, 6), cw = ui_s(c, 58), ch = ui_s(c, 58);
+  float title_w = ui_text_width(c, UI_TYPE_HEADING, title) + ui_s(c, 14), rw = rot_width(c);
+  float max_w = scr.w - 2 * ui_s(c, t->edge_margin);
+  int per = n;
+  if (per > 1 && per * cw + (per - 1) * g + 2 * pad > max_w) per = (n + 1) / 2;   // two rows on a narrow screen
+  int rows = n > 0 ? (n + per - 1) / per : 0;
+  float chips_w = n > 0 ? per * cw + (per - 1) * g : 0;
+  float hint_w = ui_text_width(c, UI_TYPE_BODY, hint);
+  float inner = fmaxf(fmaxf(chips_w, title_w + ui_s(c, 16) + rw), hint_w);
+  float hh = pad + segh + ui_s(c, 8) + (rows ? rows * ch + (rows - 1) * g + ui_s(c, 8) : 0) +
+             ui_font(c, UI_TYPE_BODY).line + pad;
+  float w = inner + 2 * pad;
+  float margin = h->density == HUD_JWE ? ui_s(c, 160) : ui_s(c, 250);
+  float k = ui_anim(c, ui_id("hud.place") ^ 0x91ace1u, 1, t->motion_open);
+  UiRect r = ui_rect_round(ui_anchor(scr, w, hh, UI_BOTTOM, 0, margin - (1 - k) * ui_s(c, 16)));
+  ui_panel(c, r, ui_s(c, 20), 0);
+  float x = r.x + pad, y = r.y + pad;
+  ui_text_in(c, ui_rect(x + ui_s(c, 2), y, title_w, segh), UI_TYPE_HEADING, t->text_primary, title, 0);
+  UiRect rr = ui_rect(r.x + r.w - pad - rw, y, rw, segh);
+  uint32_t rid = ui_id("hud.place.rotate");
+  if (ui_button(c, rid, rr, k_rot_label, UI_ICON_ROTR, UI_BTN_PILL, 0)) act(a, (HudAction){HUD_ACT_KEY, 0, 0, 0, 9});
+  ui_tooltip(c, rid, rr, "Rotate what you are placing (the Tab key does the same)");
+  y += segh + ui_s(c, 8);
+  for (int i = 0; i < n; i++) {
+    UiRect cr = ui_rect(x + (i % per) * (cw + g), y + (i / per) * (ch + g), cw, ch);
+    char lab[8], tip[80];
+    snprintf(lab, sizeof lab, "%d", i + 1);
+    int f = place_chip_flags(s, tool, i);
+    if (tool == 4) {
+      if (f & UI_DISABLED) snprintf(tip, sizeof tip, "%s: not earned yet", s->landmark_name[i]);
+      else snprintf(tip, sizeof tip, "%s", s->landmark_name[i]);
+    } else snprintf(tip, sizeof tip, "%s %d", title, i + 1);
+    int slot = tool == 1 ? HUD_ART_BENCH : tool == 2 ? HUD_ART_FLOWER : tool == 4 ? HUD_ART_LANDMARK : tool == 16 ? HUD_ART_TREE : HUD_ART_BRIDGE;
+    SDL_Texture *pic = art ? art[slot + i] : NULL;   // the design as the original strip drew it; a number if none
+    int hit = pic ? ui_tile_mini(c, ui_idi(ui_id("hud.place"), i), cr, pic, UI_ICON_NONE, f, tip)
+                  : ui_tile_mini_label(c, ui_idi(ui_id("hud.place"), i), cr, (f & UI_DISABLED) ? UI_ICON_LOCK : UI_ICON_NONE, lab, f, tip);
+    if (hit && !(f & UI_DISABLED))
+      act(a, (HudAction){HUD_ACT_DESIGN, tool, i, 0, 0});
+  }
+  y += rows ? rows * ch + (rows - 1) * g + ui_s(c, 8) : 0;
+  ui_text_in(c, ui_rect(x + ui_s(c, 2), y, inner, ui_font(c, UI_TYPE_BODY).line), UI_TYPE_BODY, t->text_secondary, hint, 0);
+}
+
 int ui_hud_draw(UiCtx *c, UiHud *h, const HudSnap *s, SDL_Texture *const *art, HudAction *out, int max_out) {
   Acts a = {out, 0, max_out};
   if (!s->visible) return 0;
@@ -1750,6 +2005,7 @@ int ui_hud_draw(UiCtx *c, UiHud *h, const HudSnap *s, SDL_Texture *const *art, H
     case D_LAND: landscape_tray(c, h, s, art, dock_r, &a); break;
     case D_PEOPLE: people_tray(c, h, s, dock_r, &a); break;
   }
+  place_panel(c, h, s, art, &a);
   if (h->density == HUD_JWE) news_ui(c, h, s, &a);
   return a.n;
 }
