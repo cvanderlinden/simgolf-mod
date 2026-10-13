@@ -13,6 +13,7 @@ build/
 evidence/**/*.png
 evidence/**/*.jpg
 evidence/*.mp4
+evidence/**/*.mp4
 evidence/*.gif
 evidence/*.log
 .claude/worktrees/

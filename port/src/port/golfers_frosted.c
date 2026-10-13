@@ -100,7 +100,8 @@ static int track_input(SDL_Event *e, int course, void *user) {
       return 0;
     case SDL_KEYDOWN: {
       SDL_Keycode nk = names_key();
-      if (nk != SDLK_UNKNOWN && e->key.keysym.sym == nk && g_world_up && host_now_ms() - g_serial_t < 400 && !(e->key.keysym.mod & (KMOD_CTRL | KMOD_ALT | KMOD_GUI))) {
+      // N alone is the game's cancel match key, so the default N key needs Shift (card task-93)
+      if (nk != SDLK_UNKNOWN && e->key.keysym.sym == nk && (nk != SDLK_n || (e->key.keysym.mod & KMOD_SHIFT)) && g_world_up && host_now_ms() - g_serial_t < 400 && !(e->key.keysym.mod & (KMOD_CTRL | KMOD_ALT | KMOD_GUI))) {
         if (!e->key.repeat) {
           g_show_all = !g_show_all;
           g_eat_char = nk < 128 ? (int)nk : 0;

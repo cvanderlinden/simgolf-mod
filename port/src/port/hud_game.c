@@ -34,8 +34,15 @@ int FUN_00473e60(void *sprite, int target, int x, int y, int clip);             
 int FUN_0040daa0(int what);                                                                // course name -> text_buf
 uint32_t FUN_0040d7b0(int tick);                                                           // date -> text_buf
 uint32_t FUN_00407280(int hole);                                                           // hole name -> appended to text_buf
+int FUN_004065c0(void);                                                                    // the pro's first skill setup (10 points, 3 per accomplishment)
+int FUN_0045f0f0(char *title, uint32_t mask, int points, int slot, int xoff);              // the skill dialog
+uint32_t FUN_004385d0(int a, int b);                                                       // the golfer profile page
+int FUN_0040bfa0(int x, int y);                                                            // terrain at a world point
+const char *mods_get(const char *key);
 
 
+int pv_building_of_text(const char *text);   // paths_game.c (task-53)
+void pv_show_building(int idx);
 int gw_native_card(void);   // golfers_game.c: the Frosted Mint golfer card replaces the original
 
 // hd_art.c (task-81): the art pack's hi-res copies of what the old HUD drew go with its pixels
@@ -323,14 +330,119 @@ static void note_messages(const char *date) {
       m->target = subj;
     } else if ((m->target = hole_of_text(m->text)) != 0) {
       m->show = HUD_SHOW_HOLE;
+    } else if ((m->target = pv_building_of_text(m->text)) >= 0) {   // task-53: golf's "WARNING: Your ... will not be operational" names a building
+      m->show = HUD_SHOW_BUILDING;
     }
-    fprintf(stderr, "hud: message %d (%s %d): %s\n", m->seq, m->show == HUD_SHOW_GOLFER ? "golfer" : m->show == HUD_SHOW_HOLE ? "hole" : "no target",
+    fprintf(stderr, "hud: message %d (%s %d): %s\n", m->seq, m->show == HUD_SHOW_GOLFER ? "golfer" : m->show == HUD_SHOW_HOLE ? "hole" : m->show == HUD_SHOW_BUILDING ? "building" : "no target",
             m->target, m->text);
   }
   if (ss != 1 && G32(0x5a9ccc) == 0) g_news_seq = 0;
   g_prev_ss = ss;
   g_prev_timer = timer;
   copy_str(g_prev_text, sizeof g_prev_text, text);
+}
+
+// ------------------------------------------------------------------ the player's pro (task-92)
+//
+// The original's People panel has a second page, the player panel (dock modes 3 and 4, FUN_004362f0 draws
+// it, FUN_00436060 handles its clicks): the pro's profile disc, Practice Round, Match, Begin Tournament,
+// the skill list and, while the pro is out, the five shot choices. Before the pro's first round golf runs
+// the skill setup (FUN_0040f190 calls FUN_004065c0 when the skill mask is empty: 10 points plus 3 for each
+// accomplishment already earned); after that every accomplishment board (FUN_0046e810) ends with "Add three
+// skill points to your pro" and the skill dialog. The Frosted Mint HUD hides that panel, so the People tray's
+// "Your golfer" page (ui_hud.c) shows these controls and clicks the original ones.
+
+#define PRO_SLOT 0x5a59f8   // the pro's golfer slot while out on the course, -1 when in
+#define SKILLS 0x5a5a04     // the pro's skills, 12 bytes (10 shown)
+#define SKILL_MASK 0x4c2c9c
+
+static int pro_ready(void) {   // FUN_0040f190's gate: the mask plus a bit for every skill above 0
+  int mask = (uint16_t)G16(SKILL_MASK);
+  for (int i = 0; i < 12; i++)
+    if (G8(SKILLS + i) != 0) mask |= 1 << i;
+  return mask != 0;
+}
+
+static void read_pro(HudSnap *s, int flags) {
+  int slot = G32(PRO_SLOT), holes = G32(0x5685f0), busy = (flags & 0x4200000) != 0;
+  s->pro_ready = pro_ready();
+  s->pro_out = slot != -1;
+  s->pro_practice = !s->pro_out && holes >= 2 && !busy;
+  s->pro_match = !s->pro_out && (flags & 0x2000) && holes >= 2 && G32(0x4c2e14) != -1 && !busy;
+  s->pro_tourney = !s->pro_out && (flags & 0x400000) && !busy;
+  s->pro_shots = 0;
+  if (s->pro_out && slot >= 0 && slot < 152 && s->dock_mode == 3 && G32(0x579584 + slot * 0x100) == -1) {
+    int t = FUN_0040bfa0(G32(0x57958c + slot * 0x100), G32(0x5794bc + slot * 0x100));
+    s->pro_shots = t >= 0 && t < 64 && G8(0x578372 + t * 0x30) >= 1 ? 1 : 2;   // a bad lie: straight and low punch only
+  }
+  s->pro_shot = G32(0x58f330);
+  for (int i = 0; i < 10; i++) s->pro_skill[i] = G8(SKILLS + i);
+  copy_str(s->pro_name, sizeof s->pro_name, (const char *)(uintptr_t)0x4d6098);
+}
+
+// [ui] pro_setup: start (default) runs the pro's creation (profile, then the skill setup) as a new career's
+// course opens; original leaves it to the first Practice Round, as in 2002. SIMGOLF_PRO_SETUP overrides it
+// (the test bridge launches with original so scripted new games are not held up by the dialog).
+static int pro_setup_at_start(void) {
+  static int v = -1;
+  if (v < 0) {
+    const char *e = getenv("SIMGOLF_PRO_SETUP");
+    if (!e || !*e) e = mods_get("ui.pro_setup");
+    v = !(e && strcmp(e, "original") == 0);
+  }
+  return v;
+}
+
+void hud_clean_pages(void);
+
+static void hud_hide_now(void) {   // a modal dialog of golf's is about to run: no HUD over it
+  g_snap.visible = 0;
+  g_snap.serial = ++g_serial;
+  hudf_publish(&g_snap);
+  hud_clean_pages();
+}
+
+static void pro_profile(void) {   // FUN_00436060 case 0, the profile disc
+  G8(0x582cd0) = 0x20;
+  G16(0x582d6e) = 0;
+  int look = G32(0x4d60b4);
+  G8(0x582cd1) = look == 0 ? 7 : (look & 7);
+  FUN_004385d0(0, 0x98);
+}
+
+static void pro_action(int what) {
+  fprintf(stderr, "hud: pro %s (ready %d)\n", what == HUD_PRO_SKILLS ? "skills" : what == HUD_PRO_PROFILE ? "profile" : "create",
+          pro_ready());
+  hud_hide_now();
+  if (what == HUD_PRO_PROFILE || what == HUD_PRO_CREATE) pro_profile();
+  if (what == HUD_PRO_SKILLS || what == HUD_PRO_CREATE) {
+    if (!pro_ready()) {
+      FUN_004065c0();   // the first setup, exactly as before the first round
+    } else {            // the skills with an OK button (no points to spend)
+      G32(0x4c2e08) = -1;
+      FUN_0045f0f0((char *)(uintptr_t)0x4d6098, (uint16_t)G16(SKILL_MASK), 0, -1, 200);
+    }
+  }
+  fprintf(stderr, "hud: pro done (ready %d, skills", pro_ready());
+  for (int i = 0; i < 10; i++) fprintf(stderr, " %d", G8(SKILLS + i));
+  fprintf(stderr, ")\n");
+}
+
+// A new career's course: the pro is created once the course view has been up a moment (no hole built yet,
+// not Sandbox, skills not set up). Once per course: a new game re-arms it.
+static int g_create_wait, g_create_done, g_create_tick;
+static void pro_create_tick(const HudSnap *s) {
+  int tick = G32(0x834170);
+  if (tick < g_create_tick) g_create_done = 0;   // the clock went back: another game
+  g_create_tick = tick;
+  if (!pro_setup_at_start() || s->sandbox || s->pro_ready || s->next_hole >= 2) {
+    g_create_wait = 0;
+    return;
+  }
+  if (g_create_done || !s->visible) return;
+  if (++g_create_wait < 45) return;
+  g_create_done = 1;
+  pro_action(HUD_PRO_CREATE);
 }
 
 static void read_state(HudSnap *s) {
@@ -406,6 +518,7 @@ static void read_state(HudSnap *s) {
   s->news_seq = g_news_seq;
   s->msg_n = g_hist_n;
   memcpy(s->msgs, g_hist, sizeof g_hist[0] * (size_t)g_hist_n);
+  read_pro(s, flags);
 }
 
 // ------------------------------------------------------------------ actions
@@ -529,8 +642,13 @@ static void run_actions(void) {
         G32(0x822b9c) = a.y <= 9 ? '0' + a.y : "!@#$%^&*("[a.y - 10];
         fprintf(stderr, "hud: show hole %d\n", a.y);
         g_show_log = 4;
+      } else if (a.x == HUD_SHOW_BUILDING) {
+        pv_show_building(a.y);
+        G8(SCREEN_STATE) = 0;
+        g_show_log = 4;
       }
       break;
+    case HUD_ACT_PRO: pro_action(a.x); break;
     case HUD_ACT_GOAL:
       g_goal = a;
       g_goal_on = 1;
@@ -572,13 +690,14 @@ void hud_restore(void) {
   // one line whenever what the HUD shows changes (tests read these)
   static char last[160];
   char now[160];
-  snprintf(now, sizeof now, "dock %d amenities %d elevation %d staff %d terrain %d build %d elev_tool %d elev_edit %d paused %d zoom %d rot %d shape %d",
+  snprintf(now, sizeof now, "dock %d amenities %d elevation %d staff %d terrain %d build %d elev_tool %d elev_edit %d paused %d zoom %d rot %d shape %d pro %d%d%d",
            s->dock_mode, s->amenities_on, s->elevation_on, s->employee_overlay, s->terrain_tool, s->build_tool,
-           s->elevation_tool, s->elev_edit, s->paused, G32(0x4c2844), s->rotation, s->shape);
+           s->elevation_tool, s->elev_edit, s->paused, G32(0x4c2844), s->rotation, s->shape, s->pro_ready, s->pro_out, s->pro_practice);
   if (strcmp(now, last)) {
     fprintf(stderr, "hud: state %s\n", now);
     memcpy(last, now, sizeof last);
   }
   run_actions();
+  pro_create_tick(s);
 }
 

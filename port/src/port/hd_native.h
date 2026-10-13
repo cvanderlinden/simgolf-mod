@@ -56,6 +56,8 @@ typedef struct {
   float slide_x, slide_y;
   const void *note;
   int note_size;
+  const void *note2;   // task-53: a second blob (hd_ui_note2_set), the cart path view's
+  int note2_size;
   // task-56: a zoom glide places the course picture. A point p of the note
   // (canvas px) is at zoom_s * p + (zoom_x, zoom_y) now; slide_x/y are 0
   // then. zoom_on 0 (the rest of the time): zoom_s is 0 and unused.
@@ -78,6 +80,7 @@ int hd_ui_set_top(HdUiDraw draw, HdUiInput input, void *user);
 // layer (golfers) without a frame of lag. Cleared by each present.
 #define HD_NOTE_MAX 65536
 void hd_ui_note_set(const void *data, int size);
+void hd_ui_note2_set(const void *data, int size);   // task-53: a second channel, so two features can each attach a note
 void hd_ui_show_golf_ui(int on);                  // 0 hides golf's UI layer (course view)
 double hd_ui_scale(void);                         // screen px per canvas px (1 when off)
 int hd_ui_event(SDL_Event *e);                    // win32.c

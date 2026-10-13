@@ -23,6 +23,10 @@ int gw_hide;   // 1 while the original thought bubble's draws are skipped
 #ifdef __EMSCRIPTEN__
 
 void gw_frame_begin(void) {}
+void pv_frame_begin(void) {}   // task-53: cart path help is native only
+void pv_course_done(void) {}
+int pv_building_of_text(const char *text) { return (void)text, -1; }
+void pv_show_building(int idx) { (void)idx; }
 void gw_course_done(void) {}
 void gw_seen(int slot, int x, int y) { (void)slot, (void)x, (void)y; }
 int gw_name(int slot, const char *text, int x, int y, int mood) { return (void)slot, (void)text, (void)x, (void)y, (void)mood, 0; }

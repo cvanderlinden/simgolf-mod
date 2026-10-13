@@ -37,6 +37,31 @@ int hide_decor_trees(void) {
 int hide_decor_trees(void) { return (*(volatile uint32_t *)(uintptr_t)0x59e7b8 & HIDE_TREES_FLAG) != 0; }
 #endif
 
+// task-90: FUN_0040f5c0 draws the terrain trees (cell classes with decoration
+// type 13: the tree tiles, palms, pines) only when the zoom 0x4c2844 is above 1,
+// so the whole-course view showed bare tree areas and beaches (a 2002 saving).
+// A patch (tools/translate/golf.trees.json) adds far_trees() to that test: at
+// zoom 1 it says draw them anyway. mods.ini [ui] far_trees=0 gives the original.
+//
+// The draw queue held 1024 sprites; a big course (map scale 10) at zoom 1 with
+// its trees needs many thousands, and golf's sorted insert walks the list from
+// the start for every sprite. The queue arrays now live in g_sprq (SPRQ_N each,
+// see ghidra_prelude.h), and the insert starts from the last inserted sprite
+// when the new one sorts after it (the list comes out the same, in far fewer
+// steps). With far_trees=0 the cap is the original 1024.
+// The setting is read once per frame, at the queue reset (sprq_begin).
+uint32_t g_sprq[10][SPRQ_N];
+int g_sprq_cap = 0x400, g_sprq_hint = -1;
+static int g_far_trees = 1;
+void sprq_begin(void) {
+#ifndef __EMSCRIPTEN__
+  g_far_trees = mods_get_int("ui.far_trees", 1) != 0;
+#endif
+  g_sprq_cap = g_far_trees ? SPRQ_N : 0x400;
+  g_sprq_hint = -1;
+}
+int far_trees(void) { return g_far_trees && *(volatile int *)(uintptr_t)0x4c2844 == 1; }
+
 // task-48: the original lets a lot be placed on top of a building of its own kind (the
 // validity check FUN_0040db90 accepts a tile occupied by the same kind, which the
 // upgrade relies on: placing a lot whose level is above 0 first removes the old ones).
@@ -58,6 +83,25 @@ int fix_place_check(int x, int y, int size, int tool) {
   int r = FUN_0040db90(x, y, size, tool);
   g_overlap_guard = 0;
   return r;
+}
+
+// task-6: the official v1.03 fix ("a crash when selecting female golfer heads", theme packs
+// and imported heads). FUN_00462020 takes a golfer's default skin from a per head table
+// (stride 0x44: 19 male entries at 0x4d55e8, the female ones 20 entries on at 0x4d5b38) and
+// writes it into the golfer record. v1.02 never checked the head, so a custom head (index 19
+// and up, heads\F*.pcx) read past the table and the golfer got a junk skin, later used as a
+// palette object index. v1.03 checks the head (signed byte, < 0x13) and takes record % 4
+// otherwise (translator patch golf.femaleheads.json). mods.ini [fixes] female_heads=0 gives
+// the v1.02 lookup (the browser build: always the fix).
+#ifndef __EMSCRIPTEN__
+static int female_heads_fix_on(void) { return mods_get_int("fixes.female_heads", 1); }
+#else
+static int female_heads_fix_on(void) { return 1; }
+#endif
+int head_default_skin(int male, int rec) {
+  int head = *(volatile int8_t *)(uintptr_t)(0x4d60aa + rec * 0x230);
+  if (head >= 0x13 && female_heads_fix_on()) return rec % 4;
+  return *(volatile int8_t *)(uintptr_t)((male ? 0x4d55e8u : 0x4d5b38u) + head * 0x44);
 }
 
 // @override FUN_004ae020

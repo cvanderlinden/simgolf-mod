@@ -27,6 +27,9 @@ void hdball_trail(int slot, int x0, int y0, int x1, int y1, int col, int w, int 
 
 #include "port/hdball.h"
 
+int hd_art_mark(void);   // port/hd_art.c (task-89)
+void hd_art_hide_from(int mark);
+
 // A ball at rest on a hole: golf draws a 2 px white line at the ground point.
 void hdball_rest(int slot, int sx, int sy) {
   if (hb_note(slot, HB_KIND_REST, sx, sy)) {
@@ -57,15 +60,17 @@ void hdball_trail(int slot, int x0, int y0, int x1, int y1, int col, int w, int 
 // frame the round ball is on are drawn as ever and measured (hdball_resolve
 // takes them out again).
 void hdball_item(int i) {
-  if (hb_frame_on() && (uint32_t)G32(0x82815c + 4 * i) == 0xffffffffu) {
-    uint32_t spr = (uint32_t)G32(0x82a15c + 4 * i);
+  if (hb_frame_on() && (&SPRQ_FLAGS)[i] == 0xffffffffu) {
+    uint32_t spr = (&SPRQ_SPR)[i];
     int kind = spr == SPR_BALL ? 1 : spr == SPR_SHADOW ? 2 : 0;
     if (kind) {
-      int rec = hb_match(kind, G32(0x82b160 + 4 * i), G32(0x82415c + 4 * i));
-      int ox = G32(0x830164 + 4 * i), oy = G32(0x831164 + 4 * i);
+      int rec = hb_match(kind, (int)(&SPRQ_X)[i], (int)(&SPRQ_KEY)[i]);
+      int ox = (int)(&SPRQ_SX)[i], oy = (int)(&SPRQ_SY)[i];   // task-90: the queue lives in g_sprq
+      int mark = hd_art_mark();
       hb_snap_begin(kind, rec, ox - 3, oy - 3, 12, 12);
       FUN_00462be0(i);
       hb_snap_end();
+      hd_art_hide_from(mark);   // the art pack's hi-res copy of golf's ball and shadow (task-89)
       return;
     }
   }

@@ -111,6 +111,7 @@ static const Act k_act[] = {
     A("cancel_match", "Cancel the match or tournament", "Game", K_CHAR, 'n', "N", NONE, SAME),
     // the mod's own
     A("hud_hide", "Hide or show the HUD", "This mod", K_STORE, 0, "U", NONE, SAME),
+    A("path_view", "Cart path view (what joins the clubhouse)", "This mod", K_STORE, 1, "Y", NONE, SAME),
     A("textures_cycle", "Switch Textures (HD, Pixel HD, Original)", "This mod", K_OPT, 0, "F11", NONE, SAME),
     A("opt_page", "Open the Options page", "This mod", K_OPT, 0, "F12", NONE, SAME),
 };
@@ -188,11 +189,14 @@ static const char *default_text(const Act *a, int slot) {
   return m ? m : a->orig[slot];
 }
 
+// The setting a K_STORE action keeps its key in (arg 0: the HUD hide key, 1: the cart path view key)
+static const char *store_key(const Act *a) { return a->arg == 1 ? "ui.paths_key" : "ui.hud_hide_key"; }
+
 // The binding of slot: from the store ("keys.<id>" = "primary | secondary"), else the profile's default.
 static void binding(int ai, int slot, Combo *c) {
   const Act *a = &k_act[ai];
-  if (a->kind == K_STORE) {   // the HUD hide key keeps its own setting
-    const char *v = mods_get("ui.hud_hide_key");
+  if (a->kind == K_STORE) {   // the HUD hide key and the path view key keep their own settings
+    const char *v = mods_get(store_key(a));
     if (slot == 0) parse(v && *v ? v : a->orig[0], c);
     else c->sym = 0, c->mods = 0;
     return;
@@ -237,7 +241,7 @@ int km_set(int a, int slot, const char *combo) {
   int ok = parse(combo, &c);
   if (k_act[a].kind == K_STORE) {   // the HUD key: an SDL key name
     if (slot != 0) return 0;
-    return mods_option_set("ui.hud_hide_key", ok ? SDL_GetKeyName(c.sym) : "none");
+    return mods_option_set(store_key(&k_act[a]), ok ? SDL_GetKeyName(c.sym) : "none");
   }
   char txt[2][48];
   for (int s = 0; s < KM_SLOTS; s++) {
@@ -287,7 +291,7 @@ void km_reset(int modern) {
   mods_option_set("camera.wasd", modern ? "1" : "0");
   for (int a = 0; a < NACT; a++) {
     if (k_act[a].kind == K_STORE) {
-      mods_option_set("ui.hud_hide_key", k_act[a].orig[0]);
+      mods_option_set(store_key(&k_act[a]), k_act[a].orig[0]);
       continue;
     }
     char key[64];

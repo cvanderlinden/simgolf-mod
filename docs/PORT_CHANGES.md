@@ -388,6 +388,23 @@ Switch: `ui.reports = frosted_mint | original` (mods store; the built-in mod `ui
 | src/port/golf/reports_hooks.c (new), src/port/ghidra_prelude.h | the hooks for the browser build (originals) and their declarations | |
 | cmake/ui.cmake, mods/builtin/ui_reports, mods/load_order.toml, tests/mods/all_off.ini, data/mods.ini, tools/check.sh | build, the mod, the switch, the check stage | |
 
+## task-53: cart path help (path view, "No path" markers, "Show the building")
+
+Switch: `ui.paths = frosted_mint | original` (mods store; the built-in mod `ui_paths` sets it; `[ui] paths=original` in data/mods.ini, `ui_paths=0`, the vanilla profile, `--no-mods`, or the Options row "Cart path help"). `ui.paths_key` (default y, none = off), `ui.paths_markers` (1/0), `ui.paths_opacity`. The rule itself is the original's and is not touched: golf's flood fill (FUN_0042f340) marks every path and building tile the clubhouse reaches with 0x40 and every joined building record with 0x40 at +7; unjoined buildings do not count as operational; Easy and Sandbox open every building. This only reads those flags.
+
+| File | Change | Why |
+|---|---|---|
+| src/port/paths_game.c (new) | game thread, once per course frame (after the golfers' hook): reads the tile flags and building records, projects tile corners and building centres through golf's worldToScreen (FUN_0042fb90, terrain height included), fills a PvNote, `pv_building_of_text` (maps golf's monthly "WARNING: Your <building> will not be operational" to an unjoined building, several of one kind take turns), `pv_show_building` | Never writes game state except the camera tile on "Show the building" (the golfer jump does the same) |
+| src/port/paths_frosted.c, paths_frosted.h (new) | render thread: world layer (under the HUD and golfers: veil, mint network tiles, amber unreached path tiles, "No path" markers) and top layer (over the HUD: the button, legend, hover card) plus the Y key | |
+| src/port/ui/ui_paths.c, ui_paths.h (new) | the drawing as a pure function of a PvNote | |
+| src/port/hd_native.c, hd_native.h | a second note channel (`hd_ui_note2_set`, `HdUiFrame.note2`) so the golfers' note and the paths' note both ride the frame | One blob per frame was taken |
+| src/port/golf/hd_ui.c, golfers_hooks.c | `pv_frame_begin` (before the golfers' frame begin: its layer goes under their tags) and `pv_course_done`; browser build no-ops | |
+| src/port/hud_game.c, hud_frosted.h, ui/ui_hud.c | `HUD_SHOW_BUILDING`: the warning message gets a "Show the building" button (camera to the building, path view on) | task-62 notification |
+| src/port/golf/keymap.c, options_frosted.c | the Y key as a "This mod" action (own setting `ui.paths_key`), the Options row | |
+| cmake/ui.cmake, mods/builtin/ui_paths, mods/load_order.toml, tests/mods/all_off.ini, data/mods.ini, tools/check.sh | build, the mod, the switch, the check stages | |
+| tests/native/paths.mjs, paths.sh, paths_ab.mjs | the game test (place a building, marker, path tile, marker gone, warning, Show) and the 2400 frame state A/B | |
+
+
 ## task-73: Frosted Mint golfer profile page and land purchase map
 
 Switch: the same as the dialogs and reports (`ui.dialogs` and `ui.reports` both frosted_mint); `[ui] dialogs=original` restores the original screens.
@@ -400,3 +417,28 @@ Switch: the same as the dialogs and reports (`ui.dialogs` and `ui.reports` both 
 | src/port/ui/ui_pages.c, ui_tracts.inc (new) | the panels as pure functions of an RpSnap | |
 | src/port/bridge.c | `call` with `"async":1` runs a modal screen after the bridge returns to the game loop, then clears golf's click and key result flags | tests open the land map, which only the year end opens |
 | src/port/ui/ui_gallery.c, tools/check.sh, tests/native/reports.mjs | gallery pages `pages-profile`, `pages-tracts`; profile (trait, bio typing, Cancel, Esc) and land map (Esc, no thanks, buy) in the reports test | |
+
+## task-78: realistic water (display.water=hd)
+
+| File | Change | Why |
+|---|---|---|
+| src/platform/terrain_gl.h, terrain_gl.cpp | The recorder also gets the triangle's world positions (before the modelview); `Context::modelview()` | The water pass needs world coordinates per water pixel (depth, waves, ripples) and the view and light directions. |
+| src/platform/terrain_hd.cpp | Water batches (texture file name Water*) get flag 8; world positions per vertex; `terrain_hd_world`, `terrain_hd_view` | Which recorded triangles are water, where they are. |
+| src/platform/terrain_dll.cpp | `terrain_water_tiles` (water code and centre height per tile), `terrain_tile_water` | The map's water for depth, flow, waterfalls and ball splashes. |
+| src/port/hd_terrain_native.c | The scene carries world positions, view, the map's water tiles; water textures go to the water pass; `hdt_scene` | Hand-over to the render thread. |
+| src/port/hd_native.c | `water_draw` after the HD terrain copy (compose, zoom glide), `water_after_frame` (clips), `water_poll` in `hd_present` | Water over the ground, under golf's sprites. |
+| src/port/water_native.c, water_native.h (new) | Direct3D 11 water pass through SDL2's renderer (own device context state) | The water itself. |
+| src/port/golf/water_hooks.c (new), tools/translate/golf.water.json, src/port/ghidra_prelude.h | FUN_0040f5c0 looks its water sprites up through `water_sprite` and queues sprites through `water_queue`; the sparkle branch checks `water_hide_golf_ripples()` | While the pass runs golf does not draw its ripple, wave, waterfall, spray, rock and coral sprites or sparkles (drawing only; with display.water=original and in the browser build every call is the original). |
+| src/port/options_frosted.c | Graphics: "Water: Realistic / Original" | The switch on the Options page. |
+| cmake/native.cmake | water_native.c; ui/water.hlsl and ui/water.txt next to golf.exe | Shaders and numbers. |
+
+## task-90: trees at the farthest zoom
+
+golf draws the terrain trees (the cell classes whose decoration type is 13: tree tiles, palms, pines, the forests of a new site) in the second cell pass of FUN_0040f5c0 only when the zoom 0x4c2844 is above 1, so the whole-course view showed bare forest ground and empty beaches. A patch adds `far_trees()` to that test. Its sprite draw queue held 1024 sprites (ten arrays of 0x400 at 0x82415c..0x8361f4, count 0x838200, cap `0x3fe < count` in FUN_00462a30); a big course (map scale 10) at zoom 1 queues thousands, so the queue moves to port storage `g_sprq` (32768 per array) and its sorted insert starts from the last inserted sprite when the new one sorts after it (the same list in far fewer steps). Growth frames, cell flags and the random generator are untouched (the tree pass only queues sprites at zoom 1 as it already did at zoom 2 and 4); tests/native/far_trees.mjs compares golf's state with the setting on and off. One difference remains by design: a tree still growing finishes its growth animation flag while seen at zoom 1 instead of waiting for zoom 2. `[ui] far_trees=0` in data/mods.ini gives the original (no trees at zoom 1, 1024 sprites).
+
+| File | Change | Why |
+|---|---|---|
+| tools/translate/golf.trees.json (new) | FUN_0040f5c0: `far_trees() ||` before the zoom test of the terrain tree pass; FUN_004627d0 calls `sprq_begin()`; FUN_004627d0, 00462800, 004628d0, 00462a30, 00462be0, 00463100 use `SPRQ_*` instead of the queue arrays; FUN_00462a30 caps at `g_sprq_cap` and inserts from `g_sprq_hint` | Trees at zoom 1, room for them, speed. |
+| src/port/golf/overrides.c, src/port/ghidra_prelude.h | `far_trees()`, `sprq_begin()` (reads `[ui] far_trees` once per frame), `g_sprq`, `SPRQ_*` | The switch and the storage. |
+| src/port/golf/ball_hooks.c | reads the queue entries from `g_sprq` | The round ball's sprite match. |
+| tests/native/far_trees.sh, .mjs, tools/check.sh | Showcase Resort at zoom 1 and 2, on and off: pictures and game state; `--evidence`: 1080p and 4K pictures, Huge course frame rate | Evidence and the check.sh stage. |

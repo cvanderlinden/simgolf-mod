@@ -84,6 +84,7 @@
 #include "port/options_frosted.h"
 #include "port/hd_zoom.h"
 #include "port/hdball_render.h"
+#include "port/water_native.h"
 #include "port/host.h"
 
 #ifndef CREATE_WAITABLE_TIMER_HIGH_RESOLUTION
@@ -125,6 +126,10 @@ static uint8_t g_frame_note[HD_NOTE_MAX];   // task-31: what the game thread att
 static int g_frame_note_size;
 static uint8_t g_note_pending[HD_NOTE_MAX];  // game thread only: attached since the last present
 static int g_note_pending_size;
+static uint8_t g_frame_note2[HD_NOTE_MAX];   // task-53: the second note channel (cart path view), same life as the first
+static int g_frame_note2_size;
+static uint8_t g_note2_pending[HD_NOTE_MAX];
+static int g_note2_pending_size;
 static HdBallFrame g_frame_ball;            // the balls of that frame (task-41)
 static volatile LONG g_frame_serial, g_game_frames;
 
@@ -330,6 +335,8 @@ typedef struct {
   HdUiCamera cam;
   uint8_t note[HD_NOTE_MAX];   // the note of the frame on screen
   int note_size;
+  uint8_t note2[HD_NOTE_MAX];
+  int note2_size;
   double off_x, off_y, off_t0, off_dur, prev_dx, prev_dy;
   double last_arrival, interval;   // course frames: arrival time, interval (running mean)
   // smooth zoom (task-56). zsnap: the course picture (terrain, sprites, ball; not golf's UI) as it
@@ -414,6 +421,8 @@ static void upload(Rt *t, double now) {
   hd_art_take();   // the art pack's list for this frame
   t->note_size = t->layered && t->course_view ? g_frame_note_size : 0;
   if (t->note_size > 0) memcpy(t->note, g_frame_note, (size_t)t->note_size);
+  t->note2_size = t->layered && t->course_view ? g_frame_note2_size : 0;
+  if (t->note2_size > 0) memcpy(t->note2, g_frame_note2, (size_t)t->note2_size);
   memcpy(&t->ball, &g_frame_ball, sizeof t->ball);
   serial = g_frame_serial;
   LeaveCriticalSection(&g_lock);
@@ -560,6 +569,7 @@ static void draw_live(Rt *t, SDL_Texture *target, Rect d, double s, double x, do
   if (terrain) {
     SDL_Rect dst = {cd.x, cd.y, cd.w, cd.h};
     SDL_RenderCopy(t->r, terrain, NULL, &dst);
+    water_draw(t->r, dst.x, dst.y, dst.w, dst.h, now);   // task-78: the water over the ground, under golf's sprites
   }
   if (t->art_main >= 0) hd_art_draw(t->art_main, t->r, cd.x, cd.y, kk);
   if (terrain || t->art_main >= 0) draw_layer_ref(t, &t->overlay, target, cd, sw, sh, t->premul, d.w);
@@ -873,6 +883,7 @@ static Rect compose(Rt *t, SDL_Texture *target, int cw, int ch, int *sw, int *sh
   if (terrain) {
     SDL_Rect dst = {cd.x, cd.y, cd.w, cd.h};
     SDL_RenderCopy(t->r, terrain, NULL, &dst);
+    water_draw(t->r, dst.x, dst.y, dst.w, dst.h, now);   // task-78: the water over the ground, under golf's sprites
   }
   if (art >= 0) hd_art_draw(art, t->r, cd.x, cd.y, k);   // hi-res sprites (hd_art.c), in golf's order
   if (terrain || art >= 0) draw_layer(t, &t->overlay, dest, cd, *sw, *sh, t->premul);
@@ -913,6 +924,8 @@ static Rect compose(Rt *t, SDL_Texture *target, int cw, int ch, int *sw, int *sh
     }
     f.note = layered && t->note_size > 0 ? t->note : NULL;
     f.note_size = layered ? t->note_size : 0;
+    f.note2 = layered && t->note2_size > 0 ? t->note2 : NULL;
+    f.note2_size = layered ? t->note2_size : 0;
     for (LONG i = 0; i < n; i++) {
       g_ui_layers[i].draw(&f, g_ui_layers[i].user);
       SDL_SetRenderTarget(t->r, target);
@@ -1097,6 +1110,7 @@ static DWORD WINAPI render_main(void *arg) {
     if (t->layered && t->course_view && !t->zon) slide_offset(t, t_draw, &slide_x, &slide_y);
     Rect d = compose(t, target, cw, ch, &sw, &sh, t_draw);
     if (g_shot_pending) take_shot(t, cw, ch);
+    water_after_frame(t->r, cw, ch);   // task-78: look-test clips (water.clip)
     Rect w = {0, 0, cw, ch};   // the canvas inside the window
     if (target) {
       // Fit the canvas into the window, aspect kept.
@@ -1327,6 +1341,7 @@ static void probe_layer(const HdUiFrame *f, void *user) {
 
 // gdi.c's win_present: hand the finished frame over.
 int hd_present(const uint16_t *screen) {
+  water_poll();   // task-78: display.water, water.style, water.clip
   // display.smooth may change while the game runs (mods store, bridge)
   static unsigned seen_serial;
   if (mods_serial() != seen_serial) {
@@ -1367,6 +1382,9 @@ int hd_present(const uint16_t *screen) {
   g_frame_note_size = layered ? g_note_pending_size : 0;
   if (g_frame_note_size > 0) memcpy(g_frame_note, g_note_pending, (size_t)g_frame_note_size);
   g_note_pending_size = 0;
+  g_frame_note2_size = layered ? g_note2_pending_size : 0;
+  if (g_frame_note2_size > 0) memcpy(g_frame_note2, g_note2_pending, (size_t)g_frame_note2_size);
+  g_note2_pending_size = 0;
   if (course) memcpy(g_mask, mask, (size_t)FRAME_W * FRAME_H);
   hd_art_publish(layered, screen);
   InterlockedIncrement(&g_frame_serial);
@@ -1450,6 +1468,15 @@ void hd_ui_note_set(const void *data, int size) {
   }
   memcpy(g_note_pending, data, (size_t)size);
   g_note_pending_size = size;
+}
+
+void hd_ui_note2_set(const void *data, int size) {
+  if (!data || size <= 0 || size > HD_NOTE_MAX) {
+    g_note2_pending_size = 0;
+    return;
+  }
+  memcpy(g_note2_pending, data, (size_t)size);
+  g_note2_pending_size = size;
 }
 
 void hd_ui_show_golf_ui(int on) { InterlockedExchange(&g_show_golf_ui, on != 0); }

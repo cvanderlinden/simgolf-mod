@@ -673,6 +673,33 @@ int ui_tile_mini(UiCtx *c, uint32_t id, UiRect r, SDL_Texture *art, UiIcon icon,
   return ui_clicked(c, id);
 }
 
+// ui_tile_mini with a visible name under the icon (task-92: the pro's controls must not be icons alone).
+int ui_tile_mini_label(UiCtx *c, uint32_t id, UiRect r, UiIcon icon, const char *label, int flags, const char *tooltip) {
+  const UiTokens *t = &c->tok;
+  int sel = flags & UI_SELECTED, dis = flags & UI_DISABLED;
+  float rad = ui_s(c, 14);
+  ui_hits_add(&c->cur, r, rad, id, UI_HIT_BLOCK | UI_HIT_INTERACT);
+  float hov = ui_anim(c, id, ui_is_hot(c, id) ? 1.0f : 0.0f, t->motion_hover);
+  UiRect b = pressed(c, id, r);
+  float a = dis ? 0.45f : 1;
+  if (sel) {
+    float ring = ui_s(c, 2);
+    uid_rrect(&c->d, ui_inset_all(b, -ring), rad + ring, t->accent);
+    uid_rrect(&c->d, b, rad, t->tile_fill_on);
+  } else {
+    uid_rrect(&c->d, b, rad, uid_alpha(uid_mix(t->tile_fill, t->tile_fill_on, hov), a));
+    uid_rrect_stroke(&c->d, b, rad, hair(c), uid_alpha(t->surface_inset_border, a));
+  }
+  UiFont nf = ui_font(c, UI_TYPE_CAPTION);
+  float pad = ui_s(c, 4);
+  UiRect in = ui_rect(b.x + pad, b.y + pad, b.w - 2 * pad, b.h - 2 * pad - nf.line);
+  if (icon) ui_icon(c, icon, in, floorf(fminf(in.h, in.w) * 0.8f), uid_alpha(t->accent_soft_text, a));
+  if (label) ui_text_fit(c, ui_rect(b.x + pad, b.y + b.h - pad - nf.line, b.w - 2 * pad, nf.line), UI_TYPE_CAPTION,
+                         uid_alpha(t->text_primary, a), label, 0.5f);
+  if (tooltip) ui_tooltip(c, id, r, tooltip);
+  return ui_clicked(c, id);
+}
+
 void ui_divider_v(UiCtx *c, float x, float y0, float y1) {
   float w = hair(c);
   uid_rrect(&c->d, ui_rect(floorf(x), y0, w, y1 - y0), 0, c->tok.divider);

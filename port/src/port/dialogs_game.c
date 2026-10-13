@@ -88,6 +88,8 @@ static void inj_step(void) {
 // dialog (and the caller's strip) into golf's page buffers, the native one replaces them. golf draws into one
 // of several page buffers (the course and its UI layer, hud_game.c), so every page is kept.
 uint16_t *gdi_screen_dib(int i, int *w, int *h, int *pitch, int *is565);
+void hd_art_dlg_begin(void);      // hd_art.c (task-88)
+void hd_art_hide_dialog(void);
 enum { PAGES = 8 };
 static uint16_t *g_keep[PAGES];
 static int g_keep_w[PAGES], g_keep_h[PAGES];
@@ -146,6 +148,7 @@ static void begin(int kind) {
   if (g_log && g_on) fprintf(stderr, "dialogs: open %s\n", kind == 1 ? "entry" : "menu");
   if (g_on) {
     hd_ui_show_golf_ui(0);   // golf's own UI layer (and the old HUD under it) stays hidden
+    hd_art_dlg_begin();
     hud_clean_pages();
     if (!(g_pre_t && SDL_GetTicks() - g_pre_t < 1000 && g_kept)) keep_save();
     g_pre_t = 0;
@@ -216,6 +219,7 @@ int dlg_menu(int px, int py, int sel, int checks, unsigned mask, unsigned disabl
   }
   inj_step();
   keep_restore();
+  hd_art_hide_dialog();   // task-88: golf's own popup frame, drawn again this frame
   return cancel;
 }
 

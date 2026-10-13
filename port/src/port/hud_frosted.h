@@ -33,7 +33,7 @@ enum {   // art slots (game sprites read back with alpha)
 
 // One game message (task-62): what the game's news strip said, kept for the HUD's history.
 #define HUD_MSG_MAX 50
-enum { HUD_SHOW_NONE = 0, HUD_SHOW_GOLFER = 1, HUD_SHOW_HOLE = 2 };
+enum { HUD_SHOW_NONE = 0, HUD_SHOW_GOLFER = 1, HUD_SHOW_HOLE = 2, HUD_SHOW_BUILDING = 3 };   // BUILDING (task-53): target is the building's record number
 typedef struct HudMsg {
   char text[400];
   char date[24];     // the game's date when it came
@@ -70,10 +70,24 @@ typedef struct HudSnap {
   int news_seq;           // task-62: seq of the message the news strip is showing now (0: none)
   int msg_n;              // history, oldest first, the last HUD_MSG_MAX messages
   HudMsg msgs[HUD_MSG_MAX];
+  // task-92: the player's own pro (the original's player panel, FUN_004362f0 / FUN_00436060)
+  int pro_ready;          // the pro's skills are set up (golf's FUN_0040f190 gate: skill mask or any skill)
+  int pro_out;            // the pro is out on the course (0x5a59f8 != -1)
+  int pro_practice;       // Practice Round can start (two holes or more, pro in, no event under way)
+  int pro_match;          // a famous golfer's challenge is waiting (flags 0x2000, 0x4c2e14)
+  int pro_tourney;        // the SGA offers a tournament (flags 0x400000)
+  int pro_shots;          // the pro waits for a shot choice: 0 none, 1 straight only, 2 every shot
+  int pro_shot;           // golf's shot choice 0x58f330: 0 straight, -1 fade, 1 draw, 3 high backspin, 4 low punch
+  int pro_skill[10];      // Power Hitter .. Luck, 0..10 (or the [skills] cap)
+  char pro_name[32];
 } HudSnap;
 
 enum { HUD_ACT_CLICK = 1, HUD_ACT_KEY = 2, HUD_ACT_VKEY = 3, HUD_ACT_GOAL = 4,
-       HUD_ACT_SHOW = 5 };   // SHOW: x = HUD_SHOW_*, y = golfer slot or hole number (camera jump, as the game's own clicks and keys)
+       HUD_ACT_SHOW = 5,     // SHOW: x = HUD_SHOW_*, y = golfer slot or hole number (camera jump, as the game's own clicks and keys)
+       HUD_ACT_PRO = 6 };    // task-92: x = HUD_PRO_*
+enum { HUD_PRO_SKILLS = 1,   // the skill dialog: the first setup (10 points, 3 more per accomplishment) or the skills with OK
+       HUD_PRO_PROFILE = 2,  // the pro's profile page (name, look, bio)
+       HUD_PRO_CREATE = 3 }; // profile, then the skill setup (the start of a new career)
 enum {   // goals: reached over a few frames, one original click per frame
   HUD_GOAL_COURSE = 1, HUD_GOAL_EXTRAS, HUD_GOAL_BUILDINGS, HUD_GOAL_LANDSCAPE, HUD_GOAL_PEOPLE, HUD_GOAL_CLOSE
 };

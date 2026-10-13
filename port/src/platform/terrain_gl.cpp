@@ -226,7 +226,8 @@ void Context::triangle(const Vertex &a, const Vertex &b, const Vertex &c) {
     RecordedVertex r[3];
     for (int i = 0; i < 3; i++)
       r[i] = {s[i].x, s[i].y, s[i].c[0], s[i].c[1], s[i].c[2], s[i].c[3], s[i].u, s[i].v};
-    recorder_(recorderUser_, r, texture2D ? texture(bound_) : nullptr, blend);
+    const float world[9] = {a.pos[0], a.pos[1], a.pos[2], b.pos[0], b.pos[1], b.pos[2], c.pos[0], c.pos[1], c.pos[2]};
+    recorder_(recorderUser_, r, texture2D ? texture(bound_) : nullptr, blend, world);
   }
   if (!rasterize_ || !pixels_) return;
   if (area > 0) rasterize(s[0], s[1], s[2]);

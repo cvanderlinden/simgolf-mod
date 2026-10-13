@@ -27,6 +27,7 @@
 
 #include "port/hd_art.h"
 #include "port/hd_native.h"
+#include "port/water_native.h"
 
 extern int terrain_hd_build(void);
 extern const float *terrain_hd_vertices(void);
@@ -36,10 +37,14 @@ extern const uint8_t *terrain_hd_texture(int i, int32_t *out);
 extern void terrain_hd_target(int32_t *out);
 extern const char *terrain_hd_texture_src(int i);
 extern void terrain_hd_invalidate(void);
+extern const float *terrain_hd_world(void);
+extern void terrain_hd_view(float out[6]);
+extern int terrain_water_tiles(uint8_t *code, float *height, int cap);
+extern int terrain_grid_size(int *w, int *h);
 
 #define GOLF_TERRAIN_CACHE 0x4C1574u     // Surface wrapper or Surface*, golf.exe v1.02
 #define GRAPHSY_SURFACE_VTBL 0x1011d0b0u
-enum { kBlend = 1, kTextured = 2 };
+enum { kBlend = 1, kTextured = 2, kWater = 8 };
 
 // ------------------------------------------------------------------ game thread
 
@@ -89,10 +94,17 @@ static uint8_t shade(uint16_t s, uint16_t t) {
 
 // The hand-over: a recorded scene and the textures it needs that the render
 // thread hasn't had yet.
-typedef struct { uint32_t serial; int w, h; uint8_t *rgba; } NewTex;
+typedef struct { uint32_t serial; int w, h; uint8_t *rgba; int water; } NewTex;
 typedef struct {
   float *verts;
   int nverts, cap_verts;
+  float *world;              // task-78: world x, y, z per vertex
+  int cap_world;
+  float view[6];             // toward the viewer, toward the light (world)
+  uint8_t *wcode;            // task-78: the whole map's water tiles (terrain_water_tiles)
+  float *wheight;
+  int map_w, map_h, cap_map;
+  LONG map_serial;
   int32_t *batches;
   int nbatches, cap_batches;
   int tw, th;
@@ -154,6 +166,31 @@ int hdt_capture(const uint16_t *screen, uint8_t *mask, long frame) {
   GROW(s->verts, s->cap_verts, nverts * 8, sizeof(float));
   memcpy(s->verts, terrain_hd_vertices(), (size_t)nverts * 8 * sizeof(float));
   s->nverts = nverts;
+  GROW(s->world, s->cap_world, nverts * 3, sizeof(float));
+  memcpy(s->world, terrain_hd_world(), (size_t)nverts * 3 * sizeof(float));
+  terrain_hd_view(s->view);
+  int mw = 0, mh = 0;
+  if (terrain_grid_size(&mw, &mh) && mw * mh > 0) {   // the map's water tiles, sent on when they changed
+    static uint8_t *code;
+    static float *height;
+    static int cap;
+    if (cap < mw * mh) {
+      cap = mw * mh;
+      code = realloc(code, (size_t)cap);
+      height = realloc(height, (size_t)cap * sizeof(float));
+    }
+    if (terrain_water_tiles(code, height, cap) == mw * mh &&
+        (mw != s->map_w || mh != s->map_h || memcmp(code, s->wcode, (size_t)mw * mh) ||
+         memcmp(height, s->wheight, (size_t)mw * mh * sizeof(float)))) {
+      GROW(s->wcode, s->cap_map, mw * mh, 1);
+      s->wheight = realloc(s->wheight, (size_t)s->cap_map * sizeof(float));
+      memcpy(s->wcode, code, (size_t)mw * mh);
+      memcpy(s->wheight, height, (size_t)mw * mh * sizeof(float));
+      s->map_w = mw;
+      s->map_h = mh;
+      s->map_serial++;
+    }
+  }
   GROW(s->batches, s->cap_batches, nb * 5, sizeof(int32_t));
   memcpy(s->batches, b, (size_t)nb * 5 * sizeof(int32_t));
   s->nbatches = nb;
@@ -166,6 +203,7 @@ int hdt_capture(const uint16_t *screen, uint8_t *mask, long frame) {
     GROW(s->tex, s->cap_tex, s->ntex + 1, sizeof(NewTex));
     NewTex *n = &s->tex[s->ntex++];
     n->serial = (uint32_t)b[i * 5 + 3];
+    n->water = (b[i * 5 + 4] & kWater) != 0;
     // the art pack's terrain look (hd_art.c, task-17): the 4x upscale of the same file
     int uw = 0, uh = 0;
     uint8_t *up = hd_art_terrain(terrain_hd_texture_src(b[i * 5 + 2]), rgba, size[0], size[1], &uw, &uh);
@@ -195,10 +233,17 @@ static struct {
   int ntex, cap_tex;
   float *verts;
   int nverts, cap_verts;
+  float *world;
+  int cap_world;
+  float view[6];
   int32_t *batches;
   int nbatches, cap_batches;
   int tw, th;
   LONG serial, drawn_serial;
+  uint8_t *wcode;
+  float *wheight;
+  int map_w, map_h, cap_map;
+  LONG map_serial;
   SDL_Texture *target;
   int target_w, target_h;
   SDL_Vertex *sv;
@@ -228,6 +273,18 @@ static void take(SDL_Renderer *r, long shown) {
   GROW(R.verts, R.cap_verts, s->nverts * 8, sizeof(float));
   memcpy(R.verts, s->verts, (size_t)s->nverts * 8 * sizeof(float));
   R.nverts = s->nverts;
+  GROW(R.world, R.cap_world, s->nverts * 3, sizeof(float));
+  memcpy(R.world, s->world, (size_t)s->nverts * 3 * sizeof(float));
+  memcpy(R.view, s->view, sizeof R.view);
+  if (s->map_serial != R.map_serial && s->map_w > 0) {
+    GROW(R.wcode, R.cap_map, s->map_w * s->map_h, 1);
+    R.wheight = realloc(R.wheight, (size_t)R.cap_map * sizeof(float));
+    memcpy(R.wcode, s->wcode, (size_t)s->map_w * s->map_h);
+    memcpy(R.wheight, s->wheight, (size_t)s->map_w * s->map_h * sizeof(float));
+    R.map_w = s->map_w;
+    R.map_h = s->map_h;
+    R.map_serial = s->map_serial;
+  }
   GROW(R.batches, R.cap_batches, s->nbatches * 5, sizeof(int32_t));
   memcpy(R.batches, s->batches, (size_t)s->nbatches * 5 * sizeof(int32_t));
   R.nbatches = s->nbatches;
@@ -242,6 +299,7 @@ static void take(SDL_Renderer *r, long shown) {
       GROW(R.tex, R.cap_tex, R.ntex + 1, sizeof(TexEntry));
       R.tex[R.ntex++] = (TexEntry){n->serial, t};
     }
+    if (n->water) water_take_texture(n->serial, n->w, n->h, n->rgba);   // task-78: the water pass keeps its own copy
     free(n->rgba);
   }
   s->ntex = 0;
@@ -309,4 +367,23 @@ SDL_Texture *hdt_render(SDL_Renderer *r, int w, int h, long shown) {
   }
   R.drawn_serial = R.serial;
   return R.target;
+}
+
+// task-78: the scene the terrain layer shows, for the water pass (render thread).
+int hdt_scene(HdtScene *out) {
+  if (!R.nbatches || R.tw <= 0 || R.th <= 0) return 0;
+  out->verts = R.verts;
+  out->world = R.world;
+  out->batches = R.batches;
+  out->nbatches = R.nbatches;
+  out->tw = R.tw;
+  out->th = R.th;
+  out->serial = R.serial;
+  memcpy(out->view, R.view, sizeof out->view);
+  out->wcode = R.wcode;
+  out->wheight = R.wheight;
+  out->map_w = R.map_w;
+  out->map_h = R.map_h;
+  out->map_serial = R.map_serial;
+  return 1;
 }

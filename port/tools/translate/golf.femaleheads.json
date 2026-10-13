@@ -1,0 +1,15 @@
+{
+ "comment": "task-6: the official v1.03 fix (its only change over v1.02: 'a crash when selecting female golfer heads', theme packs and imported heads). FUN_00462020 takes a golfer's default skin from a per head table (19 male entries at 0x4d55e8, the female ones at 0x4d5b38) with no bound; a custom head (index 19 and up) read past the table, and the byte was written into the golfer record as its skin and used as a palette object index. v1.03 (golf.exe of Patch/SimGolf_Patch_v103.exe, the only function that differs from v1.02) checks the head first and takes record % 4 for a custom head. head_default_skin (src/port/golf/overrides.c) does the same; mods.ini [fixes] female_heads=0 gives the v1.02 lookup. Merged into golf.json's patches by translate.py.",
+ "patches": {
+  "FUN_00462020": [
+   [
+    "cVar1 = (&DAT_004d5b38)[(char)(&DAT_004d60aa)[iVar7 * 0x230] * 0x44];",
+    "cVar1 = head_default_skin(0, iVar7);"
+   ],
+   [
+    "cVar1 = (&DAT_004d55e8)[(char)(&DAT_004d60aa)[iVar7 * 0x230] * 0x44];",
+    "cVar1 = head_default_skin(1, iVar7);"
+   ]
+  ]
+ }
+}

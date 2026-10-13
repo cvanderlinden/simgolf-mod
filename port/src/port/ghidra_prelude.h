@@ -264,6 +264,14 @@ void mdata_thought_end(int event, int arg, int arg2, int slot, char *buf);
 // task-40 (src/port/golf/overrides.c): 1 = FUN_00449540 raises water tiles at load too.
 int fix_water_push(void);
 
+// task-6 (src/port/golf/overrides.c): FUN_00462020's default skin for a head, with v1.03's bound.
+int head_default_skin(int male, int rec);
+
+// task-74 (src/port/golf/skills.c): the pro's skill caps and the bad-shot loss switch.
+int skill_soft_cap(int tier);
+int skill_hard_cap(void);
+int skill_loss_on(void);
+
 // task-44 (src/port/golf/overrides.c): Shift+T "trees off" also hides the
 // decoration trees. FUN_0040f5c0 sets g_decor_tree_pass while its decoration
 // switch draws a tree (the game's own code and state run unchanged); the two
@@ -272,6 +280,31 @@ int fix_water_push(void);
 // (mods.ini [view] hide_decor_trees, default 1).
 extern int g_decor_tree_pass;
 int hide_decor_trees(void);
+// task-90 (src/port/golf/overrides.c): 1 when the view is at zoom 1 and
+// mods.ini [ui] far_trees (default 1) says draw the terrain trees there too
+// (the original skips them at zoom 1).
+int far_trees(void);
+// task-90: golf's sprite draw queue (FUN_004627d0 reset, FUN_00462a30 sorted
+// insert, FUN_004628d0 direct draw, FUN_00462be0 draw one, FUN_00463100 walk,
+// FUN_00462800 snapshot) held 1024 sprites in arrays at 0x82415c..0x8361f4; a
+// big course at zoom 1 with its trees needs far more. Patches in
+// tools/translate/golf.trees.json point those functions at port storage of
+// SPRQ_N entries per array; g_sprq_cap is SPRQ_N, or 0x400 (the original) when
+// far_trees is off. sprq_begin() runs at the queue reset (once per frame).
+#define SPRQ_N 32768
+extern uint32_t g_sprq[10][SPRQ_N];
+extern int g_sprq_cap, g_sprq_hint;
+void sprq_begin(void);
+#define SPRQ_KEY   (*g_sprq[0])   // was 0x82415c: sort key (depth)
+#define SPRQ_FLAGS (*g_sprq[1])   // 0x82815c: draw flags (param 8)
+#define SPRQ_LIFT  (*g_sprq[2])   // 0x82915c: param 7
+#define SPRQ_SPR   (*g_sprq[3])   // 0x82a15c: sprite
+#define SPRQ_X     (*g_sprq[4])   // 0x82b160: x
+#define SPRQ_Y     (*g_sprq[5])   // 0x82c164: y
+#define SPRQ_SX    (*g_sprq[6])   // 0x830164: screen x
+#define SPRQ_SY    (*g_sprq[7])   // 0x831164: screen y
+#define SPRQ_MARK  (*g_sprq[8])   // 0x834174: cleared per entry
+#define SPRQ_NEXT  (*g_sprq[9])   // 0x8361f4: next in sorted order
 
 // task-48 (src/port/golf/overrides.c): the player's building placement and its hover ghost
 // (main loop, FUN_0040f5c0) go through fix_place_check, which is FUN_0040db90 plus: a lot
@@ -325,6 +358,12 @@ void hdball_air(int slot, int sx, int sy);    // a ball in flight or rolling (go
 void hdball_item(int i);                      // one queued sprite of FUN_00463100 (FUN_00462be0 for others)
 void hdball_resolve(void);                    // after golf drew its sprites
 void hdball_trail(int slot, int x0, int y0, int x1, int y1, int col, int w, int a);   // task-61: golf's trail segment behind a ball in flight
+
+// task-78 (port/water_native.c): realistic water. 1 while the presenter draws the water,
+// so golf skips its own ripples, waves, waterfalls, spray and sparkles (translator patch golf.water.json).
+int water_hide_golf_ripples(void);
+void *water_sprite(int id, int frame, int view);   // FUN_0043d6f0, or 0 for water golf no longer draws
+uint32_t water_queue(int x, int y, uint32_t depth, int w, int h, uint32_t sprite, int a, uint32_t b);   // FUN_004628d0 unless sprite is 0
 
 // task-28 (src/port/golf/reports_hooks.c, reports_game.c): the Frosted Mint reports. Translator
 // patches (port/tools/translate/golf.reports.json) in the main loop and the report screens call these;

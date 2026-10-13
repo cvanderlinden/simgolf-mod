@@ -24,7 +24,7 @@ rest_lift       0.85
 
 # Ground shadow: width in ball diameters, strength, height/width, sideways shift per canvas px of lift.
 shadow_size     2.4
-shadow_alpha    0.55
+shadow_alpha    0.34
 shadow_flat     0.50
 shadow_sun      0.16
 

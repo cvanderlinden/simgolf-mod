@@ -1,6 +1,7 @@
 // Frosted Mint course HUD screen, see ui_hud.h. Layout: docs/ui/DESIGN_SYSTEM.md
 // section 4 (D5); what each control does in the game: docs/ui/HUD_DISPATCH.md.
 #include "port/ui/ui_hud.h"
+#include "port/ui/ui_rules.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -342,8 +343,14 @@ typedef struct {
   SDL_Texture *art;
   UiIcon icon;
   int selected, disabled;
+  int labelled;   // task-92: the name shows under the icon (the pro's controls), and the tile is wider
   HudAction act;
 } Tile;
+static float g_tile_wmul = 1;   // width of the compact tiles (people_tray widens the labelled ones)
+static int mini_tile(UiCtx *c, uint32_t id, UiRect r, const Tile *t, int flags, const char *tip) {
+  if (t->labelled) return ui_tile_mini_label(c, id, r, t->icon, t->name, flags, tip);
+  return ui_tile_mini(c, id, r, t->art, t->icon, flags, tip);
+}
 
 static void tray_column(UiCtx *c, const char *title, const char *const *tabs, int ntabs, int *tab, Tile *tiles, int n,
                         int undo_x, int undo_y, UiRect dock_r, Acts *a);
@@ -532,7 +539,7 @@ static void strip(UiCtx *c, const char *title, const char *const *tabs, int ntab
   UiHud *hud = g_h;
   UiRect scr = ui_screen(c);
   float H = ui_s(c, 72), pad = ui_s(c, 8), item = H - 2 * pad, gap = ui_s(c, 6), sep = ui_s(c, 12);
-  float tw = ui_s(c, 64), arrow = ui_s(c, 30), undo_w = ui_s(c, 32);
+  float tw = ui_s(c, 64) * g_tile_wmul, arrow = ui_s(c, 30), undo_w = ui_s(c, 32);
   float m = ui_s(c, t->edge_margin), bottom = ui_s(c, 8);
   // the dock part
   float dock_w = D_N * item + (D_N - 1) * gap + sep;
@@ -602,7 +609,7 @@ static void strip(UiCtx *c, const char *title, const char *const *tabs, int ntab
         else if (tiles[i].price && *tiles[i].price) snprintf(tipbuf, sizeof tipbuf, "%s, %s", tiles[i].name, tiles[i].price);
         else snprintf(tipbuf, sizeof tipbuf, "%s", tiles[i].name);
         int flags = (tiles[i].selected ? UI_SELECTED : 0) | (tiles[i].disabled ? UI_DISABLED : 0);
-        if (ui_tile_mini(c, ui_idi(ui_id(title), i + 100), tr, tiles[i].art, tiles[i].icon, flags, tipbuf)) act(a, tiles[i].act);
+        if (mini_tile(c, ui_idi(ui_id(title), i + 100), tr, &tiles[i], flags, tipbuf)) act(a, tiles[i].act);
       }
       ui_scroll_end(c);
       uid_set_clip(ui_drawer(c), &r);
@@ -898,7 +905,7 @@ static void stock_tray(UiCtx *c, const char *title, const char *const *tabs, int
     if (tiles[i].price && *tiles[i].price) snprintf(tipbuf, sizeof tipbuf, "%s, %s", tiles[i].name, tiles[i].price);
     else snprintf(tipbuf, sizeof tipbuf, "%s", tiles[i].name);
     int flags = (tiles[i].selected ? UI_SELECTED : 0) | (tiles[i].disabled ? UI_DISABLED : 0);
-    if (ui_tile_mini(c, ui_idi(ui_id(title), i + 100), tr, tiles[i].art, tiles[i].icon, flags, tipbuf)) act(a, tiles[i].act);
+    if (mini_tile(c, ui_idi(ui_id(title), i + 100), tr, &tiles[i], flags, tipbuf)) act(a, tiles[i].act);
   }
 }
 
@@ -1149,7 +1156,7 @@ static void panel_tray(UiCtx *c, const char *title, const char *const *tabs, int
   const UiTokens *t = ui_tokens(c);
   UiRect scr = ui_screen(c);
   int slim = g_h && g_h->density == HUD_JWE;   // task-57: smaller tiles, header and padding
-  float pad = ui_s(c, slim ? 10 : 12), segh = ui_s(c, slim ? 28 : 32), tw = ui_s(c, slim ? 50 : 64), th = ui_s(c, slim ? 44 : 56);
+  float pad = ui_s(c, slim ? 10 : 12), segh = ui_s(c, slim ? 28 : 32), tw = ui_s(c, slim ? 50 : 64) * g_tile_wmul, th = ui_s(c, slim ? 44 : 56);
   float g = ui_s(c, slim ? 5 : 6), hgap = ui_s(c, slim ? 7 : 10);
   int per = n > 9 ? (n + 1) / 2 : n < 1 ? 1 : n;
   int rows = n > 0 ? (n + per - 1) / per : 1;
@@ -1187,7 +1194,7 @@ static void panel_tray(UiCtx *c, const char *title, const char *const *tabs, int
     else if (tiles[i].price && *tiles[i].price) snprintf(tipbuf, sizeof tipbuf, "%s, %s", tiles[i].name, tiles[i].price);
     else snprintf(tipbuf, sizeof tipbuf, "%s", tiles[i].name);
     int flags = (tiles[i].selected ? UI_SELECTED : 0) | (tiles[i].disabled ? UI_DISABLED : 0);
-    if (ui_tile_mini(c, ui_idi(ui_id(title), i + 100), tr, tiles[i].art, tiles[i].icon, flags, tipbuf)) act(a, tiles[i].act);
+    if (mini_tile(c, ui_idi(ui_id(title), i + 100), tr, &tiles[i], flags, tipbuf)) act(a, tiles[i].act);
   }
 }
 
@@ -1198,7 +1205,7 @@ static void row_tray(UiCtx *c, const char *title, const char *const *tabs, int n
                      int undo_x, int undo_y, Acts *a, float x0, int tabs_above) {
   const UiTokens *t = ui_tokens(c);
   UiRect scr = ui_screen(c);
-  float pad = ui_s(c, 8), item = ui_s(c, 56), gap = ui_s(c, 6), sep = ui_s(c, 12), tw = ui_s(c, 64);
+  float pad = ui_s(c, 8), item = ui_s(c, 56), gap = ui_s(c, 6), sep = ui_s(c, 12), tw = ui_s(c, 64) * g_tile_wmul;
   float segh = ui_s(c, tabs_above ? 30 : 36), arrow = ui_s(c, 30), undo_w = ui_s(c, 32);
   float m = ui_s(c, 8), bottom = ui_s(c, 8);
   UiFont hf = ui_font(c, UI_TYPE_LABEL);
@@ -1258,7 +1265,7 @@ static void row_tray(UiCtx *c, const char *title, const char *const *tabs, int n
       else if (tiles[i].price && *tiles[i].price) snprintf(tipbuf, sizeof tipbuf, "%s, %s", tiles[i].name, tiles[i].price);
       else snprintf(tipbuf, sizeof tipbuf, "%s", tiles[i].name);
       int flags = (tiles[i].selected ? UI_SELECTED : 0) | (tiles[i].disabled ? UI_DISABLED : 0);
-      if (ui_tile_mini(c, ui_idi(ui_id(title), i + 100), tr, tiles[i].art, tiles[i].icon, flags, tipbuf)) act(a, tiles[i].act);
+      if (mini_tile(c, ui_idi(ui_id(title), i + 100), tr, &tiles[i], flags, tipbuf)) act(a, tiles[i].act);
     }
     ui_scroll_end(c);
   }
@@ -1342,7 +1349,7 @@ static void buildings_tray(UiCtx *c, UiHud *h, const HudSnap *s, SDL_Texture *co
     tl->art = art ? art[HUD_ART_BUILDING + i] : NULL;
     tl->icon = UI_ICON_HOUSE;
     tl->selected = s->build_tool == id;
-    tl->disabled = !(id < s->unlock - lvl && lvl < 2 && (lvl == 0 || s->next_hole > 10));
+    tl->disabled = !ui_lot_enabled(i, s->unlock, lvl, s->next_hole);
     tl->tip = tl->disabled ? (lvl >= 2 ? "Fully upgraded" : "Not open yet: open more holes") : (lvl == 1 ? "Upgrade" : NULL);
     int x = i < 5 ? 383 + 80 * i : 423 + 80 * (i - 5), y = i < 5 ? 531 : 571;
     tl->act = (HudAction){HUD_ACT_GOAL, x, y, HUD_GOAL_BUILDINGS, 0};
@@ -1368,10 +1375,77 @@ static void landscape_tray(UiCtx *c, UiHud *h, const HudSnap *s, SDL_Texture *co
   tray(c, h, "Landscape", NULL, 0, NULL, tiles, 4, 4, 267, 561, dock_r, a);
 }
 
+// task-92: the "Your pro" page stands in for the original's player panel (FUN_004362f0, hidden with the old
+// HUD): create the pro, the profile, the skills, Practice Round, Match, Begin Tournament and, while the pro
+// waits for a shot, the five shot choices. The buttons click the original ones (800x600 points of
+// FUN_00435f00) or run golf's own profile page and skill dialog (hud_game.c, HUD_ACT_PRO).
+static int pro_tiles(const HudSnap *s, Tile *t) {
+  static char skills_txt[24];
+  int n = 0, total = 0;
+  for (int i = 0; i < 10; i++) total += s->pro_skill[i];
+  if (!s->pro_ready) {
+    t[n].name = "Create pro";
+    t[n].price = "start here";
+    t[n].icon = UI_ICON_SPARKLE;
+    t[n].selected = 1;
+    t[n].tip = "Name and look, then 10 skill points (3 more for each accomplishment)";
+    t[n++].act = (HudAction){HUD_ACT_PRO, HUD_PRO_CREATE, 0, 0, 0};
+  }
+  t[n].name = "Profile";
+  t[n].price = s->pro_name[0] ? s->pro_name : "name, look";
+  t[n].icon = UI_ICON_PALETTE;
+  t[n].tip = "Your pro's name, look and bio";
+  t[n++].act = (HudAction){HUD_ACT_PRO, HUD_PRO_PROFILE, 0, 0, 0};
+  snprintf(skills_txt, sizeof skills_txt, s->pro_ready ? "%d points" : "not set up", total);
+  t[n].name = "Skills";
+  t[n].price = skills_txt;
+  t[n].icon = UI_ICON_CHART;
+  t[n].tip = s->pro_ready ? "Your pro's ten skills; accomplishments add three points each"
+                          : "Spend your pro's first skill points";
+  t[n++].act = (HudAction){HUD_ACT_PRO, HUD_PRO_SKILLS, 0, 0, 0};
+  if (s->pro_shots) {   // the pro waits on the course: the shot for the next stroke
+    static const struct { const char *name; int x, v, fancy; } shot[5] = {
+        {"Straight", 414, 0, 0}, {"Fade", 493, -1, 1}, {"Draw", 572, 1, 1}, {"High backspin", 651, 3, 1}, {"Low punch", 730, 4, 0}};
+    for (int i = 0; i < 5; i++) {
+      t[n].name = shot[i].name;
+      t[n].price = "shot";
+      t[n].icon = UI_ICON_FLAG;
+      t[n].selected = s->pro_shot == shot[i].v;
+      t[n].disabled = shot[i].fancy && s->pro_shots == 1;
+      t[n].tip = t[n].disabled ? "Not from this lie" : "Your pro's next shot";
+      t[n++].act = (HudAction){HUD_ACT_CLICK, shot[i].x, 505, 0, 0};
+    }
+    return n;
+  }
+  t[n].name = "Practice";
+  t[n].price = s->pro_out ? "on the course" : "play";
+  t[n].icon = UI_ICON_FLAG;
+  t[n].disabled = !s->pro_practice;
+  t[n].tip = s->pro_out ? "Your pro is out on the course" : s->pro_practice ? (s->pro_ready ? "Send your pro out for a round"
+                                                                                               : "Your pro's skills come first, then the round")
+                                                                            : "Open two holes first";
+  t[n++].act = (HudAction){HUD_ACT_CLICK, 313, 519, 0, 0};
+  if (s->pro_match) {
+    t[n].name = "Match";
+    t[n].price = "vs a pro";
+    t[n].icon = UI_ICON_TROPHY;
+    t[n].tip = "Accept the famous golfer's challenge";
+    t[n++].act = (HudAction){HUD_ACT_CLICK, 313, 548, 0, 0};
+  }
+  if (s->pro_tourney) {
+    t[n].name = "Tournament";
+    t[n].price = "SGA";
+    t[n].icon = UI_ICON_CUP;
+    t[n].tip = "Begin the SGA tournament";
+    t[n++].act = (HudAction){HUD_ACT_CLICK, 313, 580, 0, 0};
+  }
+  return n;
+}
+
 static void people_tray(UiCtx *c, UiHud *h, const HudSnap *s, UiRect dock_r, Acts *a) {
-  static const char *const tabs[3] = {"Golfers", "Your golfer", "Staff"};
+  static const char *const tabs[3] = {"Golfers", "Your pro", "Staff"};
   int tab = s->employee_overlay ? 2 : s->dock_mode == 2 ? 0 : 1, before = tab;
-  Tile tiles[1];
+  Tile tiles[9];
   memset(tiles, 0, sizeof tiles);
   int n = 0;
   if (tab == 2) {
@@ -1381,8 +1455,13 @@ static void people_tray(UiCtx *c, UiHud *h, const HudSnap *s, UiRect dock_r, Act
     tiles[0].tip = "Hire a groundskeeper, ranger, club pro or caddie";
     tiles[0].act = (HudAction){HUD_ACT_CLICK, 270, 558, 0, 0};
     n = 1;
+  } else if (tab == 1) {
+    n = pro_tiles(s, tiles);
+    for (int i = 0; i < n; i++) tiles[i].labelled = 1;
+    g_tile_wmul = 1.7f;
   }
   tray(c, h, "People", tabs, 3, &tab, tiles, n, 4, -1, -1, dock_r, a);
+  g_tile_wmul = 1;
   if (tab != before) {
     if (tab == 2) click(a, s->dock_mode == 2 ? 232 : 231, s->dock_mode == 2 ? 538 : 540);
     else if (s->employee_overlay) click(a, tab == 0 ? 286 : 256, tab == 0 ? 492 : 510);
@@ -1439,7 +1518,9 @@ static void msg_when(UiCtx *c, const HudMsg *m, char *out, int cap) {
   else snprintf(out, cap, "%s", ago);
 }
 
-static const char *show_label(const HudMsg *m) { return m->show == HUD_SHOW_GOLFER ? "Show the golfer" : "Show the hole"; }
+static const char *show_label(const HudMsg *m) {
+  return m->show == HUD_SHOW_GOLFER ? "Show the golfer" : m->show == HUD_SHOW_BUILDING ? "Show the building" : "Show the hole";
+}
 
 static const HudMsg *find_msg(const HudSnap *s, int seq) {
   for (int i = 0; i < s->msg_n; i++)

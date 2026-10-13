@@ -116,6 +116,7 @@ int ui_tile(UiCtx *c, uint32_t id, UiRect r, SDL_Texture *art, UiIcon icon, cons
 float ui_tile_height(const UiCtx *c);
 // The same tool as art only (the compact strip): name and price go in the tooltip.
 int ui_tile_mini(UiCtx *c, uint32_t id, UiRect r, SDL_Texture *art, UiIcon icon, int flags, const char *tooltip);
+int ui_tile_mini_label(UiCtx *c, uint32_t id, UiRect r, UiIcon icon, const char *label, int flags, const char *tooltip);
 // The same tool as one row of a list: art at the left, name, price at the right.
 int ui_tile_row(UiCtx *c, uint32_t id, UiRect r, SDL_Texture *art, UiIcon icon, const char *name, const char *price,
                 int flags, const char *tooltip);

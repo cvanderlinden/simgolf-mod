@@ -446,8 +446,8 @@ static SDL_Texture *shadow_tex(SDL_Renderer *rd) {
       double X = (i + 0.5 - S / 2.0) / (S / 2.0), Y = (j + 0.5 - S / 2.0) / (S / 2.0);
       double d = sqrt(X * X + Y * Y);
       double a = 1 - smooth(0.0, 1.0, d);
-      a = pow(a, 1.0);
-      px[j * S + i] = (uint32_t)(a * 255 + 0.5) << 24 | 0x10180c;
+      a = a * a;   // task-89: soft all through, no dark core that reads as a dot when it is small
+      px[j * S + i] = (uint32_t)(a * 255 + 0.5) << 24 | 0x18200e;
     }
   g_shadow = SDL_CreateTexture(rd, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC, S, S);
   if (g_shadow) {
@@ -785,6 +785,7 @@ void hdball_draw(SDL_Renderer *rd, int cdx, int cdy, const SDL_Rect *clip, float
       double w = 2 * rs * C.shadow_size * (0.55 + 0.45 * spread), hh = w * C.shadow_flat;
       double alpha = C.shadow_alpha / (0.55 + 0.45 * spread) * as;
       SDL_SetTextureAlphaMod(sh, (Uint8)fmin(255, fmax(0, alpha * 255)));
+      if (g_log) fprintf(g_log, "S,%.3f,%d,%.1f,%.1f\n", now_ms, (int)fmin(255, fmax(0, alpha * 255)), w, hh);   // task-89: the shadow's peak alpha (0-255) and size
       SDL_FRect d = {(float)(Gx + C.shadow_sun * lift * k - w / 2), (float)(Gy + 0.30 * rs - hh / 2), (float)w, (float)hh};
       SDL_RenderCopyF(rd, sh, NULL, &d);
     }

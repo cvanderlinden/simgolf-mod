@@ -1080,11 +1080,37 @@ void extentsFor(int w, int h, float &x, float &y) {
 // The terrain grid's own size in tiles (50 x 50 on the original map; task-7/8
 // make it a setting), 0 before the terrain exists. Used by the wide-view
 // camera clamp (golf/hd_ui.c, task-3).
+extern "C" int terrain_course_type(void) { return g_courseType; }   // 0 Parkland, 1 Desert, 2 Tropical, 3 Links (task-78c: per-theme water)
+
 extern "C" int terrain_grid_size(int *w, int *h) {
   if (!g_inst || g_inst->w <= 0 || g_inst->h <= 0) return 0;
   *w = g_inst->w;
   *h = g_inst->h;
   return 1;
+}
+
+// task-78 (realistic water): per tile, code[i] = 0 for ground or 1 + depth
+// class (0 shallow, 1 middle, 2 deep) for water, and height[i] the centre
+// vertex's height (Terrain units, 100 per tile across). Returns the tile
+// count written (w * h), 0 when there is no terrain or cap is too small.
+extern "C" int terrain_water_tiles(uint8_t *code, float *height, int cap) {
+  if (!g_inst || g_inst->w <= 0 || g_inst->h <= 0 || g_inst->w * g_inst->h > cap) return 0;
+  const TerrainState *s = g_inst;
+  for (int y = 0; y < s->h; y++)
+    for (int x = 0; x < s->w; x++) {
+      const Tile *t = &s->tiles[y * s->w + x];
+      int i = y * s->w + x;
+      int v = t->variation & 0xff;
+      code[i] = t->type == kTypeWater ? (uint8_t)(1 + (v == 1 ? 1 : v == 2 ? 2 : 0)) : 0;
+      height[i] = g_pos[vidx(t, 1, 1)][1];
+    }
+  return s->w * s->h;
+}
+
+// task-78: 1 when map tile (x, y) is water (ball splashes).
+extern "C" int terrain_tile_water(int x, int y) {
+  if (!g_inst || x < 0 || y < 0 || x >= g_inst->w || y >= g_inst->h) return 0;
+  return g_inst->tiles[y * g_inst->w + x].type == kTypeWater;
 }
 
 void terrain_set_surface(const TerrainSurface *surface) {

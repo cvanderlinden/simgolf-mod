@@ -1,0 +1,39 @@
+{
+ "comment": "task-78 (port/src/port/water_native.h): realistic water. With display.water=hd the presenter draws animated water and waterfalls, so the water pass of FUN_0040f5c0 looks its water sprites up through water_sprite (src/port/golf/water_hooks.c), which returns no sprite (0) for the ripples and ocean waves (0x233-0x235), waterfalls (0x237, 0x238), spray (0x23b, 0x23c) and underwater rocks and coral (0x230-0x232); the main loop's sprite queue calls go through water_queue, which skips a call with no sprite (FUN_0043d6f0 itself never returns 0, so every other call is unchanged), and the single-pixel sparkles are skipped. Drawing only: golf's state, its clock and every other sprite are untouched. With display.water=original and in the browser build water_sprite is FUN_0043d6f0. Merged into golf.json's patches by translate.py.",
+ "patches": {
+  "FUN_0040f5c0": [
+   [
+    "FUN_0043d6f0(0x237,",
+    "water_sprite(0x237,"
+   ],
+   [
+    "FUN_0043d6f0(0x238,",
+    "water_sprite(0x238,"
+   ],
+   [
+    "FUN_0043d6f0(0x23b,",
+    "water_sprite(0x23b,"
+   ],
+   [
+    "FUN_0043d6f0(0x23c,",
+    "water_sprite(0x23c,"
+   ],
+   [
+    "FUN_0043d6f0(iVar28,(int)(uVar13 * 7 + DAT_00834170) %",
+    "water_sprite(iVar28,(int)(uVar13 * 7 + DAT_00834170) %"
+   ],
+   [
+    "FUN_0043d6f0(iVar28,(int)DAT_00834170 %",
+    "water_sprite(iVar28,(int)DAT_00834170 %"
+   ],
+   [
+    "if (((short)uVar48 != 0) &&",
+    "if (((short)uVar48 != 0) && !water_hide_golf_ripples() &&"
+   ],
+   [
+    "FUN_004628d0(",
+    "water_queue("
+   ]
+  ]
+ }
+}

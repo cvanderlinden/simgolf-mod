@@ -56,6 +56,7 @@
 #include "port/hd_native.h"
 #include "port/host.h"
 #include "port/runtime.h"
+#include "port/water_native.h"
 
 // ------------------------------------------------------------------ settings
 
@@ -1257,7 +1258,9 @@ static void record_sprite(int slot, uint32_t sprite, uint32_t mask, uint32_t dst
     e.w = (float)(t->w * fx);
     e.h = (float)(t->h * fy);
     e.variant = V_RGBA;
-    if (slot == 27 || slot == 30) {   // a shading sheet (index 0xf8: darken what is under it): black at golf's level
+    // task-78c: cliffs01.pcx holds the rock chips golf draws at cliff corners through these slots; they are
+    // real rock pictures, not shading, and drawing them as shade painted dark wedges (the art pack's rocks stay)
+    if ((slot == 27 || slot == 30) && !strstr(a->norm, "cliffs01")) {   // a shading sheet (index 0xf8: darken what is under it): black at golf's level
       e.variant = V_SHADE;
       e.pal_hash = shadow_levels(lut, lev);
       memcpy(pal, lev, sizeof pal);
@@ -1593,6 +1596,35 @@ void hd_art_hide_rects(const int *xywh, int nrects) {
   }
 }
 
+// task-88: a native dialog replaces golf's own popup (frame, rows) that the original draws each frame of
+// its loop: every entry recorded since the dialog opened (hd_art_dlg_begin) is hidden, or the art pack's
+// hi-res copy of the old panel frame shows beside the native dialog. After a present (the loop's own)
+// the list starts empty again, so everything in it is the dialog's.
+static int g_dlg_n = -1, g_dlg_which;
+
+void hd_art_dlg_begin(void) {
+  g_dlg_n = g_on ? g_rec.n : -1;
+  g_dlg_which = g_rec_which;
+}
+
+void hd_art_hide_dialog(void) {
+  if (!g_on) return;
+  int from = (g_dlg_n >= 0 && g_dlg_which == g_rec_which && g_dlg_n <= g_rec.n) ? g_dlg_n : 0;
+  for (int i = from; i < g_rec.n; i++) g_rec.e[i].hidden = 1;
+}
+
+// task-89: the art pack's hi-res copy of golf's ball and shadow sprites (a dark pixelated blob on the ground)
+// must not show under the round HD ball, which has its own soft shadow. hdball_item takes a mark before
+// golf's sprite draw and hides every entry recorded since.
+int hd_art_mark(void) { return g_on ? g_rec.n : -1; }
+
+void hd_art_hide_from(int mark) {
+  if (!g_on || mark < 0 || mark > g_rec.n) return;
+  for (int i = mark; i < g_rec.n; i++) g_rec.e[i].hidden = 1;
+  static int logged;
+  if (g_rec.n > mark && !logged++) fprintf(stderr, "art: golf's ball and shadow sprite copies hidden under the round ball (task-89)\n");
+}
+
 static void publish_one(int which, int ok) {
   g_pub_ok[which] = ok && g_closed_ok[which] && g_closed[which].n;
   if (!g_pub_ok[which]) return;
@@ -1858,7 +1890,30 @@ void hd_art_draw(int which, SDL_Renderer *r, double ox, double oy, double k) {
       SDL_Texture *s = tex_of(e, 1);
       if (s) SDL_RenderCopyExF(r, s, NULL, &d, 0, NULL, f);
     }
-    SDL_RenderCopyExF(r, tex_of(e, 0), NULL, &d, 0, NULL, f);
+    SDL_Texture *tx = tex_of(e, 0);
+    float uw[3], uwa;   // shoals, rocks and coral (task-78): seen through the realistic water, not painted on it
+    const char *nm = g_files[e->file].norm;
+    int under = 0;
+    if (nm && !strncmp(nm, "flics/water/", 12) && water_underwater_tint(uw, &uwa)) {
+      int reef = !strncmp(nm + 12, "uw", 2) && strstr(nm, "coral");   // coral lies on the bed: the full effect
+      int bar = (!strncmp(nm + 12, "uw", 2) || (!strncmp(nm + 12, "as", 2) && strstr(nm, "sand")));   // rocks and sand bars stand up: half, enough to cool the shallow ring painted around them
+      if (reef || bar) {
+        under = 1;
+        if (!reef) {
+          for (int c = 0; c < 3; c++) uw[c] = 1 - (1 - uw[c]) * 0.5f;
+          uwa = 1 - (1 - uwa) * 0.5f;
+        }
+      }
+    }
+    if (under) {
+      SDL_SetTextureColorMod(tx, (Uint8)(uw[0] * 255 + 0.5f), (Uint8)(uw[1] * 255 + 0.5f), (Uint8)(uw[2] * 255 + 0.5f));
+      SDL_SetTextureAlphaMod(tx, (Uint8)(uwa * 255 + 0.5f));
+    }
+    SDL_RenderCopyExF(r, tx, NULL, &d, 0, NULL, f);
+    if (under) {
+      SDL_SetTextureColorMod(tx, 255, 255, 255);
+      SDL_SetTextureAlphaMod(tx, 255);
+    }
     if (g_debug) {   // art_debug=1: a box per hi-res sprite, coloured by category
       static const Uint8 col[NCAT][3] = {{255, 0, 0}, {0, 0, 255}, {0, 255, 0}, {255, 255, 0}, {255, 0, 255}, {0, 255, 255}, {255, 128, 0}};
       int cc = g_files[e->file].cat < 0 ? 0 : g_files[e->file].cat;

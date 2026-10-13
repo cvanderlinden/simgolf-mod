@@ -1,0 +1,19 @@
+{
+ "comment": "task-74: the pro's skill gates read their numbers from src/port/golf/skills.c (data/mods.ini [skills]).",
+ "patches": {
+  "FUN_00407e00": [
+   [
+    "local_1c = local_14 * 2 + 6;\n    if (local_14 == 3) {\n      local_1c = 99;\n    }",
+    "local_1c = skill_soft_cap(local_14);"
+   ],
+   [
+    "if (*(char *)((int)&DAT_005a5a04 + iVar13 + iVar15) < '\\n') {",
+    "if (*(char *)((int)&DAT_005a5a04 + iVar13 + iVar15) < skill_hard_cap()) {"
+   ],
+   [
+    "if ((char)bVar9 < '\\x03') {\n          return (uint)bVar9;\n        }",
+    "if ((char)bVar9 < '\\x03') {\n          return (uint)bVar9;\n        }\n        if (!skill_loss_on()) {\n          *(undefined2 *)(&DAT_005794ce + iVar10) = (undefined2)local_20;\n          return (uint)bVar9;\n        }"
+   ]
+  ]
+ }
+}

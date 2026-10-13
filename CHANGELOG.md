@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.1.3 (next release, in the source now)
+
+Playability fixes: everything from the original game reachable in the new interface.
+
+- Fixed: no way to create your pro or spend skill points in the new HUD. A new career now opens pro creation, People has a "Your pro" tab (Create pro, Profile, Skills, Practice, Match, Tournament), and accomplishments offer the three skill points again
+- Fixed: the female head crash from the official 1.03 patch, ported
+- Fixed: dark see-through blobs at cliff corners with the HD art (rock chips drawn as shadows)
+- Fixed: a dark wedge behind waterfalls; golf's own waterfall spray is back
+- Fixed: an old popup frame showing beside the new Options menu
+- Fixed: a dark pixelated dot following the ball; the ball shadow is softer
+- Fixed: trees, palms and forests vanished at the farthest zoom
+- Fixed: building upgrades greyed out one level early; the N key (cancel match) was taken by the name tags toggle (name tags are now Shift+N)
+- New: cart path help (path view on Y, no-path markers), a tiny ball splash in water
+- Pro skills can grow past 100 percent on 18-hole courses
+
 ## 0.1.2
 
 Crash fix.

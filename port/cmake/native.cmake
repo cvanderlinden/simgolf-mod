@@ -54,6 +54,12 @@ target_sources(golf PRIVATE src/port/hd_native.c src/port/hd_terrain_native.c)
 target_sources(golf PRIVATE src/port/hd_zoom.c)
 # task-17: the art pack (4x upscaled art at screen resolution; PNGs through WIC)
 target_sources(golf PRIVATE src/port/hd_art.c)
+# task-78: realistic water (Direct3D 11 pass in the presenter; shaders and numbers in ui/)
+target_sources(golf PRIVATE src/port/water_native.c)
+add_custom_target(water_files ALL
+  COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/ui"
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/../data/ui/water.hlsl" "${CMAKE_SOURCE_DIR}/../data/ui/water.txt" "${CMAKE_BINARY_DIR}/ui"
+  VERBATIM)
 # task-25: the ui.font switch (settings, face map, blending) behind gdi.c's text path
 target_sources(golf PRIVATE src/port/ui_font.c)
 

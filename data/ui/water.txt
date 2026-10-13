@@ -1,0 +1,105 @@
+# Realistic water (card task-78, task-78c): tuning numbers. One "key value..." per line, # starts a comment.
+# Read from ui/water.txt next to golf.exe; the game reloads it when it changes. A tile is about 10 m.
+# One curated water (decision 2026-10-12). [water] holds the numbers; the four course themes (parkland, desert,
+# tropical, links) list only what differs, taken from the colour and feel of that theme's original water art
+# (game/Data/Textures/<theme>/Water*). Switch the whole thing off with [display] water=original in
+# data/mods.ini (the 2002 water), or on the Options page (Graphics, Water).
+# Colours are 0..1 RGB.
+
+[water]
+# What is under the surface: the bed, light absorbed with depth (Beer-Lambert), light scattered back.
+bed          0.85 0.80 0.62    # the bed seen through the water (sand), mixed with golf's painted water
+absorb       0.90 0.22 0.10    # light absorbed per channel with depth (red first: turquoise, then blue)
+depth_scale  5.0               # optical depth of the deepest water
+deep         0.02 0.15 0.35    # light scattered back from deep water (blue)
+shallow      0.40 0.82 0.78    # milky tint of the shallows
+caustics     0.45              # light nets on the shallow bed
+uw_tint      0.50 0.80 0.88    # golf's shoal, rock and coral sprites seen through the water: colour
+uw_alpha     0.80              #   and opacity (they are pale green patches painted on the water otherwise)
+
+# A ball landing in the water (2026-10-12: a little ball makes a tiny splash, not a big ring):
+# a few droplets and two small curl rings close to the ball, gone in under a second. Drawn by the
+# surface shader, not the ripple simulation, so the surface never wobbles.
+ball_size    0.12              # outer ring radius, tiles (about 3 ball radii on screen)
+ball_life    0.8               # seconds until it is gone
+ball_drops   6                 # droplets thrown out and falling back
+ball_foam    1.0               # how white the rings and droplets are
+ball_ring    0.012             # ring thickness, tiles
+ball_drop_r  0.012             # droplet radius, tiles
+
+# The surface: Fresnel reflection of the sky, the sun's glitter.
+reflection   3.5               # Fresnel reflection strength (1 = physical, more reads better from above)
+horizon      0.80 0.88 0.93    # sky colour near the horizon (reflected)
+zenith       0.38 0.60 0.88    # sky colour overhead (reflected)
+clouds       0.55              # reflected clouds drifting by
+sun          1.00 0.95 0.85    # sun colour
+glints       0.7               # sun glitter
+glint_bias   0.35              # 0: glitter where golf's sun would put it, 1: where a mirror would
+
+# Waves: a Pierson-Moskowitz wind sea (32 waves, 0.5 m to longest_wave) with real dispersion, slopes
+# scaled to Cox and Munk's measurements for the wind. Long waves only grow on wide water. Gusts drift
+# across with the wind: inside them the breeze ruffles the water, between them it lies calm.
+wind_ms      5.0               # wind speed in m/s at wind_speed 1 (a breeze)
+wind_dir     35                # wind direction, degrees (map axes)
+wind_speed   1.0               # multiplies wind_ms (task-79 weather sets it: 0 calm, 2 windy)
+chop         1.0               # 1 = measured sea slopes for that wind
+detail       0.35              # overall wave strength on screen (gentle travelling waves, no jelly)
+longest_wave 8                 # metres; longer swells made the whole surface heave
+calm         0.4               # wave strength between gusts (0 glassy, 1 no gusts)
+max_depth    3.0               # metres of the deepest water (for the dispersion: waves slow in the shallows)
+
+# The ripple simulation (a damped wave equation on 8 cells per tile; ground is a wall).
+ripple       4.0               # how much it tilts the surface
+ripple_speed 0.8               # how fast rings spread, tiles per second (8 m/s; real splash rings are slower, this reads at golf's scale)
+drops        0                 # ambient drops per second per 100 water tiles (2026-10-12: random rings looked wrong)
+fall_rate    0                 # disturbances per second per tile below a waterfall (off: they read as random rings)
+
+# Foam and the shoreline.
+shore_foam   0.9               # foam where the water laps the beach
+lap          0.35              # how far the water runs up and down the beach (0..1)
+stream_foam  0.7               # foam carried along streams
+ripple_foam  0.6               # foam on splashes and disturbances
+key          0.04 0.16         # water vs beach in golf's painted texture (blue minus red)
+key_soft     2.2               # how soft the shoreline is (texture blur, mip levels)
+
+# --- course themes: only the differences from [water] ---
+
+[parkland]
+# Deeper green-blue lake water (original art averages 0.11 0.38 0.55 deep, 0.21 0.45 0.59 shallow).
+deep         0.03 0.20 0.38
+shallow      0.18 0.46 0.58
+bed          0.50 0.55 0.48
+uw_tint      0.55 0.80 0.86
+
+[desert]
+# Oasis blue-green, milky and still (original 0.34 0.45 0.45 deep, 0.43 0.53 0.52 shallow).
+# Desert water is nearly grey, so the water vs sand key sits lower than the other themes.
+key          -0.12 0.02
+deep         0.15 0.36 0.38
+shallow      0.40 0.62 0.58
+bed          0.80 0.72 0.55
+calm         0.5
+detail       0.38
+uw_tint      0.62 0.84 0.78
+
+[tropical]
+# Clear turquoise (original 0.28 0.68 0.67 deep, 0.50 0.80 0.72 shallow).
+deep         0.08 0.46 0.52
+shallow      0.50 0.84 0.78
+caustics     0.55
+glints       0.85
+uw_tint      0.55 0.88 0.88
+
+[links]
+# Colder grey-blue and choppier (original 0.24 0.36 0.48 deep, 0.30 0.44 0.54 shallow).
+deep         0.10 0.20 0.32
+shallow      0.30 0.46 0.55
+bed          0.50 0.50 0.45
+horizon      0.72 0.78 0.84
+zenith       0.40 0.52 0.70
+wind_speed   1.7
+calm         0.15
+detail       0.7
+clouds       0.7
+caustics     0.12
+uw_tint      0.55 0.72 0.80
