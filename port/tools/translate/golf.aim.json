@@ -1,0 +1,23 @@
+{
+ "comment": "task-115 (src/port/golf/aim_hooks.c): the aim of the player's pro, drawn by the course frame (FUN_0040f5c0): a black ground track (FUN_00406220 segments) and a chain of white segments (FUN_0040bf00 start, FUN_0040bf20) through the points of the shot's flight. The hooks make golf's own call with ui.aim=original; with ui.aim=frosted_mint they note the points and the presenter draws the arrow.",
+ "patches": {
+  "FUN_0040f5c0": [
+   [
+    "FUN_00406220((int)ppuStack_1230,",
+    "aim_seg((int)ppuStack_1230,"
+   ],
+   [
+    "FUN_00406220(uVar24,iVar23 + 1,uStack_11f4,iStack_11fc + 1,-0x80000000,iVar39,7);",
+    "aim_seg(uVar24,iVar23 + 1,uStack_11f4,iStack_11fc + 1,-0x80000000,iVar39,7);"
+   ],
+   [
+    "FUN_0040bf20(uStack_11f4,iStack_11fc,-0x7fff8001,iVar39,7);",
+    "aim_dot(uStack_11f4,iStack_11fc,-0x7fff8001,iVar39,7);"
+   ],
+   [
+    "FUN_0040bf00(uStack_11f4,iStack_11fc);",
+    "aim_start(uStack_11f4,iStack_11fc);"
+   ]
+  ]
+ }
+}

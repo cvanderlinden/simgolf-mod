@@ -1,0 +1,17 @@
+# Built-in mod: shot aim arrows (card task-115).
+# Sets ui.aim=frosted_mint. When your pro is out and you pick a shot (Straight, Fade, Draw, High backspin, Low
+# punch), golf shows where the shot will go. This draws it as a clean mint arrow: a smooth curve with an
+# arrowhead and a ring where the ball lands, in the world positions golf computes (the bend of a fade or a draw
+# is golf's own). Switch it off with `ui_aim=0` in data/mods.ini, `[ui] aim=original` there (golf's own white
+# dots and black ground track), the vanilla profile, or --no-mods. Needs the native presenter (hd_presentation).
+id = "ui_aim"
+name = "Shot aim arrows"
+version = "0.1.0"
+authors = ["SimGolf mod team"]
+description = "Shows the shot you chose as a smooth arrow with a landing ring."
+platform = "^1.0"
+game = ">=1.2.0"
+load_after = ["hd_presentation", "ui_font", "ui_hud", "ui_golfers", "ui_paths"]
+
+[settings]
+"ui.aim" = "frosted_mint"

@@ -358,6 +358,10 @@ void hdball_air(int slot, int sx, int sy);    // a ball in flight or rolling (go
 void hdball_item(int i);                      // one queued sprite of FUN_00463100 (FUN_00462be0 for others)
 void hdball_resolve(void);                    // after golf drew its sprites
 void hdball_trail(int slot, int x0, int y0, int x1, int y1, int col, int w, int a);   // task-61: golf's trail segment behind a ball in flight
+void aim_start(int x, int y);   // task-115: the shot aim arrow hooks (golf/aim_hooks.c)
+void aim_dot(int x, int y, int col, int w, int a);
+void aim_seg(int x0, int y0, int x1, int y1, int col, int w, int a);
+void place_center(int *tx, int *ty);   // task-115: lot placement centred on the pointer (golf/place_hooks.c)
 
 // task-78 (port/water_native.c): realistic water. 1 while the presenter draws the water,
 // so golf skips its own ripples, waves, waterfalls, spray and sparkles (translator patch golf.water.json).

@@ -8,7 +8,7 @@
 
 set(SIMGOLF_UI_PLAIN src/port/ui/ui_tokens.c src/port/ui/ui_layout.c src/port/ui/ui_hit.c src/port/ui/ui_icons.c src/port/ui/ui_faces.c
   src/port/ui/ui_png.c src/port/ui/ui_updates.c)
-set(SIMGOLF_UI_SDL src/port/ui/ui_draw.c src/port/ui/ui_text.c src/port/ui/ui_kit.c src/port/ui/ui_hud.c src/port/ui/ui_golfers.c src/port/ui/ui_paths.c src/port/ui/ui_frontend.c src/port/ui/ui_dialogs.c
+set(SIMGOLF_UI_SDL src/port/ui/ui_draw.c src/port/ui/ui_text.c src/port/ui/ui_kit.c src/port/ui/ui_hud.c src/port/ui/ui_golfers.c src/port/ui/ui_paths.c src/port/ui/ui_aim.c src/port/ui/ui_frontend.c src/port/ui/ui_dialogs.c
   src/port/ui/ui_reports.c src/port/ui/ui_pages.c src/port/ui/ui_mods.c)
 
 target_sources(golf PRIVATE ${SIMGOLF_UI_PLAIN} ${SIMGOLF_UI_SDL} src/port/hud_frosted.c src/port/hud_game.c)
@@ -16,6 +16,8 @@ target_sources(golf PRIVATE ${SIMGOLF_UI_PLAIN} ${SIMGOLF_UI_SDL} src/port/hud_f
 target_sources(golf PRIVATE src/port/golfers_frosted.c src/port/golfers_game.c)
 # task-53: cart path help (path view, "No path" markers)
 target_sources(golf PRIVATE src/port/paths_frosted.c src/port/paths_game.c)
+# task-115: shot aim arrows (render side; the game side is src/port/golf/aim_hooks.c)
+target_sources(golf PRIVATE src/port/aim_frosted.c)
 # task-32: the front end (start menu, difficulty, property, load, championship, themes)
 target_sources(golf PRIVATE src/port/frontend_frosted.c src/port/frontend_game.c src/port/update_check.c)
 # task-27: dialogs (popup menus, check lists, text entry, ...)

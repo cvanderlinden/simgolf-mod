@@ -1,0 +1,15 @@
+{
+ "comment": "task-115 (src/port/golf/place_hooks.c): the two places FUN_0040f5c0 turns the pointer into the tile a lot is placed at (the hover preview and the click). place_center shifts it so the footprint is centred on the pointer when ui.place_center=1.",
+ "patches": {
+  "FUN_0040f5c0": [
+   [
+    "FUN_00430020(iStack_11e8,iStack_11f8,&DAT_00543d08,&DAT_00543d0c,0);",
+    "FUN_00430020(iStack_11e8,iStack_11f8,&DAT_00543d08,&DAT_00543d0c,0);\n    place_center(&DAT_00543d08,&DAT_00543d0c);"
+   ],
+   [
+    "FUN_00430020(DAT_00822d60,DAT_00822d64,&iStack_1234,&iStack_122c,0);",
+    "FUN_00430020(DAT_00822d60,DAT_00822d64,&iStack_1234,&iStack_122c,0);\n  place_center(&iStack_1234,&iStack_122c);"
+   ]
+  ]
+ }
+}

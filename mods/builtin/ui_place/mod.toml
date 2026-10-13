@@ -1,0 +1,16 @@
+# Built-in mod: place buildings centred on the pointer (card task-115).
+# Golf sets a lot down with its first tile under the cursor, so a big building hangs off to one side of the
+# pointer and its ghost looks stuck to a corner of the white footprint. This centres the footprint on the tile
+# under the pointer, in the preview and in the click that places it. Switch it off with `ui_place=0` in
+# data/mods.ini, `[ui] place_center=0` there, the vanilla profile, or --no-mods.
+id = "ui_place"
+name = "Centred building placement"
+version = "0.1.0"
+authors = ["SimGolf mod team"]
+description = "Builds a lot with the pointer in the middle of its footprint."
+platform = "^1.0"
+game = ">=1.2.0"
+load_after = ["hd_presentation", "ui_hud"]
+
+[settings]
+"ui.place_center" = "1"

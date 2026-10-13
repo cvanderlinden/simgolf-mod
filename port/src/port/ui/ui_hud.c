@@ -67,6 +67,11 @@ static void goal(Acts *a, int g, int x, int y) { act(a, (HudAction){HUD_ACT_GOAL
 // active. The Buildings and Course tray builders set g_rotate for the tray() call
 // that follows; tray() and panel_tray() take it.
 static int g_rotate;
+// task-115: which building lots golf turns with Tab. The placement ghost of the Putting Green (tool 6) and the
+// Driving Range (tool 10) is drawn with facing 0 whatever the shape counter says (golf_01.c FUN_0040f5c0 cases 5
+// and 9: FUN_0043d6f0(id, frame, 0)); every other lot, the clubhouse (15) and the trees use the counter as facing.
+// tests/native/rotate_buildings.mjs proves it from the picture: the ghost of each tool at the four shapes.
+static int building_rotates(int tool) { return tool >= 7 && tool <= 15 && tool != 10; }
 static const char k_rot_label[] = "Rotate (Tab)";
 static float rot_width(UiCtx *c) { return ui_s(c, 52) + ui_text_width(c, UI_TYPE_LABEL, k_rot_label); }
 static void rot_button(UiCtx *c, float right, float cy, float h, Acts *a) {
@@ -345,18 +350,31 @@ typedef struct {
   UiIcon icon;
   int selected, disabled;
   int labelled;   // task-92: the name shows under the icon (the pro's controls), and the tile is wider
+  int rotates;    // task-115: golf turns this piece with Tab (a small turn badge on the tile)
   HudAction act;
 } Tile;
 static float g_tile_wmul = 1;   // width of the compact tiles (people_tray widens the labelled ones)
 static void people_log(const char *what, UiRect r);
+// task-115: the turn badge on a tile whose piece can be rotated with Tab (art with more than one facing)
+static void rot_badge(UiCtx *c, UiRect r) {
+  const UiTokens *t = ui_tokens(c);
+  float d = ui_s(c, 18);
+  UiRect b = ui_rect_round(ui_rect(r.x + r.w - d - ui_s(c, 5), r.y + ui_s(c, 5), d, d));
+  UiDraw *dr = ui_drawer(c);
+  uid_rrect(dr, b, d / 2, t->glass_fill_strong);
+  uid_rrect_stroke(dr, b, d / 2, fmaxf(1.0f, ui_s(c, 1.0f)), uid_alpha(t->accent, 0.9f));
+  float ic = d - ui_s(c, 5);
+  ui_icon(c, UI_ICON_ROTR, ui_rect(b.x + (d - ic) / 2, b.y + (d - ic) / 2, ic, ic), ic, t->accent);
+}
 static int mini_tile(UiCtx *c, uint32_t id, UiRect r, const Tile *t, int flags, const char *tip) {
   if (t->labelled && g_s && (g_s->employee_overlay || g_s->dock_mode == 2) && (!strcmp(t->name, "Fire") || !strcmp(t->name, "Move") || !strcmp(t->name, "Rename") || !strcmp(t->name, "Hire")))
     people_log(t->name, r);
   else if (t->labelled && (!strcmp(t->name, "Skills") || !strcmp(t->name, "Edit pro") || !strcmp(t->name, "Profile") ||
                             !strcmp(t->name, "Practice")))   // task-102b: the Your pro tiles, for the tests
     people_log(t->name, r);
-  if (t->labelled) return ui_tile_mini_label(c, id, r, t->icon, t->name, flags, tip);
-  return ui_tile_mini(c, id, r, t->art, t->icon, flags, tip);
+  int hit = t->labelled ? ui_tile_mini_label(c, id, r, t->icon, t->name, flags, tip) : ui_tile_mini(c, id, r, t->art, t->icon, flags, tip);
+  if (t->rotates) rot_badge(c, r);
+  return hit;
 }
 
 static void tray_column(UiCtx *c, const char *title, const char *const *tabs, int ntabs, int *tab, Tile *tiles, int n,
@@ -460,6 +478,7 @@ static void tray(UiCtx *c, UiHud *hud, const char *title, const char *const *tab
     if (ui_tile(c, ui_idi(ui_id(title), i + 100), tr, tiles[i].art, tiles[i].icon, tiles[i].name, tiles[i].price, flags,
                 tiles[i].tip))
       act(a, tiles[i].act);
+    if (tiles[i].rotates) rot_badge(c, tr);
   }
   ui_scroll_end(c);
 }
@@ -1357,12 +1376,15 @@ static void buildings_tray(UiCtx *c, UiHud *h, const HudSnap *s, SDL_Texture *co
     tl->icon = UI_ICON_HOUSE;
     tl->selected = s->build_tool == id;
     tl->disabled = !ui_lot_enabled(i, s->unlock, lvl, s->next_hole);
-    tl->tip = tl->disabled ? (lvl >= 2 ? "Fully upgraded" : "Not open yet: open more holes") : (lvl == 1 ? "Upgrade" : NULL);
+    tl->rotates = building_rotates(id) && !tl->disabled;
+    tl->tip = tl->disabled ? (lvl >= 2 ? "Fully upgraded" : "Not open yet: open more holes")
+            : lvl == 1 ? (tl->rotates ? "Upgrade (can be rotated, Tab)" : "Upgrade")
+            : tl->rotates ? "Can be rotated (Tab)" : "One view only: does not rotate";
     int x = i < 5 ? 383 + 80 * i : 423 + 80 * (i - 5), y = i < 5 ? 531 : 571;
     tl->act = (HudAction){HUD_ACT_GOAL, x, y, HUD_GOAL_BUILDINGS, 0};
   }
-  for (int i = 0; i < 9; i++)   // a lot armed
-    if (tiles[i].selected) g_rotate = 1;
+  for (int i = 0; i < 9; i++)   // a lot armed that golf can turn
+    if (tiles[i].selected && building_rotates(i + 6)) g_rotate = 1;
   tray(c, h, "Buildings", NULL, 0, NULL, tiles, 9, 9, 277, 567, dock_r, a);
 }
 
@@ -1912,14 +1934,16 @@ static int place_chip_flags(const HudSnap *s, int tool, int i) {
 
 static void place_panel(UiCtx *c, UiHud *h, const HudSnap *s, SDL_Texture *const *art, Acts *a) {
   int club = s->clubhouse, n = club ? 0 : s->design_n, tool = s->build_tool;
-  if (!club && n <= 0) return;
+  int lot = !club && n <= 0 && tool >= 6 && tool <= 14 && building_rotates(tool);   // task-115: a lot that turns
+  if (!club && n <= 0 && !lot) return;
   const UiTokens *t = ui_tokens(c);
   UiRect scr = ui_screen(c);
   const char *title = club ? "Place your clubhouse"
+                    : lot ? (s->building_name[tool - 6][0] ? s->building_name[tool - 6] : k_building_default[tool - 6])
                     : tool == 1 ? "Bench design" : tool == 2 ? "Flower bed design" : tool == 4 ? "Landmark"
                     : tool == 16 ? "Scenic tree" : "Scenic bridge";
   char hint[160] = "";
-  if (club) snprintf(hint, sizeof hint, "Click the course to set it down. Turn it with Rotate or the Tab key.");
+  if (club || lot) snprintf(hint, sizeof hint, "Click the course to set it down. Turn it with Rotate or the Tab key.");
   else if (tool == 4 && (s->design < 0 || s->design >= n)) snprintf(hint, sizeof hint, "Pick a landmark, then click the course.");
   else if (tool == 4) {
     char cost[24];

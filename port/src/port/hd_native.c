@@ -129,6 +129,10 @@ static uint8_t g_note_pending[HD_NOTE_MAX];  // game thread only: attached since
 static int g_note_pending_size;
 static uint8_t g_frame_note2[HD_NOTE_MAX];   // task-53: the second note channel (cart path view), same life as the first
 static int g_frame_note2_size;
+static uint8_t g_frame_note3[HD_NOTE3_MAX];   // task-115: the third note channel (shot aim arrows)
+static int g_frame_note3_size;
+static uint8_t g_note3_pending[HD_NOTE3_MAX];
+static int g_note3_pending_size;
 static uint8_t g_note2_pending[HD_NOTE_MAX];
 static int g_note2_pending_size;
 static HdBallFrame g_frame_ball;            // the balls of that frame (task-41)
@@ -338,6 +342,8 @@ typedef struct {
   int note_size;
   uint8_t note2[HD_NOTE_MAX];
   int note2_size;
+  uint8_t note3[HD_NOTE3_MAX];
+  int note3_size;
   double off_x, off_y, off_t0, off_dur, prev_dx, prev_dy;
   double last_arrival, interval;   // course frames: arrival time, interval (running mean)
   // smooth zoom (task-56). zsnap: the course picture (terrain, sprites, ball; not golf's UI) as it
@@ -424,6 +430,8 @@ static void upload(Rt *t, double now) {
   if (t->note_size > 0) memcpy(t->note, g_frame_note, (size_t)t->note_size);
   t->note2_size = t->layered && t->course_view ? g_frame_note2_size : 0;
   if (t->note2_size > 0) memcpy(t->note2, g_frame_note2, (size_t)t->note2_size);
+  t->note3_size = t->layered && t->course_view ? g_frame_note3_size : 0;
+  if (t->note3_size > 0) memcpy(t->note3, g_frame_note3, (size_t)t->note3_size);
   memcpy(&t->ball, &g_frame_ball, sizeof t->ball);
   serial = g_frame_serial;
   LeaveCriticalSection(&g_lock);
@@ -927,6 +935,8 @@ static Rect compose(Rt *t, SDL_Texture *target, int cw, int ch, int *sw, int *sh
     f.note_size = layered ? t->note_size : 0;
     f.note2 = layered && t->note2_size > 0 ? t->note2 : NULL;
     f.note2_size = layered ? t->note2_size : 0;
+    f.note3 = layered && t->note3_size > 0 ? t->note3 : NULL;
+    f.note3_size = layered ? t->note3_size : 0;
     for (LONG i = 0; i < n; i++) {
       g_ui_layers[i].draw(&f, g_ui_layers[i].user);
       SDL_SetRenderTarget(t->r, target);
@@ -1430,6 +1440,9 @@ int hd_present(const uint16_t *screen) {
   g_frame_note2_size = layered ? g_note2_pending_size : 0;
   if (g_frame_note2_size > 0) memcpy(g_frame_note2, g_note2_pending, (size_t)g_frame_note2_size);
   g_note2_pending_size = 0;
+  g_frame_note3_size = layered ? g_note3_pending_size : 0;
+  if (g_frame_note3_size > 0) memcpy(g_frame_note3, g_note3_pending, (size_t)g_frame_note3_size);
+  g_note3_pending_size = 0;
   if (course) memcpy(g_mask, mask, (size_t)FRAME_W * FRAME_H);
   hd_art_publish(layered, screen);
   InterlockedIncrement(&g_frame_serial);
@@ -1536,4 +1549,13 @@ int hd_ui_event(SDL_Event *e) {
   for (LONG i = n - 1; i >= 0; i--)
     if (g_ui_inputs[i].input(e, (int)g_shown_course, g_ui_inputs[i].user)) return 1;
   return 0;
+}
+
+void hd_ui_note3_set(const void *data, int size) {
+  if (!data || size <= 0 || size > HD_NOTE3_MAX) {
+    g_note3_pending_size = 0;
+    return;
+  }
+  memcpy(g_note3_pending, data, (size_t)size);
+  g_note3_pending_size = size;
 }

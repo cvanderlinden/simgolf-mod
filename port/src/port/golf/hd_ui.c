@@ -68,6 +68,8 @@ void gw_course_done(void);
 // task-53 (paths_game.c; no-ops in the browser build, golf/golfers_hooks.c)
 void pv_frame_begin(void);
 void pv_course_done(void);
+void aim_frame_begin(void);   // task-115: shot aim arrows (golf/aim_hooks.c)
+void aim_course_done(void);
 void opt_game_frame(void);   // options_frosted.c: pauses the game while the Options page is up
 
 // ------------------------------------------------------------------ back buffer view
@@ -185,6 +187,7 @@ void hd_ui_frame_camera(void) {
   opt_game_frame();
   overscan_begin();
   pv_frame_begin();   // before the golfers': its world layer goes under their name tags
+  aim_frame_begin();
   gw_frame_begin();
   HdUiCamera *c = &g_frame_cam;
   c->x = G(CAM_X);
@@ -231,6 +234,7 @@ void hd_ui_course_done(void) {
   hd_ui_course_hook((const uint16_t *)(uintptr_t)*(uint32_t *)(s + 0x4c0), *(int32_t *)(s + 0x40), &g_frame_cam);
   gw_course_done();
   pv_course_done();
+  aim_course_done();
 }
 
 // ------------------------------------------------------------------ camera clamp
