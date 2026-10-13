@@ -263,6 +263,7 @@ void mdata_thought_end(int event, int arg, int arg2, int slot, char *buf);
 
 // task-40 (src/port/golf/overrides.c): 1 = FUN_00449540 raises water tiles at load too.
 int fix_water_push(void);
+int fix_hole_time(void);   // task-114: repairs an inflated hole 1 time total at load (mods.ini [fixes] hole_time)
 
 // task-6 (src/port/golf/overrides.c): FUN_00462020's default skin for a head, with v1.03's bound.
 int head_default_skin(int male, int rec);

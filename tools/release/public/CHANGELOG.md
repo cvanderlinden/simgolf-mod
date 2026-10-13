@@ -8,6 +8,9 @@
 - Fixed: a building being placed hung off to one side of the mouse; the middle of the building now sits under the pointer ([ui] place_center=0 keeps golf's corner placement). Buildings that turn get a Rotate button while placing
 - New: 16 painted badges for the properties on the map list ([ui] map_badges=original keeps golf's emblems)
 - Changed: the pro works like the original game again: no pro popup at a career start, Edit pro from People, Practice opens the skill page; Look buttons (skin, hair, shirt, pants) on Create your pro now work, and the old profile and skill screens no longer show behind the new pages
+- Fixed: Time to Play in the course report climbed every game year (past 5 hours on small courses, so the tournament check failed). Hole 1's start time read only one byte of the game clock. Found and diagnosed by cvanderlinden (issue 2). Saves with an inflated hole 1 are repaired when they load (switch fixes.hole_time)
+- Fixed: a few sounds that never played because their file names differ a little from the installed files (lake, alligator, marshal and others)
+- Fixed: three counters in the course map summary were read as one byte, wrong above 127 on big maps
 - Fixed: the old 2002 menu and loading screen flashed at startup and after choosing a property (Build here). A clean loading card now covers every frame until the new screens are ready
 
 ## 0.1.3 - 2026-10-13

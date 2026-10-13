@@ -10,9 +10,38 @@
 // every water tile at load; mods.ini [fixes] water_push=0 gives the original.
 #ifndef __EMSCRIPTEN__
 #include "mods/mods.h"
+// task-114: saves written while FUN_0045de80 stamped hole 1 starts with one byte of the clock carry a hole 1
+// time total that is far too big (the course report's Time to Play). Hole h keeps its rounds at
+// 0x575ad0 + h * 0x208 and its time total at 0x575c9c + h * 0x208 (minutes = total / rounds / 40). When
+// hole 1 averages over 4 times the slowest other hole (or over 60 minutes with no other hole to compare), its
+// total is set to rounds * the median of the other holes (20 minutes with none). fixes.hole_time=0 skips it.
+int fix_hole_time(void) {
+  if (!mods_get_int("fixes.hole_time", 1)) return 0;
+  enum { REC = 0x208, ROUNDS = 0x575ad0, TIME = 0x575c9c, PER_MIN = 40, MINUTE_FLOOR = 20 };
+  int r1 = *(int *)(ROUNDS + REC), t1 = *(int *)(TIME + REC);
+  if (r1 <= 0 || t1 <= 0) return 0;
+  int avg[19], n = 0, worst = 0;
+  for (int h = 2; h <= 18; h++) {
+    int r = *(int *)(ROUNDS + h * REC), t = *(int *)(TIME + h * REC);
+    if (r <= 0 || t <= 0) continue;
+    avg[n] = t / r;
+    if (avg[n] > worst) worst = avg[n];
+    n++;
+  }
+  int a1 = t1 / r1;
+  int limit = n ? worst * 4 : 60 * PER_MIN;
+  if (limit < 60 * PER_MIN) limit = 60 * PER_MIN;
+  if (a1 <= limit) return 0;
+  for (int i = 1; i < n; i++)   // insertion sort for the median
+    for (int j = i; j > 0 && avg[j - 1] > avg[j]; j--) { int t = avg[j]; avg[j] = avg[j - 1]; avg[j - 1] = t; }
+  int typical = n ? avg[n / 2] : MINUTE_FLOOR * PER_MIN;
+  *(int *)(TIME + REC) = typical * r1;
+  return 1;
+}
 int fix_water_push(void) { return mods_get_int("fixes.water_push", 1); }
 #else
 int fix_water_push(void) { return 1; }
+int fix_hole_time(void) { return 0; }
 #endif
 
 // task-44: Shift+T ("trees off/on") flips bit 0x400 of the game flags at

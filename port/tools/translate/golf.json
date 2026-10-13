@@ -403,7 +403,7 @@
     "FUN_00449540": [
       [
         "  iVar10 = 0x992;",
-        "  iVar10 = (g_map_w - 1) * 0x32;"
+        "  fix_hole_time();  /* simgolf mod task-114 */\n  iVar10 = (g_map_w - 1) * 0x32;"
       ],
       [
         "      if (iVar10 != 0x11) {\n        uVar5 = 1;",

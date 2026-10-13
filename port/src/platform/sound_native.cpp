@@ -65,7 +65,8 @@ bool g_logged_first;
 // Proof that sound works without hearing it (muted test runs): running totals
 // logged every 10 s of mixed audio, and SIMGOLF_MIXWAV=<file> records the
 // first two minutes of the mix as a 16-bit WAV.
-uint64_t g_mixed, g_loud, g_started;
+uint64_t g_mixed, g_loud, g_started, g_clipped, g_ignored;
+bool g_trace;   // SIMGOLF_SOUND_LOG=1: one "snd:" line per play call (index, volume, started or why not)
 float g_peak;
 FILE *g_wav;
 uint32_t g_wav_frames;
@@ -91,8 +92,9 @@ void account(const float *out, int frames) {
   uint64_t before = g_mixed;
   g_mixed += (uint64_t)frames;
   if (g_mixed / (10u * kRate) != before / (10u * kRate))
-    fprintf(stderr, "sound: mixed %.1f s, %.1f s of it not silent, peak %.3f, %llu voices started\n",
-            g_mixed / (double)kRate, g_loud / (double)kRate, g_peak, (unsigned long long)g_started);
+    fprintf(stderr, "sound: mixed %.1f s, %.1f s of it not silent, peak %.3f, %llu voices started, %llu ignored, %llu clipped samples\n",
+            g_mixed / (double)kRate, g_loud / (double)kRate, g_peak, (unsigned long long)g_started,
+            (unsigned long long)g_ignored, (unsigned long long)g_clipped);
   if (g_wav && g_wav_frames < kWavMaxFrames) {
     int n = frames;
     if (g_wav_frames + (uint32_t)n > kWavMaxFrames) n = (int)(kWavMaxFrames - g_wav_frames);
@@ -124,7 +126,7 @@ bool load(Sound &s) {
   bool haveFmt = false, haveLoop = false;
   uint32_t ls = 0, le = 0;
   for (size_t p = 12; p + 8 <= got;) {
-    uint32_t size = rd32(&b[p + 4]);
+    uint64_t size = rd32(&b[p + 4]);   // 64 bits: a damaged size must not wrap the walk back to the start (task-114)
     size_t body = p + 8;
     if (!memcmp(&b[p], "fmt ", 4) && body + 16 <= got) {
       tag = rd16(&b[body]);
@@ -134,14 +136,15 @@ bool load(Sound &s) {
       haveFmt = true;
     } else if (!memcmp(&b[p], "data", 4)) {
       dataOff = body;
-      dataLen = size < got - body ? size : got - body;
+      dataLen = size < got - body ? (size_t)size : got - body;
     } else if (!memcmp(&b[p], "smpl", 4) && size >= 60 && body + 60 <= got && rd32(&b[body + 28]) > 0) {
       // 36-byte header, then 24-byte loops: id, type, start, end (inclusive)
       ls = rd32(&b[body + 44]);
       le = rd32(&b[body + 48]) + 1;
       haveLoop = true;
     }
-    p = body + size + (size & 1);
+    if (size > got - body) break;   // the rest is cut off; a data chunk seen so far still plays
+    p = body + (size_t)size + (size_t)(size & 1);
   }
   if (!haveFmt || !dataOff || tag != 1 || (bits != 8 && bits != 16) || s.channels < 1 || s.channels > 2) return false;
   int bytes = bits / 8;
@@ -203,7 +206,10 @@ void SDLCALL mix(void *, Uint8 *stream, int len) {
     if (done) g_voices.erase(g_voices.begin() + (long)v);
     else v++;
   }
-  for (int i = 0; i < frames * 2; i++) out[i] = out[i] > 1.0f ? 1.0f : out[i] < -1.0f ? -1.0f : out[i];
+  for (int i = 0; i < frames * 2; i++) {
+    if (out[i] > 1.0f || out[i] < -1.0f) g_clipped++;
+    out[i] = out[i] > 1.0f ? 1.0f : out[i] < -1.0f ? -1.0f : out[i];
+  }
   account(out, frames);
 }
 
@@ -246,6 +252,7 @@ void snd_js_init(void) {
     g_dev = 0;
     return;
   }
+  g_trace = getenv("SIMGOLF_SOUND_LOG") != nullptr;
   const char *wav = getenv("SIMGOLF_MIXWAV");
   if (wav && *wav && (g_wav = fopen(wav, "wb"))) {
     wav_header(g_wav, 0);
@@ -281,12 +288,16 @@ void snd_js_play(int index, int volume, int pan, int cents, int delayMs) {
   if (!s.loaded) {
     // Decode outside the lock; the audio thread never touches unloaded sounds.
     Sound tmp = s;
+    const Uint32 t0 = SDL_GetTicks();
     if (!load(tmp)) {
       fprintf(stderr, "sound: #%d %s: cannot decode\n", index, s.path.c_str());
       s.failed = true;
       return;
     }
     tmp.loaded = true;
+    if (g_trace)
+      fprintf(stderr, "snd: #%d decoded on the game thread in %u ms (%zu frames) %s\n", index, (unsigned)(SDL_GetTicks() - t0),
+              tmp.frames, tmp.path.c_str());
     SDL_LockAudioDevice(g_dev);
     s = std::move(tmp);
     SDL_UnlockAudioDevice(g_dev);
@@ -308,6 +319,10 @@ void snd_js_play(int index, int volume, int pan, int cents, int delayMs) {
   if (start) g_voices.push_back(v);
   SDL_UnlockAudioDevice(g_dev);
   if (start) g_started++;
+  else g_ignored++;
+  if (g_trace)
+    fprintf(stderr, "snd: %u #%d vol %d pan %d cents %d delay %d %s %s\n", (unsigned)SDL_GetTicks(), index, volume, pan, cents,
+            delayMs, start ? "started" : "ignored", s.path.c_str());
   if (start && !g_logged_first) {
     g_logged_first = true;
     fprintf(stderr, "sound: first sample playing: #%d %s (%d Hz, %d ch, %zu frames%s)\n", index,

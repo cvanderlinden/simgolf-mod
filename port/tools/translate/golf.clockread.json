@@ -1,0 +1,29 @@
+{
+ "comment": "task-114 (found by cvanderlinden, GitHub issue 2): FUN_0045de80 (a pair goes to the first tee) stamps both golfers with the game clock DAT_00834170, but the decompile typed that global as one byte there, so the start tick became the low byte of the clock sign extended (-128..127). When a golfer finishes hole 1, FUN_00427540 adds (clock - start) / 2 to the hole's time total, about half the course age, so Time to Play grew every year. The original code reads the whole dword (mov eax, dword ptr [0x834170]); the same function compares it with 0x800 the same way. Also three counters in FUN_0040f5c0's course map summary (0x5787cc, 0x561258, 0x5a9cb0) were summed as signed bytes, wrong above 127 (big maps). Written from the original's disassembly, not from any fix by the reporter.",
+ "patches": {
+  "FUN_0045de80": [
+   [
+    "  uVar6 = DAT_00834170;\n  *(uint *)(&DAT_00579578 + iVar16) = DAT_00834170;",
+    "  uVar6 = *(uint *)0x834170;\n  *(uint *)(&DAT_00579578 + iVar16) = *(uint *)0x834170;"
+   ],
+   [
+    "((int)DAT_00834170 < 0x800)",
+    "(*(int *)0x834170 < 0x800)"
+   ]
+  ],
+  "FUN_0040f5c0": [
+   [
+    "iVar23 = DAT_00561258 + DAT_005787cc + DAT_005a9cac + DAT_005a9cb0;",
+    "iVar23 = *(int *)0x561258 + *(int *)0x5787cc + DAT_005a9cac + *(int *)0x5a9cb0;"
+   ],
+   [
+    "iVar23 = DAT_005787cc;",
+    "iVar23 = *(int *)0x5787cc;"
+   ],
+   [
+    "iVar23 = DAT_00561258;",
+    "iVar23 = *(int *)0x561258;"
+   ]
+  ]
+ }
+}

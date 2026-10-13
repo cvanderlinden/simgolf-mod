@@ -14,6 +14,7 @@
 
 #ifndef __EMSCRIPTEN__
 #include "port/fs.h"
+#include "mods/mods.h"
 #endif
 
 #include <string>
@@ -57,6 +58,73 @@ void loadManifest() {
   fclose(f);
 }
 
+
+#ifndef __EMSCRIPTEN__
+// task-114: the install names a few sounds a little differently from the way golf registers them
+// ("sounds\effects\lake 1.wav" is LAKE1.wav, "Alligator.wav" is "Alligator .wav", "Marshal Male" is
+// "Marshall Male", "sound\Celebs" is sounds\Celebs), so the original played nothing for them. When the exact
+// path is missing, each part of it may match one entry of its folder that differs only in case, spaces or
+// underscores, or by one letter, as long as that entry is the only such match. fixes.audio_paths=0 turns it off.
+std::string squash(const std::string &n) {
+  std::string o;
+  for (char c : n) {
+    if (c == ' ' || c == '_') continue;
+    o += (c >= 'A' && c <= 'Z') ? (char)(c + 'a' - 'A') : c;
+  }
+  return o;
+}
+
+bool within_one(const std::string &a, const std::string &b) {
+  if (a == b) return true;
+  size_t la = a.size(), lb = b.size();
+  if ((la > lb ? la - lb : lb - la) > 1) return false;
+  size_t i = 0;
+  while (i < la && i < lb && a[i] == b[i]) i++;
+  if (la == lb) return false;   // a different letter is a different sound (Sad / Sid): only a missing or extra letter counts
+  const std::string &lng = la > lb ? a : b, &sht = la > lb ? b : a;
+  return lng.compare(i + 1, std::string::npos, sht, i, std::string::npos) == 0;
+}
+
+struct Match {
+  std::string want, exact, near;
+  int exactN = 0, nearN = 0;
+};
+
+void collect(void *ctx, const char *name, int, unsigned) {
+  Match *m = (Match *)ctx;
+  std::string n = squash(name);
+  if (n == m->want) { m->exact = name; m->exactN++; }
+  else if (within_one(n, m->want)) { m->near = name; m->nearN++; }
+}
+
+bool resolve_fuzzy(const char *dosPath, char *out, int outlen) {
+  std::string path = dosPath, built;
+  size_t pos = 0;
+  while (pos <= path.size()) {
+    size_t e = path.find('\\', pos);
+    if (e == std::string::npos) e = path.size();
+    std::string part = path.substr(pos, e - pos);
+    if (!part.empty()) {
+      std::string tryPath = built.empty() ? part : built + "\\" + part;
+      char tmp[512];
+      if (fs_resolve(tryPath.c_str(), tmp, sizeof tmp, 0)) {
+        built = tryPath;
+      } else {
+        Match m;
+        m.want = squash(part);
+        std::string pattern = built.empty() ? std::string("*") : built + "\\*";
+        fs_list(pattern.c_str(), collect, &m);
+        if (m.exactN == 1) built = built.empty() ? m.exact : built + "\\" + m.exact;
+        else if (m.exactN == 0 && m.nearN == 1) built = built.empty() ? m.near : built + "\\" + m.near;
+        else return false;
+      }
+    }
+    pos = e + 1;
+  }
+  return fs_resolve(built.c_str(), out, outlen, 0) != 0;
+}
+#endif
+
 }  // namespace
 
 extern "C" {
@@ -88,7 +156,8 @@ void snd_register(int index, const char *dosPath, unsigned flags) {
   // Native: the original WAVs straight from the game folder
   // (platform/sound_native.cpp implements the snd_js_* calls).
   char real[512];
-  if (!fs_resolve(dosPath, real, sizeof real, 0)) {
+  if (!fs_resolve(dosPath, real, sizeof real, 0) &&
+      !(mods_get_int("fixes.audio_paths", 1) && resolve_fuzzy(dosPath, real, sizeof real))) {
     printf("sound: #%d %s not found in the game folder\n", index, dosPath);
     snd_js_register(index, nullptr, 0);
     return;
