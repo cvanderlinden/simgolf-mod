@@ -493,11 +493,17 @@ static void world_begin(void) {
   if (!g_art_done[FE_ART_GLOBE]) {
     // the globe, in the base picture before the pins and tags are drawn on it
     int w = 0, h = 0;
-    uint32_t *px = grab_circle(201, 308, 196, &w, &h);
+    // The HD Frosted Mint golf-ball globe (the maintainer 2026-10-13, ui/map_globe.png): fitted to golf's land so the pins
+    // stay on their countries; it covers golf's 392 px circle plus 16 px on every side (the drawer knows by size).
+    // [ui] map_globe=original keeps golf's own globe, map_globe=ball the earlier matte recolour.
+    const char *mg = mods_get("ui.map_globe");
+    int original = mg && (!strcmp(mg, "original") || !strcmp(mg, "ball"));
+    uint32_t *px = original ? NULL : hd_art_load_png(port_host_path("/ui/map_globe.png"), &w, &h);
+    fprintf(stderr, "frontend: globe %s (%dx%d)\n", px ? "hd" : "original", w, h);
+    if (!px) px = grab_circle(201, 308, 196, &w, &h);
+    else original = -1;
     if (px) {
-      // the maintainer: the golf-ball globe did not read as a golf ball; golf's own globe by default, [ui] map_globe=ball opts in
-      const char *mg = mods_get("ui.map_globe");
-      if (mg && !strcmp(mg, "ball")) matte_map_globe(px, w, h);
+      if (original > 0 && !strcmp(mg, "ball")) matte_map_globe(px, w, h);
       fef_publish_art(FE_ART_GLOBE, px, w, h);
       free(px);
       g_art_done[FE_ART_GLOBE] = 1;

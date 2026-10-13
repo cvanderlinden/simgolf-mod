@@ -385,7 +385,7 @@ static int draw_world(Scene *s, const FeSnap *snap, SDL_Texture *const *art, FeA
   if (globe) {
     int tw = 1, th = 1;
     SDL_QueryTexture(globe, NULL, NULL, &tw, &th);
-    float ds = (tw * k);
+    float ds = ((tw > 400 ? 424 : tw) * k);   // the HD globe covers golf's 392 px circle plus 16 px each side
     UiRect gi = R(s, GCX - ds / 2, GCY - ds / 2, ds, ds);
     uid_rrect_shadow(ui_drawer(c), gr_, gr_.w / 2, 0, U(s, 18), U(s, 50), (UiColor){0, 60, 30, 70});
     uid_image(ui_drawer(c), globe, NULL, gi, 0, (UiColor){255, 255, 255, 255});
