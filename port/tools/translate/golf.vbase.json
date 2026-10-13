@@ -1,0 +1,101 @@
+{
+ "comment": "task-114s: the scalar deleting destructor of an object with a virtual base (the iostream-like stream objects) is called through the virtual base's vtable with the virtual base as this (ECX). Ghidra lost ECX, so the translation passed the flag 1 as this; the destructor (FUN_00402870 and friends) then read address 5. Seen at quit (FUN_00483340 tears down the stream at 0x83ac90: crash c0000005 at FUN_00402870, which the host hid). Every such call now passes the adjusted object as this.",
+ "patches": {
+  "FUN_00401c70": [
+   [
+    "(*(code *)**(undefined4 **)(*(int *)(*piVar1 + 4) + (int)piVar1))(1);",
+    "ICALLT1((code *)**(undefined4 **)(*(int *)(*piVar1 + 4) + (int)piVar1), *(int *)(*piVar1 + 4) + (int)piVar1, 1);"
+   ]
+  ],
+  "FUN_004021e0": [
+   [
+    "(*(code *)**(undefined4 **)(*(int *)(*piVar1 + 4) + (int)piVar1))(1);",
+    "ICALLT1((code *)**(undefined4 **)(*(int *)(*piVar1 + 4) + (int)piVar1), *(int *)(*piVar1 + 4) + (int)piVar1, 1);"
+   ]
+  ],
+  "FUN_004026a0": [
+   [
+    "(*(code *)**(undefined4 **)(*(int *)(*piVar1 + 4) + (int)piVar1))(1);",
+    "ICALLT1((code *)**(undefined4 **)(*(int *)(*piVar1 + 4) + (int)piVar1), *(int *)(*piVar1 + 4) + (int)piVar1, 1);"
+   ]
+  ],
+  "FUN_00483340": [
+   [
+    "(*(code *)**(undefined4 **)(*(int *)(*DAT_0083ac90 + 4) + (int)DAT_0083ac90))(1);",
+    "ICALLT1((code *)**(undefined4 **)(*(int *)(*DAT_0083ac90 + 4) + (int)DAT_0083ac90), *(int *)(*DAT_0083ac90 + 4) + (int)DAT_0083ac90, 1);"
+   ]
+  ],
+  "FUN_004835f0": [
+   [
+    "(*(code *)**(undefined4 **)(*(int *)(*piVar2 + 4) + (int)piVar2))(1);",
+    "ICALLT1((code *)**(undefined4 **)(*(int *)(*piVar2 + 4) + (int)piVar2), *(int *)(*piVar2 + 4) + (int)piVar2, 1);"
+   ]
+  ],
+  "FUN_00489370": [
+   [
+    "(*(code *)**(undefined4 **)(*(int *)(*piVar2 + 4) + (int)piVar2))(1);",
+    "ICALLT1((code *)**(undefined4 **)(*(int *)(*piVar2 + 4) + (int)piVar2), *(int *)(*piVar2 + 4) + (int)piVar2, 1);"
+   ]
+  ],
+  "FUN_004896b0": [
+   [
+    "(*(code *)**(undefined4 **)(*(int *)(*piVar1 + 4) + (int)piVar1))(1);",
+    "ICALLT1((code *)**(undefined4 **)(*(int *)(*piVar1 + 4) + (int)piVar1), *(int *)(*piVar1 + 4) + (int)piVar1, 1);"
+   ]
+  ],
+  "FUN_004897f0": [
+   [
+    "(*(code *)**(undefined4 **)(*(int *)(*piVar1 + 4) + (int)piVar1))(1);",
+    "ICALLT1((code *)**(undefined4 **)(*(int *)(*piVar1 + 4) + (int)piVar1), *(int *)(*piVar1 + 4) + (int)piVar1, 1);"
+   ]
+  ],
+  "FUN_00489b30": [
+   [
+    "(*(code *)**(undefined4 **)(*(int *)(*piVar2 + 4) + (int)piVar2))(1);",
+    "ICALLT1((code *)**(undefined4 **)(*(int *)(*piVar2 + 4) + (int)piVar2), *(int *)(*piVar2 + 4) + (int)piVar2, 1);"
+   ]
+  ],
+  "FUN_0048d480": [
+   [
+    "(*(code *)**(undefined4 **)(*(int *)(*piVar5 + 4) + (int)piVar5))(1);",
+    "ICALLT1((code *)**(undefined4 **)(*(int *)(*piVar5 + 4) + (int)piVar5), *(int *)(*piVar5 + 4) + (int)piVar5, 1);"
+   ]
+  ],
+  "FUN_0048db60": [
+   [
+    "(*(code *)**(undefined4 **)(*(int *)(*piVar1 + 4) + (int)piVar1))(1);",
+    "ICALLT1((code *)**(undefined4 **)(*(int *)(*piVar1 + 4) + (int)piVar1), *(int *)(*piVar1 + 4) + (int)piVar1, 1);"
+   ]
+  ],
+  "FUN_00497d10": [
+   [
+    "(*(code *)**(undefined4 **)(*(int *)(*piVar1 + 4) + (int)piVar1))(1);",
+    "ICALLT1((code *)**(undefined4 **)(*(int *)(*piVar1 + 4) + (int)piVar1), *(int *)(*piVar1 + 4) + (int)piVar1, 1);"
+   ]
+  ],
+  "FUN_0049bec0": [
+   [
+    "(*(code *)**(undefined4 **)(*(int *)(*piVar1 + 4) + (int)piVar1))(1);",
+    "ICALLT1((code *)**(undefined4 **)(*(int *)(*piVar1 + 4) + (int)piVar1), *(int *)(*piVar1 + 4) + (int)piVar1, 1);"
+   ]
+  ],
+  "FUN_004a33e0": [
+   [
+    "(*(code *)**(undefined4 **)(*(int *)(*piVar1 + 4) + (int)piVar1))(1);",
+    "ICALLT1((code *)**(undefined4 **)(*(int *)(*piVar1 + 4) + (int)piVar1), *(int *)(*piVar1 + 4) + (int)piVar1, 1);"
+   ]
+  ],
+  "FUN_004a3480": [
+   [
+    "(*(code *)**(undefined4 **)(*(int *)(*piVar2 + 4) + (int)piVar2))(1);",
+    "ICALLT1((code *)**(undefined4 **)(*(int *)(*piVar2 + 4) + (int)piVar2), *(int *)(*piVar2 + 4) + (int)piVar2, 1);"
+   ]
+  ],
+  "FUN_004a35e0": [
+   [
+    "(*(code *)**(undefined4 **)(*(int *)(*piVar1 + 4) + (int)piVar1))(1);",
+    "ICALLT1((code *)**(undefined4 **)(*(int *)(*piVar1 + 4) + (int)piVar1), *(int *)(*piVar1 + 4) + (int)piVar1, 1);"
+   ]
+  ]
+ }
+}

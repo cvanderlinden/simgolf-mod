@@ -415,6 +415,14 @@ static void pump_sdl(void) {
         break;
       }
 #ifndef __EMSCRIPTEN__
+      case SDL_AUDIODEVICEREMOVED:   // task-114c: headphones out, device off, default device changed
+      case SDL_AUDIODEVICEADDED:
+        if (!e.adevice.iscapture) {
+          void snd_native_device_event(int removed, unsigned which, int recover);
+          int mods_get_int(const char *key, int def);
+          snd_native_device_event(e.type == SDL_AUDIODEVICEREMOVED, e.adevice.which, mods_get_int("fixes.audio_recover", 1));
+        }
+        break;
       case SDL_QUIT:
         // Native: the window's close button (or Alt+F4) ends the program,
         // as Alt+F4 did in the original.

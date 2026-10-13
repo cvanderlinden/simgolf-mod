@@ -223,6 +223,17 @@ int voices_of(int index) {
 
 extern "C" {
 
+// Opens the default output device (SDL picks the one the system uses now). Returns 0 when there is none.
+static SDL_AudioDeviceID open_device(SDL_AudioSpec *have) {
+  SDL_AudioSpec want = {};
+  want.freq = kRate;
+  want.format = AUDIO_F32SYS;
+  want.channels = 2;
+  want.samples = 1024;
+  want.callback = mix;
+  return SDL_OpenAudioDevice(nullptr, 0, &want, have, 0);
+}
+
 void snd_js_init(void) {
   if (g_dev) return;
   // Muted (tests, scripted runs, mute=1): SDL's dummy driver pulls the mix on
@@ -234,13 +245,8 @@ void snd_js_init(void) {
     fprintf(stderr, "sound: SDL audio init failed: %s\n", SDL_GetError());
     return;
   }
-  SDL_AudioSpec want = {}, have = {};
-  want.freq = kRate;
-  want.format = AUDIO_F32SYS;
-  want.channels = 2;
-  want.samples = 1024;
-  want.callback = mix;
-  g_dev = SDL_OpenAudioDevice(nullptr, 0, &want, &have, 0);
+  SDL_AudioSpec have = {};
+  g_dev = open_device(&have);
   if (!g_dev) {
     fprintf(stderr, "sound: no audio device: %s\n", SDL_GetError());
     return;
@@ -260,6 +266,35 @@ void snd_js_init(void) {
   }
   fprintf(stderr, "sound: device open (%s driver, %d Hz, %d channels, %d-frame buffer)\n",
           name ? name : "?", have.freq, have.channels, have.samples);
+  SDL_PauseAudioDevice(g_dev, 0);
+}
+
+// task-114c: the output device went away (headphones unplugged, a USB or Bluetooth device off, the default device
+// changed) or a new one arrived. The original opened one device at start and stayed silent after it was removed.
+// With [fixes] audio_recover=1 (default) the dead device is closed and the system's default one opened again; the
+// registered sounds and their decoded samples stay, only the voices that were playing are dropped. A device that
+// arrives while none is open is taken. removed: 1 removed (which = the device id), 0 added (which = a device index).
+int snd_native_device_id(void) { return (int)g_dev; }
+void snd_native_device_event(int removed, unsigned which, int recover) {
+  if (removed ? (!g_dev || which != g_dev) : g_dev != 0) return;
+  if (removed) {
+    fprintf(stderr, "sound: the audio device was removed%s\n", recover ? "; opening the default one again" : " (audio_recover=0: sound stays off)");
+    if (!recover) return;
+    SDL_CloseAudioDevice(g_dev);   // the mixer thread is stopped: no lock needed below
+    g_dev = 0;
+    g_voices.clear();
+  } else if (!recover) {
+    return;
+  }
+  SDL_AudioSpec have = {};
+  g_dev = open_device(&have);
+  if (!g_dev) {
+    fprintf(stderr, "sound: no audio device to switch to (%s); waiting for one\n", SDL_GetError());
+    return;
+  }
+  const char *name = SDL_GetCurrentAudioDriver();
+  fprintf(stderr, "sound: device open again (%s driver, %d Hz, %d channels, %d-frame buffer)\n", name ? name : "?",
+          have.freq, have.channels, have.samples);
   SDL_PauseAudioDevice(g_dev, 0);
 }
 

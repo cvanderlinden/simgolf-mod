@@ -129,7 +129,7 @@ static int female_heads_fix_on(void) { return 1; }
 #endif
 int head_default_skin(int male, int rec) {
   int head = *(volatile int8_t *)(uintptr_t)(0x4d60aa + rec * 0x230);
-  if (head >= 0x13 && female_heads_fix_on()) return rec % 4;
+  if ((head >= 0x13 || head < 0) && female_heads_fix_on()) return rec % 4;   // task-118: a negative head too
   return *(volatile int8_t *)(uintptr_t)((male ? 0x4d55e8u : 0x4d5b38u) + head * 0x44);
 }
 

@@ -1,0 +1,11 @@
+{
+ "comment": "task-118 (src/port/golf/bounds_fixes.c): FUN_00402970 returns -1 when all 64 staff and walker records are in use ([fixes] bounds=1); the hire path then hires no one instead of writing record -1.",
+ "patches": {
+  "FUN_0040aa80": [
+   [
+    "iVar6 = FUN_00402970(-2 - (char)(iVar3 / 3));",
+    "iVar6 = FUN_00402970(-2 - (char)(iVar3 / 3));\n        if (iVar6 < 0) return 0;"
+   ]
+  ]
+ }
+}

@@ -980,6 +980,19 @@ static void run_cmd(int ci, const char *line) {
     push_act('M', x, y, 0, NULL, 100);
     push_act('W', x, y, n, NULL, 100);
     bprintf(&b, ",\"ok\":true");
+  } else if (!strcmp(cmd, "audio_device")) {
+    // task-114c tests: what SDL sends when the sound device goes away ("removed", the open device) or a new one
+    // arrives ("added"); the game thread handles it in its event pump like a real one
+    int snd_native_device_id(void);
+    char what[16] = "removed";
+    jstr(&o, "event", what, sizeof what);
+    SDL_Event e;
+    memset(&e, 0, sizeof e);
+    e.type = strcmp(what, "added") ? SDL_AUDIODEVICEREMOVED : SDL_AUDIODEVICEADDED;
+    e.adevice.which = strcmp(what, "added") ? (Uint32)snd_native_device_id() : 0;
+    e.adevice.iscapture = 0;
+    SDL_PushEvent(&e);
+    bprintf(&b, ",\"ok\":true,\"device\":%d", snd_native_device_id());
   } else if (!strcmp(cmd, "pixel")) {
     int x = (int)jnum_or(&o, "x", 0), y = (int)jnum_or(&o, "y", 0);
     const uint16_t *px = win_screen();
