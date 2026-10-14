@@ -14,10 +14,20 @@
 // time total that is far too big (the course report's Time to Play). Hole h keeps its rounds at
 // 0x575ad0 + h * 0x208 and its time total at 0x575c9c + h * 0x208 (minutes = total / rounds / 40). When
 // hole 1 averages over 4 times the slowest other hole (or over 60 minutes with no other hole to compare), its
-// total is set to rounds * the median of the other holes (20 minutes with none). fixes.hole_time=0 skips it.
+// total is set to rounds * the median of the other holes (20 minutes with none). Golfers still on hole 1
+// (golfer 0x5794b8 + slot * 0x100: hole byte +0x21, start tick +0xc0) whose start is a byte of the clock
+// (-128..127, over a month old) get the clock as their start, or finishing the hole would add the course
+// age once more. fixes.hole_time=0 skips both.
 int fix_hole_time(void) {
   if (!mods_get_int("fixes.hole_time", 1)) return 0;
   enum { REC = 0x208, ROUNDS = 0x575ad0, TIME = 0x575c9c, PER_MIN = 40, MINUTE_FLOOR = 20 };
+  enum { GOLFERS = 0x5794b8, NGOLFERS = 156, HOLE = 0x21, START = 0xc0, CLOCK = 0x834170, MONTH = 1024 };
+  int clock = *(int *)CLOCK;
+  for (int g = 0; g < NGOLFERS; g++) {
+    char *p = (char *)(GOLFERS + g * 0x100);
+    int start = *(int *)(p + START);
+    if (p[HOLE] == 1 && start >= -128 && start <= 127 && clock - start > MONTH) *(int *)(p + START) = clock;
+  }
   int r1 = *(int *)(ROUNDS + REC), t1 = *(int *)(TIME + REC);
   if (r1 <= 0 || t1 <= 0) return 0;
   int avg[19], n = 0, worst = 0;
